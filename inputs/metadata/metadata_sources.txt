@@ -1,0 +1,6 @@
+Metadata sources
++ PRJNA400072 metadata link: https://static-content.springer.com/esm/art%3A10.1038%2Fs41564-018-0306-4/MediaObjects/41564_2018_306_MOESM6_ESM.xlsx
++ SRP057027: https://raw.githubusercontent.com/louiejtaylor/sbx_lewis2015/master/metadata/metadata_with_SRR.csv
++ PRJEB2054: NA; contained in sample_alias of ENA
++ PRJNA237362: https://ars.els-cdn.com/content/image/1-s2.0-S1931312814000638-mmc2.xlsx
++ PRJNA385949: https://static-content.springer.com/esm/art%3A10.1186%2Fs13073-017-0490-5/MediaObjects/13073_2017_490_MOESM1_ESM.xlsx
