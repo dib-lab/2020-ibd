@@ -9,7 +9,7 @@ m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
 
-h = pd.read_csv("inputs/hmp2_mgx_metadata.csv", , header = 0)
+h = pd.read_csv("inputs/hmp2_mgx_metadata.tsv", sep = "\t", header = 0)
 HMP = h['External.ID'].unique().tolist()
 
 rule all:
@@ -205,7 +205,7 @@ rule convert_greater_than_1_hashes_to_sig:
 
 rule filter_signatures_to_greater_than_1_hashes:
     input:
-        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
+        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig",
         sigs = "outputs/sigs/{library}.sig"
     output: "outputs/filt_sigs/{library}_filt.sig"
     conda: 'sourmash.yml'
@@ -268,7 +268,7 @@ rule compute_signatures_hmp:
 
 rule filter_signatures_to_greater_than_1_hashes_hmp:
     input:
-        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
+        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig",
         sigs = "outputs/sigs_hmp/{hmp}.sig"
     output: "outputs/filt_sigs_hmp/{hmp}_filt.sig"
     conda: 'sourmash.yml'
@@ -288,7 +288,7 @@ rule name_filtered_sigs_hmp:
 
 rule filter_signatures_to_vita_hashes_hmp:
     input:
-        filt_sig = "outputs/filt_sig_hashes/vita_hashes.sig"
+        filt_sig = "outputs/filt_sig_hashes/vita_hashes.sig",
         sigs = "outputs/sigs_hmp/{hmp}.sig"
     output: "outputs/filt_sigs_vita_hmp/{hmp}_filt_vita.sig"
     conda: 'sourmash.yml'
