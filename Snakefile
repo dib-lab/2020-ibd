@@ -9,10 +9,12 @@ m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
 
+h = pd.read_csv("inputs/hmp2_mgx_metadata.csv", , header = 0)
+HMP = h['External.ID'].unique().tolist()
 
 rule all:
     input:
-        expand("outputs/sigs/{library}.sig", library = LIBRARIES)
+        "outputs/comp/all_filt_comp.csv"
 
 ########################################
 ## PREPROCESSING
@@ -227,20 +229,20 @@ rule convert_signatures_to_csv:
     python scripts/sig_to_csv.py {input} {output}
     '''
 
-rule make_hash_abund_table_long:
+#rule make_hash_abund_table_long:
 
-rule make_hash_abund_table_wide:
+#rule make_hash_abund_table_wide:
 
-rule vita_var_sel_rf:
+#rule vita_var_sel_rf:
 
-rule tune_rf:
+#rule tune_rf:
 
-rule validate_rf:
+#rule validate_rf:
 
 ########################################
 ## HMP Validation
 ########################################
-
+ 
 rule compute_signatures_hmp:
     """
     5 datasets other than hmp are preprocessed using the above model.
@@ -255,14 +257,67 @@ rule compute_signatures_hmp:
     from random forests vita variable selection to apply to 
     optimal random forest classifier to the hmp.
     """
+    input:
+        r1='inputs/hmp/{sample}_R1.fastq.gz',
+        r2='inputs/hmp/{sample}_R2.fastq.gz'
+    output: 'outputs/sigs_hmp/{hmp}.scaled2k.sig'
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash compute -o {output} --merge {wildcards.sample}_mgx --scaled 2000 -k 21,31,51 --track-abundance {input.r1} {input.r2} 
+    '''
 
+rule filter_signatures_to_greater_than_1_hashes_hmp:
+    input:
+        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
+        sigs = "outputs/sigs_hmp/{hmp}.sig"
+    output: "outputs/filt_sigs_hmp/{hmp}_filt.sig"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash signature intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
+    '''
+
+rule name_filtered_sigs_hmp:
+    input: "outputs/filt_sigs_hmp/{hmp}_filt.sig"
+    output: "outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt
+    '''
+
+# rule get_rf_vita_hashes:
+
+rule filter_signatures_to_vita_hashes_hmp:
+    input:
+        filt_sig = "outputs/filt_sig_hashes/vita_hashes.sig"
+        sigs = "outputs/sigs_hmp/{hmp}.sig"
+    output: "outputs/filt_sigs_vita_hmp/{hmp}_filt_vita.sig"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash signature intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
+    '''
+
+rule name_vita_filtered_sigs:
+    input: "outputs/filt_sigs_vita_hmp/{hmp}_filt_vita.sig"
+    output: "outputs/filt_sigs_vita_named_hmp/{hmp}_filt_vita_named.sig"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt_vita
+    '''
 
 ########################################
 ## PCoA
 ########################################
 
 rule compare_signatures:
+    input: 
+        expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
+        expand("outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig", hmp = HMP)
+    output: "outputs/comp/all_filt_comp.csv"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash compare -k 31 --csv {output} {input}
+    '''
 
-rule permanova:
+#rule permanova:
 
-rule plot_comp:
+#rule plot_comp:
