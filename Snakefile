@@ -1,5 +1,9 @@
 import pandas as pd
-import wget
+import feather
+from sourmash import signature
+import glob
+import os
+from collections import Counter
 
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
@@ -9,6 +13,10 @@ LIBRARIES = m['library_name'].unique().tolist()
 rule all:
     input:
         expand("outputs/sigs/{library}.sig", library = LIBRARIES)
+
+########################################
+## PREPROCESSING
+########################################
 
 rule download_fastq_files_R1:
     output: 
@@ -146,3 +154,115 @@ rule compute_signatures:
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} {input}
     '''
+
+########################################
+## Filtering and formatting signatures
+########################################
+
+rule get_greater_than_1_filt_sigs:
+    input: expand("outputs/sigs/{library}.sig", library = LIBRARIES) 
+    output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
+    run:
+        # Determine the number of hashes, the number of unique hashes, and the number of
+        # hashes that occur once across 954 IBD/control gut metagenomes (excludes the 
+        # iHMP). Calculated for a scaled of 2k. 9 million hashes is the current 
+        # approximate upper limit with which to build a sample vs hash abundance table 
+        # using my current methods.
+
+        files = input
+
+        all_mins = []
+        for file in files:
+            if os.path.getsize(file) > 0:
+                sigfp = open(file, 'rt')
+                siglist = list(signature.load_signatures(sigfp))
+                loaded_sig = siglist[1]
+                mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+                all_mins += mins
+
+        counts = Counter(all_mins) # tally the number of hashes
+
+        # remove hashes that occur only once
+        for hashes, cnts in counts.copy().items():
+            if cnts < 2:
+                counts.pop(hashes)
+
+        # write out hashes to a text file
+        with open(str(output), "w") as f:
+            for key in counts:
+                print(key, file=f)
+
+
+rule convert_greater_than_1_hashes_to_sig:
+    input: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
+    output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
+    conda: 'sourmash.yml'
+    shell:'''
+    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name greater_than_one_count_hashes --filename {input} {input}
+    '''
+
+rule filter_signatures_to_greater_than_1_hashes:
+    input:
+        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
+        sigs = "outputs/sigs/{library}.sig"
+    output: "outputs/filt_sigs/{library}_filt.sig"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash signature intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
+    '''
+
+rule name_filtered_sigs:
+    input: "outputs/filt_sigs/{library}_filt.sig"
+    output: "outputs/filt_sigs_named/{library}_filt_named.sig"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash signature rename -o {output} -k 31 {input} {wildcards.library}_filt
+    '''
+
+rule convert_signatures_to_csv:
+    input: "outputs/filt_sigs_named/{library}_filt_named.sig"
+    output: "outputs/filt_sigs_named_csv/{library}_filt_named.csv"
+    conda: 'sourmash.yml'
+    shell:'''
+    python scripts/sig_to_csv.py {input} {output}
+    '''
+
+rule make_hash_abund_table_long:
+
+rule make_hash_abund_table_wide:
+
+rule vita_var_sel_rf:
+
+rule tune_rf:
+
+rule validate_rf:
+
+########################################
+## HMP Validation
+########################################
+
+rule compute_signatures_hmp:
+    """
+    5 datasets other than hmp are preprocessed using the above model.
+    A subset of these are used to train the random forest classifier
+    below. However, the hmp is a validation set. We can use the hmp
+    to test whether our model is applicable to new datasets 
+    regardless of preprocessing pipeline.
+
+    Here, we calculate signatures to contain only the greater-than
+    one hashes so that they can be included in the PCoA analysis
+    below. Later, we will filter these signatures to hashes
+    from random forests vita variable selection to apply to 
+    optimal random forest classifier to the hmp.
+    """
+
+
+########################################
+## PCoA
+########################################
+
+rule compare_signatures:
+
+rule permanova:
+
+rule plot_comp:
