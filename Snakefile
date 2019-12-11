@@ -14,7 +14,12 @@ HMP = h['External.ID'].unique().tolist()
 
 rule all:
     input:
-        "outputs/comp/all_filt_comp.csv"
+        "outputs/comp/all_filt_comp.csv",
+        #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
+        "outputs/rf_validation/pred_srp057027.txt",
+        "outputs/rf_validation/pred_srp057027.csv",
+        "outputs/rf_validation/pred_srp385949.txt",
+        "outputs/rf_validation/pred_prjna285949.csv"
 
 ########################################
 ## PREPROCESSING
@@ -221,7 +226,7 @@ rule name_filtered_sigs:
     sourmash signature rename -o {output} -k 31 {input} {wildcards.library}_filt
     '''
 
-rule convert_signatures_to_csv:
+rule convert_greater_than_1_signatures_to_csv:
     input: "outputs/filt_sigs_named/{library}_filt_named.sig"
     output: "outputs/filt_sigs_named_csv/{library}_filt_named.csv"
     conda: 'sourmash.yml'
@@ -229,15 +234,76 @@ rule convert_signatures_to_csv:
     python scripts/sig_to_csv.py {input} {output}
     '''
 
-#rule make_hash_abund_table_long:
+rule make_hash_abund_table_long_normalized:
+    input: 
+        expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
+    output: csv = "outputs/hash_tables/normalized_abund_hashes_long.csv"
+    conda: 'r.yml'
+    script: "scripts/normalized_hash_abund_long.R"
 
-#rule make_hash_abund_table_wide:
+rule make_hash_abund_table_wide:
+    input: "outputs/hash_tables/normalized_abund_hashes_long.csv"
+    output: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
+    run:
+        import pandas as pd
+        import feather
+        
+        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
+        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
+        ibd_wide = ibd_wide.fillna(0)
+        ibd_wide['sample'] = ibd_wide.index
+        ibd_wide = ibd_wide.reset_index(drop=True)
+        ibd_wide.columns = ibd_wide.columns.astype(str)
+        ibd_wide.to_feather(str(output)) 
 
-#rule vita_var_sel_rf:
+########################################
+## Random forests & optimization
+########################################
 
-#rule tune_rf:
+rule install_pomona:
+    input: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
+    output:
+        pomona = "outputs/vita_rf/pomona_install.txt"
+    conda: 'rf.yml'
+    script: "scripts/install_pomona.R"
 
-#rule validate_rf:
+rule vita_var_sel_rf:
+    input:
+        info = "inputs/working_metadata.tsv", 
+        feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
+        pomona = "outputs/vita_rf/pomona_install.txt"
+    output:
+        vita_rf = "outputs/vita_rf/vita_rf.RDS",
+        vita_vars = "outputs/vita_rf/vita_vars.txt",
+        ibd_novalidation = "outputs/vita_rf/ibd_novalidation_filt.csv",
+        ibd_novalidation_diagnosis = "outputs/vita_rf/bd_novalidation_filt_diagnosis.txt",
+        ibd_validation = "outputs/vita_rf/ibd_validation_filt.csv"
+    conda: 'rf.yml'
+    script: "scripts/vita_rf.R"
+
+rule tune_rf:
+    input:
+        ibd_novalidation = "outputs/vita_rf/ibd_novalidation_filt.csv",
+        ibd_novalidation_diagnosis = "outputs/vita_rf/bd_novalidation_filt_diagnosis.txt" 
+    output:
+        optimal_rf = "outputs/optimal_rf/optimal_ranger.RDS",
+        pred_test = "outputs/optimal_rf/pred_test_tab.txt",
+        pred_train = "outputs/optimal_rf/pred_train_tab.txt"
+    conda: 'rf.yml'
+    script: "scripts/tune_rf.R"
+
+rule validate_rf:
+    input:
+        optimal_rf = "outputs/optimal_rf/optimal_ranger.RDS",
+        ibd_validation = "outputs/vita_rf/ibd_validation_filt.csv",
+        info = "inputs/working_metadata.tsv" 
+    output:
+        pred_srp = "outputs/rf_validation/pred_srp057027.txt",
+        pred_srp_df = "outputs/rf_validation/pred_srp057027.csv",
+        pred_prjna = "outputs/rf_validation/pred_srp385949.txt",
+        pred_prjna_df = "outputs/rf_validation/pred_prjna285949.csv"
+    conda: "rf.yml"
+    script: "scripts/validate_rf.R"
 
 ########################################
 ## HMP Validation
@@ -281,7 +347,14 @@ rule name_filtered_sigs_hmp:
     output: "outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig"
     conda: 'sourmash.yml'
     shell:'''
-    sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt
+    sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt    '''
+
+rule convert_greater_than_1_signatures_to_csv_hmp:
+    input: "outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig"
+    output: "outputs/filt_sigs_named_csv_hmp/{hmp}_filt_named.csv"
+    conda: 'sourmash.yml'
+    shell:'''
+    python scripts/sig_to_csv.py {input} {output}
     '''
 
 # rule get_rf_vita_hashes:
@@ -308,16 +381,64 @@ rule name_vita_filtered_sigs:
 ## PCoA
 ########################################
 
-rule compare_signatures:
+rule compare_signatures_cosine:
     input: 
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
         expand("outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig", hmp = HMP)
     output: "outputs/comp/all_filt_comp.csv"
     conda: "sourmash.yml"
     shell:'''
-    sourmash compare -k 31 --csv {output} {input}
+    sourmash compare -k 31 -p 8 --csv {output} {input}
+    '''
+
+rule compare_signatures_jaccard:
+    input: 
+        expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
+        expand("outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig", hmp = HMP)
+    output: "outputs/comp/all_filt_comp_jaccard.csv"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash compare --ignore-abundance -k 31 -p 8 --csv {output} {input}
     '''
 
 #rule permanova:
 
 #rule plot_comp:
+
+########################################
+## Differential abundance
+########################################
+
+rule hash_table_long_unnormalized_all:
+    """
+    Unlike the hashtable that is input into the random forest analysis, this
+    hash table contains all samples (including hmp) and is not normalized by 
+    number of hashes in the filtered signature. Differential expression 
+    software that we will be using to calculate differential abundance expects
+    unnormalized counts.
+    """
+    input: 
+        expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES),
+        expand("outputs/filt_sigs_named_csv_hmp/{hmp}_filt_named.csv", hmp = HMP)
+    output: csv = "outputs/hash_tables/all_unnormalized_abund_hashes_long.csv"
+    conda: 'r.yml'
+    script: "scripts/all_unnormalized_hash_abund_long.R"
+
+rule hash_table_wide_unnormalized_all:
+    input: "outputs/hash_tables/all_unnormalized_abund_hashes_long.csv"
+    output: "outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather"
+    run:
+        import pandas as pd
+        import feather
+        
+        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
+        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
+        ibd_wide = ibd_wide.fillna(0)
+        ibd_wide['sample'] = ibd_wide.index
+        ibd_wide = ibd_wide.reset_index(drop=True)
+        ibd_wide.columns = ibd_wide.columns.astype(str)
+        ibd_wide.to_feather(str(output)) 
+
+#rule differential_abundance_all:
+#    input: "outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather"
+
