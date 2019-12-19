@@ -5,7 +5,8 @@ ksize: 31
 radius: 1
 search:
 - outputs/gather_genomes/AP010890.fna
-- outputs/gather_genomes/BackhedF_2015__SID546_M__bin.6.fnaChengpingW_2017__AS73raw__bin.33.fna
+- outputs/gather_genomes/BackhedF_2015__SID546_M__bin.6.fna
+- outputs/gather_genomes/ChengpingW_2017__AS73raw__bin.33.fna
 - outputs/gather_genomes/CosteaPI_2017__daisy-11-0-0__bin.22.fna
 - outputs/gather_genomes/CosteaPI_2017__SID713A045-11-90-0__bin.49.fna
 - outputs/gather_genomes/CP001361.fna
@@ -15,7 +16,8 @@ search:
 - outputs/gather_genomes/ERR1578685_bin.2.fna
 - outputs/gather_genomes/ERR911961_bin.65.fna
 - outputs/gather_genomes/ERS235550_13.fna
-- outputs/gather_genomes/ERS235598_17.fnaERS396297_11.fna
+- outputs/gather_genomes/ERS235598_17.fna
+- outputs/gather_genomes/ERS396297_11.fna
 - outputs/gather_genomes/ERS396299_52.fna
 - outputs/gather_genomes/ERS396342_81.fna
 - outputs/gather_genomes/ERS396398_4.fna
