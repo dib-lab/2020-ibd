@@ -19,7 +19,10 @@ rule all:
         "outputs/rf_validation/pred_srp057027.txt",
         "outputs/rf_validation/pred_srp057027.csv",
         "outputs/rf_validation/pred_srp385949.txt",
-        "outputs/rf_validation/pred_prjna285949.csv"
+        "outputs/rf_validation/pred_prjna285949.csv",
+        "outputs/gather/vita_vars.csv",
+        "outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
+        expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP)
 
 ########################################
 ## PREPROCESSING
@@ -357,8 +360,6 @@ rule convert_greater_than_1_signatures_to_csv_hmp:
     python scripts/sig_to_csv.py {input} {output}
     '''
 
-# rule get_rf_vita_hashes:
-
 rule filter_signatures_to_vita_hashes_hmp:
     input:
         filt_sig = "outputs/filt_sig_hashes/vita_hashes.sig",
@@ -377,6 +378,145 @@ rule name_vita_filtered_sigs:
     sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt_vita
     '''
 
+########################################
+## Predictive hash characterization
+########################################
+
+rule convert_vita_vars_to_sig:
+    input: "outputs/vita_rf/vita_vars.txt"
+    output: "outputs/vita_rf/vita_vars.sig"
+    conda: "sourmash.yml"
+    shell:'''
+    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
+    '''
+
+rule download_gather_almeida:
+    output: "inputs/gather_databases/almeida-mags-k31.tar.gz"
+    shell:'''
+    wget -O {output} https://osf.io/5jyzr/download
+    '''
+
+rule untar_almeida:
+    output: "inputs/gather_databases/almeida-mags-k31.sbt.json"
+    input: "inputs/gather_databases/almeida-mags-k31.tar.gz"
+    params: outdir="inputs/gather_databases"
+    shell:'''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule download_gather_pasolli:
+    output: "inputs/gather_databases/pasolli-mags-k31.tar.gz"
+    shell:'''
+    wget -O {output} https://osf.io/3vebw/download
+    '''
+
+rule untar_pasolli:
+    output: "inputs/gather_databases/pasolli-mags-k31.sbt.json"
+    input: "inputs/gather_databases/pasolli-mags-k31.tar.gz"
+    params: outdir="inputs/gather_databases"
+    shell:'''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule download_gather_nayfach:
+    output: "inputs/gather_databases/nayfach-k31.tar.gz"
+    shell:'''
+    wget -O {output} https://osf.io/y3vwb/download
+    '''
+
+rule untar_nayfach:
+    output: "inputs/gather_databases/nayfach-k31.sbt.json"
+    input: "inputs/gather_databases/nayfach-k31.tar.gz"
+    params: outdir="inputs/gather_databases"
+    shell:'''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule download_gather_genbank:
+    output: "inputs/gather_databases/genbank-d2-k31.tar.gz"
+    shell:'''
+    wget -O {output} https://s3-us-west-2.amazonaws.com/sourmash-databases/2018-03-29/genbank-d2-k31.tar.gz
+    '''
+
+rule untar_genbank:
+    output: "inputs/gather_databases/genbank-d2-k31.sbt.json"
+    input:  "inputs/gather_databases/genbank-d2-k31.tar.gz"
+    params: outdir = "inputs/gather_databases"
+    shell: '''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule gather_vita_vars:
+    input:
+        sig="outputs/vita_rf/vita_vars.sig",
+        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db3="inputs/gather_databases/nayfach-k31.sbt.json",
+        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
+    output: 
+        csv="outputs/gather/vita_vars.csv",
+        matches="outputs/gather/vita_vars.matches",
+        un="outputs/gather/vita_vars.un"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db4} {input.db3} {input.db2}
+    '''
+
+rule download_gather_match_genomes:
+    output: "outputs/gather/gather_genomes.tar.gz"
+    shell:'''
+    wget -O {output} https://osf.io/ungza/download
+    '''
+    
+rule untar_gather_match_genomes:
+    output: directory("outputs/gather_genomes")
+    input:"outputs/gather/gather_genomes.tar.gz"
+    params: outdir = "outputs/gather_genomes"
+    shell:'''
+    mkdir {params.outdir}
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule gtdbtk_gather_matches:
+    """
+    this rule require the gtdbtk databases. The tool finds the database by 
+    using a path specified in a file in the environment. I predownloaded the 
+    databases and placed them in the required location.
+    The path is in this file:
+    .snakemake/conda/9de8946b/etc/conda/activate.d/gtdbtk.sh
+    """
+    input: directory("outputs/gather_genomes")
+    output: "outputs/gtdbtk/gtdbtk.bac120.summary.tsv"
+    params:  outdir = "outputs/gtdbtk"
+    conda: "gtdbtk.yml"
+    shell:'''
+    gtdbtk classify_wf --genome_dir {input} --out_dir {params.outdir} --cpus 8 
+    '''
+
+rule spacegraphcats_gather_matches:
+    input: 
+        query = directory("outputs/gather_genomes"),
+        conf = "inputs/sgc_conf/{library}_r1_conf.yml",
+        reads = "outputs/abundtrim/{library}.fq.gz"
+    output: ""
+    params: outdir = "outputs/spacegraphcats_genomes"
+    conda: "spacegraphcats.yml"
+    shell:'''
+    python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+    '''
+
+rule spacegraphcats_gather_matches_hmp:
+    input: 
+        query = directory("outputs/gather_genomes"),
+        conf = "inputs/sgc_conf/{hmp}_r1_conf.yml",
+        r1 = "inputs/hmp/{hmp}_R1.fastq.gz",
+        r2 = "inputs/hmp/{hmp}_R2.fastq.gz"
+    output: "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv"
+    params: outdir = "outputs/sgc_genome_queries_hmp"
+    conda: "spacegraphcats.yml"
+    shell:'''
+    python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}
+    '''
 ########################################
 ## PCoA
 ########################################
@@ -430,14 +570,23 @@ rule hash_table_wide_unnormalized_all:
     run:
         import pandas as pd
         import feather
-        
-        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
-        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
+        import dask.dataframe as dd
+
+        ibd = dd.read_csv(str(input), dtype = {"minhash" : "category", "abund" : "float64", "sample" : "str"})
+        print("read csv")
+        ibd["minhash"] = ibd["minhash"].cat.as_known()
+        print("set minhash as cat known")
+        ibd_wide=ibd.pivot_table(index='sample', columns="minhash", values='abund')
+        print("pivoted table")
         ibd_wide = ibd_wide.fillna(0)
-        ibd_wide['sample'] = ibd_wide.index
-        ibd_wide = ibd_wide.reset_index(drop=True)
+        print("filled with NAs")
+        ibd_wide.columns = list(ibd_wide.columns)
+        print("cols as list")
+        ibd_wide = ibd_wide.reset_index()
+        print("reset index")
         ibd_wide.columns = ibd_wide.columns.astype(str)
-        ibd_wide.to_feather(str(output)) 
+        print("cols as strings")
+        ibd_wide.compute().to_feather(str(output)) 
 
 #rule differential_abundance_all:
 #    input: "outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather"
