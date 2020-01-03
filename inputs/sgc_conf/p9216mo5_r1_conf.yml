@@ -1,6 +1,6 @@
 catlas_base: p9216mo5
 input_sequences:
-- outputs/abundtrim/p9216mo5.fq.gz
+- outputs/abundtrim/p9216mo5.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

@@ -1,6 +1,6 @@
 catlas_base: G48814
 input_sequences:
-- outputs/abundtrim/G48814.fq.gz
+- outputs/abundtrim/G48814.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

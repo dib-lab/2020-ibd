@@ -1,6 +1,6 @@
 catlas_base: p8646mo2
 input_sequences:
-- outputs/abundtrim/p8646mo2.fq.gz
+- outputs/abundtrim/p8646mo2.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

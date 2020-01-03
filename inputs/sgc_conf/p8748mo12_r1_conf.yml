@@ -1,6 +1,6 @@
 catlas_base: p8748mo12
 input_sequences:
-- outputs/abundtrim/p8748mo12.fq.gz
+- outputs/abundtrim/p8748mo12.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

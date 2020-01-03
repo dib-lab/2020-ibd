@@ -1,6 +1,6 @@
 catlas_base: '4005'
 input_sequences:
-- outputs/abundtrim/4005.fq.gz
+- outputs/abundtrim/4005.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

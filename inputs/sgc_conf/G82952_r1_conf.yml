@@ -1,6 +1,6 @@
 catlas_base: G82952
 input_sequences:
-- outputs/abundtrim/G82952.fq.gz
+- outputs/abundtrim/G82952.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

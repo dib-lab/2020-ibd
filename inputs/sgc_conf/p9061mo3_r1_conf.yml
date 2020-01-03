@@ -1,6 +1,6 @@
 catlas_base: p9061mo3
 input_sequences:
-- outputs/abundtrim/p9061mo3.fq.gz
+- outputs/abundtrim/p9061mo3.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

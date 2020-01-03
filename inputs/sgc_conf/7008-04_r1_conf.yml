@@ -1,6 +1,6 @@
 catlas_base: 7008-04
 input_sequences:
-- outputs/abundtrim/7008-04.fq.gz
+- outputs/abundtrim/7008-04.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

@@ -1,6 +1,6 @@
 catlas_base: Pond-249856
 input_sequences:
-- outputs/abundtrim/Pond-249856.fq.gz
+- outputs/abundtrim/Pond-249856.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

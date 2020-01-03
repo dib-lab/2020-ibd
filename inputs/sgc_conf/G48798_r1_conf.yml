@@ -1,6 +1,6 @@
 catlas_base: G48798
 input_sequences:
-- outputs/abundtrim/G48798.fq.gz
+- outputs/abundtrim/G48798.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

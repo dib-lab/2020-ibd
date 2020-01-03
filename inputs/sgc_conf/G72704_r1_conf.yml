@@ -1,6 +1,6 @@
 catlas_base: G72704
 input_sequences:
-- outputs/abundtrim/G72704.fq.gz
+- outputs/abundtrim/G72704.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

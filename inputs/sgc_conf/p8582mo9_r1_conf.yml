@@ -1,6 +1,6 @@
 catlas_base: p8582mo9
 input_sequences:
-- outputs/abundtrim/p8582mo9.fq.gz
+- outputs/abundtrim/p8582mo9.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:

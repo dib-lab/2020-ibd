@@ -1,6 +1,6 @@
 catlas_base: BACqjjM5AEDCAAPE
 input_sequences:
-- outputs/abundtrim/BACqjjM5AEDCAAPE.fq.gz
+- outputs/abundtrim/BACqjjM5AEDCAAPE.abundtrim.fq.gz
 ksize: 31
 radius: 1
 search:
