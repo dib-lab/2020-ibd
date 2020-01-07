@@ -22,7 +22,8 @@ rule all:
         "outputs/rf_validation/pred_prjna285949.csv",
         "outputs/gather/vita_vars.csv",
         "outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
-        expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP)
+        expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP),
+        expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES)
 
 ########################################
 ## PREPROCESSING
@@ -497,9 +498,9 @@ rule spacegraphcats_gather_matches:
     input: 
         query = directory("outputs/gather_genomes"),
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
-        reads = "outputs/abundtrim/{library}.fq.gz"
-    output: ""
-    params: outdir = "outputs/spacegraphcats_genomes"
+        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
+    output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
+    params: outdir = "outputs/sgc_genome_queries"
     conda: "spacegraphcats.yml"
     shell:'''
     python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
