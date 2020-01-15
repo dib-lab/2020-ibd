@@ -22,7 +22,8 @@ rule all:
         "outputs/rf_validation/pred_prjna285949.csv",
         "outputs/gather/vita_vars.csv",
         "outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
-        expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP)
+        expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP),
+        expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES)
 
 ########################################
 ## PREPROCESSING
@@ -497,9 +498,9 @@ rule spacegraphcats_gather_matches:
     input: 
         query = directory("outputs/gather_genomes"),
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
-        reads = "outputs/abundtrim/{library}.fq.gz"
-    output: ""
-    params: outdir = "outputs/spacegraphcats_genomes"
+        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
+    output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
+    params: outdir = "outputs/sgc_genome_queries"
     conda: "spacegraphcats.yml"
     shell:'''
     python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
@@ -549,44 +550,57 @@ rule compare_signatures_jaccard:
 ## Differential abundance
 ########################################
 
-rule hash_table_long_unnormalized_all:
+rule hash_table_long_unnormalized_hmp:
     """
     Unlike the hashtable that is input into the random forest analysis, this
-    hash table contains all samples (including hmp) and is not normalized by 
-    number of hashes in the filtered signature. Differential expression 
-    software that we will be using to calculate differential abundance expects
-    unnormalized counts.
+    hash table is not normalized by number of hashes in the filtered signature. 
+    Differential expression software that we will be using to calculate 
+    differential abundance expects unnormalized counts.
     """
     input: 
-        expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES),
         expand("outputs/filt_sigs_named_csv_hmp/{hmp}_filt_named.csv", hmp = HMP)
-    output: csv = "outputs/hash_tables/all_unnormalized_abund_hashes_long.csv"
+    output: csv = "outputs/hash_tables/hmp_unnormalized_abund_hashes_long.csv"
     conda: 'r.yml'
     script: "scripts/all_unnormalized_hash_abund_long.R"
-
-rule hash_table_wide_unnormalized_all:
-    input: "outputs/hash_tables/all_unnormalized_abund_hashes_long.csv"
-    output: "outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather"
+        
+rule hash_table_wide_unnormalized_hmp:
+    input: "outputs/hash_tables/hmp_unnormalized_abund_hashes_long.csv"
+    output: "outputs/hash_tables/hmp_unnormalized_abund_hashes_wide.feather"
     run:
         import pandas as pd
         import feather
-        import dask.dataframe as dd
 
-        ibd = dd.read_csv(str(input), dtype = {"minhash" : "category", "abund" : "float64", "sample" : "str"})
-        print("read csv")
-        ibd["minhash"] = ibd["minhash"].cat.as_known()
-        print("set minhash as cat known")
-        ibd_wide=ibd.pivot_table(index='sample', columns="minhash", values='abund')
-        print("pivoted table")
+        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
+        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
         ibd_wide = ibd_wide.fillna(0)
-        print("filled with NAs")
-        ibd_wide.columns = list(ibd_wide.columns)
-        print("cols as list")
-        ibd_wide = ibd_wide.reset_index()
-        print("reset index")
+        ibd_wide['sample'] = ibd_wide.index
+        ibd_wide = ibd_wide.reset_index(drop=True)
         ibd_wide.columns = ibd_wide.columns.astype(str)
-        print("cols as strings")
-        ibd_wide.compute().to_feather(str(output)) 
+        ibd_wide.to_feather(str(output)) 
+
+rule hash_table_long_unnormalized_libs:
+    """
+    see description in rule hash_table_long_unnormalized_hmp.
+    """
+    input: expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
+    output: csv = "outputs/hash_tables/libs_unnormalized_abund_hashes_long.csv"
+    conda: 'r.yml'
+    script: "scripts/all_unnormalized_hash_abund_long.R"
+
+rule hash_table_wide_unnormalized_libs:
+    input: "outputs/hash_tables/libs_unnormalized_abund_hashes_long.csv"
+    output: "outputs/hash_tables/libs_unnormalized_abund_hashes_wide.feather"
+    run:
+        import pandas as pd
+        import feather
+
+        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
+        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
+        ibd_wide = ibd_wide.fillna(0)
+        ibd_wide['sample'] = ibd_wide.index
+        ibd_wide = ibd_wide.reset_index(drop=True)
+        ibd_wide.columns = ibd_wide.columns.astype(str)
+        ibd_wide.to_feather(str(output))
 
 #rule differential_abundance_all:
 #    input: "outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather"
