@@ -16,12 +16,12 @@ rule all:
     input:
         "outputs/comp/all_filt_comp.csv",
         #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
-        "outputs/rf_validation/pred_srp057027.txt",
-        "outputs/rf_validation/pred_srp057027.csv",
-        "outputs/rf_validation/pred_srp385949.txt",
-        "outputs/rf_validation/pred_prjna285949.csv",
-        "outputs/gather/vita_vars.csv",
-        "outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
+        #"outputs/rf_validation/pred_srp057027.txt",
+        #"outputs/rf_validation/pred_srp057027.csv",
+        #"outputs/rf_validation/pred_prjna385949.txt",
+        #"outputs/rf_validation/pred_prjna385949.csv",
+        #"outputs/gather/vita_vars.csv",
+        #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
         expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP),
         expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES)
 
@@ -304,8 +304,8 @@ rule validate_rf:
     output:
         pred_srp = "outputs/rf_validation/pred_srp057027.txt",
         pred_srp_df = "outputs/rf_validation/pred_srp057027.csv",
-        pred_prjna = "outputs/rf_validation/pred_srp385949.txt",
-        pred_prjna_df = "outputs/rf_validation/pred_prjna285949.csv"
+        pred_prjna = "outputs/rf_validation/pred_prjna385949.txt",
+        pred_prjna_df = "outputs/rf_validation/pred_prjna385949.csv"
     conda: "rf.yml"
     script: "scripts/validate_rf.R"
 
