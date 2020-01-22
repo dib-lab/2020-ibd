@@ -1,0 +1,7 @@
+G48795.abundtrim.fq.gz
+outputs/abundtrim/G48783.abundtrim.fq.gz
+outputs/abundtrim/5003-04.abundtrim.fq.gz
+touch outputs/sigs/G48783.sig
+touch outputs/sigs/G48795.sig
+# G48795 and G48783 were removed from working metadata file because 
+# they failed preprocessing.
