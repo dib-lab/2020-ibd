@@ -472,7 +472,7 @@ rule download_gather_match_genomes:
     wget -O {output} https://osf.io/ungza/download
     '''
 
-checkpoint untar_gather_match_genomes:
+rule untar_gather_match_genomes:
     output:  directory("outputs/gather_genomes/")
     input:"outputs/gather/gather_genomes.tar.gz"
     params: outdir = "outputs/gather_genomes"
