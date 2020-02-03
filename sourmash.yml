@@ -3,5 +3,5 @@ channels:
    - bioconda
    - defaults
 dependencies:
-   - sourmash=2.3.0
+   - sourmash=3.2.0
    - pandas=0.25.3
