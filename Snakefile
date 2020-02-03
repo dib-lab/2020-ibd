@@ -22,8 +22,11 @@ rule all:
         #"outputs/rf_validation/pred_prjna385949.csv",
         #"outputs/gather/vita_vars.csv",
         #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
-        expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", hmp = HMP),
-        expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES)
+        #expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", 
+        #       hmp = HMP, gather_genomes = GATHER_GENOMES),
+        #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
+        #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
+        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt"
 
 ########################################
 ## PREPROCESSING
@@ -468,13 +471,13 @@ rule download_gather_match_genomes:
     shell:'''
     wget -O {output} https://osf.io/ungza/download
     '''
-    
-rule untar_gather_match_genomes:
-    output: directory("outputs/gather_genomes")
+
+checkpoint untar_gather_match_genomes:
+    output:  directory("outputs/gather_genomes/")
     input:"outputs/gather/gather_genomes.tar.gz"
     params: outdir = "outputs/gather_genomes"
     shell:'''
-    mkdir {params.outdir}
+    mkdir -p {params.outdir}
     tar xf {input} -C {params.outdir}
     '''
 
@@ -486,7 +489,8 @@ rule gtdbtk_gather_matches:
     The path is in this file:
     .snakemake/conda/9de8946b/etc/conda/activate.d/gtdbtk.sh
     """
-    input: directory("outputs/gather_genomes")
+    input: directory("outputs/gather_genomes/")
+    #input: aggregate_decompress_gather_matches
     output: "outputs/gtdbtk/gtdbtk.bac120.summary.tsv"
     params:  outdir = "outputs/gtdbtk"
     conda: "gtdbtk.yml"
@@ -494,30 +498,70 @@ rule gtdbtk_gather_matches:
     gtdbtk classify_wf --genome_dir {input} --out_dir {params.outdir} --cpus 8 
     '''
 
-rule spacegraphcats_gather_matches:
+checkpoint spacegraphcats_gather_matches:
     input: 
-        query = directory("outputs/gather_genomes"),
+        query = directory("outputs/gather_genomes/"),
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
-    output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
+    output: 
+        directory("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/")
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.fa.gz",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.contigs.fa.gz",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.txt.gz",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.contigs.sig",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.frontier.txt.gz",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.response.txt"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "spacegraphcats.yml"
     shell:'''
     python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
 
+rule calc_sig_nbhd_reads:
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.fa.gz"
+    output: "outputs/nbhd_read_sigs/{library}_{gather_genome}.cdbg_ids.reads.sig"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
+    '''
+
+def aggregate_spacegraphcats_gather_matches(wildcards):
+    # checkpoint_output produces the output dir from the checkpoint rule.
+    checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
+    file_names = expand("outputs/nbhd_read_sigs/{library}_{gather_genome}.cdbg_ids.reads.sig",
+                        library = LIBRARIES, 
+                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.cdbg_ids.reads.fa.gz")).gather_genome)
+    return file_names
+
+
+rule aggregate:
+    input: aggregate_spacegraphcats_gather_matches
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt"
+    shell:'''
+    touch aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt
+    '''
+ 
 rule spacegraphcats_gather_matches_hmp:
     input: 
-        query = directory("outputs/gather_genomes"),
+        query = directory("outputs/gather_genomes/"),
         conf = "inputs/sgc_conf/{hmp}_r1_conf.yml",
         r1 = "inputs/hmp/{hmp}_R1.fastq.gz",
         r2 = "inputs/hmp/{hmp}_R2.fastq.gz"
-    output: "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv"
+    output: 
+        "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv",
+        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.contigs.fa.gz",
+        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.fa.gz",
+        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.txt.gz",
+        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.fna.contigs.sig",
+        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.frontier.txt.gz",
+        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.response.txt"
     params: outdir = "outputs/sgc_genome_queries_hmp"
     conda: "spacegraphcats.yml"
     shell:'''
     python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}
     '''
+
 ########################################
 ## PCoA
 ########################################
