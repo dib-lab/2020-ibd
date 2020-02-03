@@ -539,7 +539,7 @@ rule aggregate:
     input: aggregate_spacegraphcats_gather_matches
     output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt"
     shell:'''
-    touch aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt
+    touch {output}
     '''
  
 rule spacegraphcats_gather_matches_hmp:
