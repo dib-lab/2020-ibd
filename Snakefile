@@ -26,8 +26,10 @@ rule all:
         #       hmp = HMP, gather_genomes = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt"
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt"
+        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_hmp.txt",       
+        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
 
 ########################################
 ## PREPROCESSING
@@ -383,9 +385,9 @@ rule name_vita_filtered_sigs:
     sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt_vita
     '''
 
-########################################
-## Predictive hash characterization
-########################################
+############################################
+## Predictive hash characterization - gather
+############################################
 
 rule convert_vita_vars_to_sig:
     input: "outputs/vita_rf/vita_vars.txt"
@@ -499,6 +501,10 @@ rule gtdbtk_gather_matches:
     gtdbtk classify_wf --genome_dir {input} --out_dir {params.outdir} --cpus 8 
     '''
 
+#############################################
+# Spacegraphcats Genome Queries -- Libraries
+#############################################
+
 checkpoint spacegraphcats_gather_matches:
     input: 
         query = directory("outputs/gather_genomes/"),
@@ -567,6 +573,7 @@ rule aggregate_spacegraphcats_gather_matches_plass:
     shell:'''
     touch {output}
     '''
+
 rule paladin_index_plass:
     input: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     output: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
@@ -586,20 +593,76 @@ rule paladin_align_plass:
     paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
     '''
 
+#############################################
+# Spacegraphcats Genome Queries -- HMP
+#############################################
 
-rule spacegraphcats_gather_matches_hmp:
+checkpoint spacegraphcats_gather_matches_hmp:
     input: 
         query = directory("outputs/gather_genomes/"),
         conf = "inputs/sgc_conf/{hmp}_r1_conf.yml",
-        r1 = "inputs/hmp/{hmp}_R1.fastq.gz",
-        r2 = "inputs/hmp/{hmp}_R2.fastq.gz"
+        r1 = expand("inputs/hmp/{hmp}_R1.fastq.gz", hmp = HMP),
+        r2 = expand("inputs/hmp/{hmp}_R2.fastq.gz", hmp = HMP)
     output: 
-        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv",
-        #"outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.fa.gz",
+        directory(expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/", hmp = HMP))
     params: outdir = "outputs/sgc_genome_queries_hmp"
     conda: "spacegraphcats.yml"
     shell:'''
     python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}
+    '''
+
+rule calc_sig_nbhd_reads_hmp:
+    input: "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz"
+    output: "outputs/nbhd_read_sigs_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.sig"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.hmp}_{wildcards.gather_genome_hmp} {input}
+    '''
+
+def aggregate_spacegraphcats_gather_matches_hmp(wildcards):
+    checkpoint_output = checkpoints.spacegraphcats_gather_matches_hmp.get(**wildcards).output[0]    
+    file_names = expand("outputs/nbhd_read_sigs_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.sig",
+                        hmp = HMP, 
+                        gather_genome_hmp = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz")).gather_genome_hmp)
+    return file_names
+
+
+rule aggregate_signatures_hmp:
+    input: aggregate_spacegraphcats_gather_matches_hmp
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
+    shell:'''
+    touch {output}
+    '''
+
+rule plass_nbhd_reads_hmp:
+    input: "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz"
+    output: "outputs/nbhd_read_plass_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.faa"
+    conda: "plass.yml"
+    shell:'''
+    plass assemble {input} {output} tmp
+    '''
+
+rule cdhit_plass_hmp:
+    input: "outputs/nbhd_read_plass_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.faa"
+    output: "outputs/nbhd_read_cdhit_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.cdhit.faa"
+    conda: "plass.yml"
+    shell:'''
+    cd-hit -i {input} -o {output} -c 1
+    '''
+
+def aggregate_spacegraphcats_gather_matches_plass_hmp(wildcards):
+    checkpoint_output = checkpoints.spacegraphcats_gather_matches_hmp.get(**wildcards).output[0]    
+    file_names = expand("outputs/nbhd_read_cdhit_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.cdhit.faa",
+                        hmp = HMP, 
+                        gather_genome_hmp = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz")).gather_genome_hmp)
+    return file_names
+
+
+rule aggregate_spacegraphcats_gather_matches_plass_hmp:
+    input: aggregate_spacegraphcats_gather_matches_plass_hmp
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_hmp.txt"
+    shell:'''
+    touch {output}
     '''
 
 ########################################
