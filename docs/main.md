@@ -77,7 +77,7 @@ these sequence neighborhoods. Our analysis pipeline is lightweight and relies on
 documented and maintained software, making it extensible to other large cohorts
 of metagenomic sequencing data.
 
-## Results & Discussion
+## Results
 
 ### Many cohorts of IBD stool metagenome samples
 
@@ -138,9 +138,8 @@ some erroneous k-mers,  we further filtered signatures to remove hashes that
 occured once across all samples. This removed additional k-mers that were most 
 likely to be errors while keeping k-mers that were real but low abundant in 
 some samples. There were 57,479,783 distinct hashes across all samples, of 
-which 9,334,204 remained after filtering. This pipeline generates an inclusive
-summary of all sequences contained in the metagenome while reducing the 
-computational footprint of the data and its analysis. 
+which 9,334,204 remained after filtering. 
+
 
 [//]: # The most common hash appeared in 944 of 954 non iHMP samples.
 
@@ -198,7 +197,7 @@ reduce bias from intra-individual testing and training. Accuracy ranged from
 model was robust to read preprocessing techniques; in cohorts SRP057027 and
 PRJNA385949, we used the same read preprocessing pipeline as we used for our
 training and testing sets. Accuracy was 80.4% and 65.4% for these cohorts, 
-respectively. Tehn, for the iHMP cohort, we used preprocessed reads as 
+respectively. Then, for the iHMP cohort, we used preprocessed reads as 
 provided at ibdmdb.org, which used a different read quality control pipeline.
 Accuracy was 77.6% on this cohort.
 
@@ -216,13 +215,8 @@ nonIBD would occur more frequently in non-colonic CD patients. The iHMP IBD
 cohort has extensive metadata, including baseline Montreal classification for
 disease location for most CD patients. Using this localization information, we
 found that non-colonic CD patients were significantly more likely to be 
-misclassified as nonIBD than colonic patients (chi-square test, p < .001). This
-indicates that the colon microbiome of patients with non-colonic CD presents 
-more like a microbiome of a nonIBD patient, suggesting that microbial 
-signatures of IBD are localized to the site of disease. 
+misclassified as nonIBD than colonic patients (chi-square test, p < .001). 
 
-Our results indicate that there are markers of IBD that are conserved across 
-studies. 
 
 [//]: # compare to other random forests for IBD from literature
 
@@ -263,7 +257,17 @@ or *de novo* approaches, but are important for disease classification.
 
 An additional 14.6% of k-mers were neither in known genomes or in the neighborhood
 of known genomes. ... 
+## Discussion
 
+
++ This pipeline generates an inclusive summary of all sequences contained in the 
+metagenome while reducing the computational footprint of the data and its analysis.
++ (CD misclassification results) This indicates that the colon microbiome of 
+patients with non-colonic CD presents more like a microbiome of a nonIBD patient, 
+suggesting that microbial signatures of IBD are localized to the site of disease. 
++ Our random forest results indicate that there are markers of IBD that are 
+conserved across studies. 
+ 
 ## Methods
 
 All code associated with our analyses is available at 
