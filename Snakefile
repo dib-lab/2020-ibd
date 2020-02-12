@@ -600,7 +600,7 @@ rule paladin_align_plass:
 checkpoint spacegraphcats_gather_matches_hmp:
     input: 
         query = directory("outputs/gather_genomes/"),
-        conf = "inputs/sgc_conf/{hmp}_r1_conf.yml",
+        conf = expand("inputs/sgc_conf/{hmp}_r1_conf.yml", hmp = HMP),
         r1 = expand("inputs/hmp/{hmp}_R1.fastq.gz", hmp = HMP),
         r2 = expand("inputs/hmp/{hmp}_R2.fastq.gz", hmp = HMP)
     output: 
