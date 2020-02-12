@@ -533,7 +533,15 @@ def aggregate_spacegraphcats_gather_matches(wildcards):
     file_names = expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig",
                         library = LIBRARIES, 
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.fna.cdbg_ids.reads.fa.gz")).gather_genome)
-    return file_names
+    # file_names will return all 129 queries.
+    # because this takes a long time, we will subset the file names returned
+    # to the 4 nbhds that account for the largest number of predictive hashes.
+    bacteroides = [f for f in file_names if "SRS476121_69" in f]
+    faecalibacterium =  [f for f in file_names if "SRS147022_17" in f]
+    rtorques =  [f for f in file_names if "GCA_001406235.1_14207_7_41_genomic" in f]
+    fplautii =  [f for f in file_names if "GCA_001405435.1_14207_7_29_genomic" in f]
+    select_file_names = bacteroides + faecalibacterium + rtorques + fplautii
+    return select_file_names
 
 
 rule aggregate_signatures:
@@ -624,7 +632,15 @@ def aggregate_spacegraphcats_gather_matches_hmp(wildcards):
     file_names = expand("outputs/nbhd_read_sigs_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.sig",
                         hmp = HMP, 
                         gather_genome_hmp = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz")).gather_genome_hmp)
-    return file_names
+    # file_names will return all 129 queries.
+    # because this takes a long time, we will subset the file names returned
+    # to the 4 nbhds that account for the largest number of predictive hashes.
+    bacteroides = [f for f in file_names if "SRS476121_69" in f]
+    faecalibacterium =  [f for f in file_names if "SRS147022_17" in f]
+    rtorques =  [f for f in file_names if "GCA_001406235.1_14207_7_41_genomic" in f]
+    fplautii =  [f for f in file_names if "GCA_001405435.1_14207_7_29_genomic" in f]
+    select_file_names = bacteroides + faecalibacterium + rtorques + fplautii
+    return select_file_names
 
 
 rule aggregate_signatures_hmp:
