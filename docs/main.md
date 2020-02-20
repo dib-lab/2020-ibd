@@ -271,7 +271,7 @@ conserved across studies.
 ## Methods
 
 All code associated with our analyses is available at 
-www.github.com/taylorreiter/ibd.
+www.github.com/dib-lab/2020-ibd/
 
 ### IBD metagenome data acquisition and processing
 
