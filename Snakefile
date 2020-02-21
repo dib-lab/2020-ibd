@@ -27,7 +27,7 @@ rule all:
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
         "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_hmp.txt",       
         "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
 
@@ -573,7 +573,12 @@ def aggregate_spacegraphcats_gather_matches_plass(wildcards):
     file_names = expand("outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa",
                         library = LIBRARIES, 
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.fna.cdbg_ids.reads.fa.gz")).gather_genome)
-    return file_names
+    bacteroides = [f for f in file_names if "SRS476121_69" in f]
+    faecalibacterium =  [f for f in file_names if "SRS147022_17" in f]
+    rtorques =  [f for f in file_names if "GCA_001406235.1_14207_7_41_genomic" in f]
+    fplautii =  [f for f in file_names if "GCA_001405435.1_14207_7_29_genomic" in f]
+    select_file_names = bacteroides + faecalibacterium + rtorques + fplautii
+    return select_file_names
 
 rule aggregate_spacegraphcats_gather_matches_plass:
     input: aggregate_spacegraphcats_gather_matches_plass
