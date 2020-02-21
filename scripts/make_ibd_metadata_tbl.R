@@ -1,4 +1,4 @@
-setwd("~/github/ibd")
+setwd("~/github/2020-ibd")
 
 library(dplyr)
 library(readr)
@@ -32,17 +32,17 @@ prj$sample_alias <- gsub("PRJNA237362\\.", "", prj$sample_alias)
 # SRP057027 -- run_accession, library_name
 # PRJNA385949 -- library_name
 
-prjeb2054_metadata <- read_csv("inputs/metadata/PRJEB2054_metadata.csv")
-prj <- left_join(prj, prjeb2054_metadata, by = "sample_alias")
-prjna237362_metadata <- read_csv("inputs/metadata/PRJNA237362_metadata.csv")
-prj <- left_join(prj, prjna237362_metadata, by = "sample_alias")
+prjna237362 <- read_csv("inputs/metadata/PRJNA237362_metadata.csv")
+prj <- left_join(prj, prjna237362, by = c("library_name", "sample_alias"))
+# prj %>% filter(study_accession == "PRJNA237362") %>% select(library_name, sample_alias, diagnosis, individual)
+prjeb2054 <- read_csv("inputs/metadata/PRJEB2054_metadata.csv")
+prj <- left_join(prj, prjeb2054, by = "sample_alias")
 prjna400072 <- read_csv("inputs/metadata/PRJNA400072_metadata.csv")
 prj <- left_join(prj, prjna400072, by = "library_name") 
 srp057027 <- read_csv("inputs/metadata/SRP057027_metadata.csv")
 prj <- left_join(prj, srp057027, by = c("run_accession", "library_name"))
 prjna385949 <- read_csv("inputs/metadata/PRJNA385949_metadata.csv")
 prj <- left_join(prj, prjna385949, by = "library_name")
-
 
 # coalesce colnames
 prj <- prj %>%
@@ -54,20 +54,19 @@ prj <- prj %>%
   select(-sample.x, -sample.y) %>%
   mutate(steroids = coalesce(steroids.x, steroids.y)) %>%
   select(-steroids.x, -steroids.y) %>%
-  mutate(PCDAI = coalesce(PCDAI.x, PCDAI.y)) %>%
+  mutate(PCDAI = coalesce(as.character(PCDAI.x), as.character(PCDAI.y))) %>%
   select(-PCDAI.x, -PCDAI.y) %>%
-  mutate(antibiotic = coalesce(antibiotic.x, antibiotic.y, antibiotic)) %>%
-  select(-antibiotic.x, -antibiotic.y)%>% 
-  mutate(subject = coalesce(subject.x, as.character(subject.y))) %>%
-  select(-subject.x, -subject.y) %>%
+  mutate(antibiotic = coalesce(antibiotic.x, antibiotic.y)) %>%
+  select(-antibiotic.x, -antibiotic.y) %>% 
+  mutate(subject = coalesce(as.character(subject), as.character(patient_id), individual)) %>%
+  select(-patient_id, -individual) %>%
   mutate(fecal_calprotectin = coalesce(fecal_calprotectin.x, as.character(fecal_calprotectin.y))) %>%
   select(-fecal_calprotectin.x, -fecal_calprotectin.y) %>%
   filter(diagnosis != "IC") # also removes NAs
-
 table(prj$diagnosis)
 prj %>% group_by(study_accession, diagnosis) %>% tally
 wrk <- select(prj, study_accession, run_accession, library_name, read_count, 
-              fastq_ftp, sample_alias, diagnosis, patient_id)
+              fastq_ftp, sample_alias, diagnosis, subject)
 wrk <- separate(data = wrk, 
                 col = fastq_ftp,
                 into = c("fastq_ftp_1", "fastq_ftp_2", "fastq_ftp_3"), 
@@ -98,5 +97,6 @@ wrk$fastq_ftp_1 <- fastq_1
 wrk$fastq_ftp_2 <- fastq_2
 
 wrk <- select(wrk, study_accession, run_accession, library_name, read_count, 
-              fastq_ftp_1, fastq_ftp_2, sample_alias, diagnosis, patient_id)
+              fastq_ftp_1, fastq_ftp_2, sample_alias, diagnosis, subject)
+wrk$subject <- ifelse(is.na(wrk$subject), wrk$library_name, wrk$subject)
 write_tsv(x = wrk, path = "inputs/working_metadata.tsv")
