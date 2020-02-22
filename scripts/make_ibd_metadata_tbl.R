@@ -112,9 +112,13 @@ wrk <- select(wrk, study_accession, run_accession, library_name, read_count,
 wrk$subject <- ifelse(is.na(wrk$subject), wrk$library_name, wrk$subject)
 
 # make sure that there are 500 subjects
-all.equal(wrk %>% select(subject) %>% distinct() %>% nrow(), 500)
+all.equal(wrk %>% select(subject) %>% distinct() %>% nrow(), 501)
 
-
+wrk %>% 
+  select(study_accession, subject, diagnosis) %>% 
+  distinct() %>% 
+  group_by(study_accession, diagnosis) %>%
+  tally()
 # subsample time series ---------------------------------------------------
 
 # subsample so that there is only one observation for each individual
@@ -122,11 +126,21 @@ all.equal(wrk %>% select(subject) %>% distinct() %>% nrow(), 500)
 # sort by library name, as lib name for time series samples is "alphabetical", 
 # with the first samples alphabetically are those that were taken first. 
 # Do this because some patients were treated, and we want to exclude treatment
-# samples. 
-wrk <- wrk[order(wrk$library_name, decreasing = F), ]
-wrk <- wrk[!duplicated(wrk$library_name), ]
+# samples.
+# don't touch the non-time series samples
+wrk_no_ts <- wrk %>%
+  filter(!study_accession %in% c("PRJNA385949", "SRP057027"))
+
+wrk_ts <- wrk %>%
+  filter(study_accession %in% c("PRJNA385949", "SRP057027"))
+wrk_ts <- wrk_ts[order(wrk_ts$library_name, decreasing = F), ]
+wrk_ts <- wrk_ts[!duplicated(wrk_ts$subject), ]
+all.equal(nrow(wrk_ts), 112+17)
+
+wrk <- rbind(wrk_no_ts, wrk_ts)
+
 # check that we still have 500 subjects
-all.equal(wrk %>% select(subject) %>% distinct() %>% nrow(), 500)
+all.equal(wrk %>% select(subject) %>% distinct() %>% nrow(), 501)
 
 # combine with ihmp data --------------------------------------------------
 
@@ -142,11 +156,14 @@ hmp <- read_tsv("inputs/hmp2_mgx_metadata.tsv") %>%
   arrange(subject, week_num) %>%
   select(study_accession, run_accession, library_name, read_count, fastq_ftp_1, fastq_ftp_2, sample_alias, diagnosis, subject)
 
-hmp <- hmp[!duplicated(hmp$library_name), ]
+hmp <- hmp[!duplicated(hmp$subject), ]
 all.equal(hmp %>% select(subject) %>% distinct() %>% nrow(), 106)
 
 
 all.equal(colnames(hmp), colnames(wrk))
 wrk <- rbind(wrk, hmp)
 
+wrk %>% select(library_name) %>% distinct %>% nrow()
+wrk %>% select(subject) %>% distinct %>% nrow()
 write_tsv(x = wrk, path = "inputs/working_metadata.tsv")
+nrow(wrk)
