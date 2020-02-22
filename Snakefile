@@ -26,10 +26,10 @@ rule all:
         #       hmp = HMP, gather_genomes = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_hmp.txt",       
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
 
 ########################################
 ## PREPROCESSING
