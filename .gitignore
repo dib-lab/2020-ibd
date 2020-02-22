@@ -1,4 +1,5 @@
 *slurm*out
+slurm/slurm*out
 .snakemake/
 inputs/adapters.fa
 inputs/cat/
@@ -18,3 +19,10 @@ sandbox/long_ibd.csv
 sandbox/wide_ibd.csv.gz
 sandbox/wide_ibd2.csv.gz
 sandbox/wide_ibd_labels.txt
+aggregated_checkpoints/
+sandbox/genbank-k21.lca.json.gz
+sandbox/genbank-k31.lca.json.gz
+sandbox/jellyfish/
+sandbox/test_megahit/
+sandbox/test_pangenome_hash_tbl/
+size_input.txt
