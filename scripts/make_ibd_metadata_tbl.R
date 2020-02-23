@@ -147,7 +147,7 @@ all.equal(wrk %>% select(subject) %>% distinct() %>% nrow(), 501)
 hmp <- read_tsv("inputs/hmp2_mgx_metadata.tsv") %>%
   mutate(study_accession = "iHMP") %>%
   mutate(library_name = External.ID) %>%
-  mutate(run_accession = NA) %>%
+  mutate(run_accession = External.ID) %>%
   mutate(sample_alias = NA) %>%
   mutate(fastq_ftp_1 = NA) %>%
   mutate(fastq_ftp_2 = NA) %>%
