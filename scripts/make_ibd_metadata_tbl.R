@@ -165,5 +165,10 @@ wrk <- rbind(wrk, hmp)
 
 wrk %>% select(library_name) %>% distinct %>% nrow()
 wrk %>% select(subject) %>% distinct %>% nrow()
+
+# remove the samples that failed host removal/kmer trimming step
+wrk <- wrk %>%
+  filter(!library_name %in% c("G48795", "G48783"))
+
 write_tsv(x = wrk, path = "inputs/working_metadata.tsv")
-nrow(wrk)
+
