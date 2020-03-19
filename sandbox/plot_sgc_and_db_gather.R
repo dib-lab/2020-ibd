@@ -1,4 +1,4 @@
-setwd("~/github/ibd")
+setwd("~/github/2020-ibd")
 
 library(dplyr)
 library(ggplot2)
@@ -15,6 +15,7 @@ library(ggstance)
 library(ggtree)
 library(cowplot)
 library(treeio)
+library(ggrepel)
 
 # read in and format taxonomy ---------------------------------------------
 
@@ -167,3 +168,63 @@ dev.off()
 
 res$name <- ifelse(res$species == "", res$genus, res$species)
 p$data$label <- ifelse(p$data$label %in% res$id, res$name, p$data$label)
+
+# plot scatter plot -------------------------------------------------------
+
+head(res)
+colnames(res)
+
+ggplot(res, aes(x = f_orig_query_db, y = f_orig_query_sgc, color = order)) +
+  geom_point(alpha = .5) + 
+  xlim(0, .11) + ylim(0, .11) +
+  theme_minimal() +
+  labs(x = "Fraction in databases", y = "Fraction in databases + \npangenome nbhd",
+       title = "Fraction of predictive hashes")
+
+ggplot(res, aes(x = f_orig_query_db, y = f_orig_query_sgc)) +
+  geom_point(alpha = .5) + 
+  xlim(0, .11) + ylim(0, .11) +
+  theme_minimal() +
+  labs(x = "Fraction in databases", y = "Fraction in databases + \npangenome nbhd",
+       title = "Fraction of predictive hashes") +
+  geom_text_repel(data=subset(res, f_orig_query_sgc > .092),
+                  aes(f_orig_query_db, y = f_orig_query_sgc, 
+                      label= ifelse(species == "", genus, species)),
+                  nudge_x = .05)
+
+
+ggplot(res, aes(x = f_orig_query_db, y = f_orig_query_sgc)) +
+  geom_point(alpha = .5) + 
+  xlim(0, .11) + ylim(0, .11) +
+  theme_minimal() +
+  labs(x = "Fraction in databases", y = "Fraction in databases + \npangenome nbhd",
+       title = "Fraction of predictive hashes") +
+  geom_text_repel(data=subset(res, f_orig_query_sgc > .092),
+                  aes(f_orig_query_db, y = f_orig_query_sgc, 
+                      label= ifelse(species == "", genus, species)),
+                  nudge_x = .05) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "grey")
+
+ggplot(res, aes(x = f_unique_weighted_db, y = f_unique_weighted_sgc)) +
+  geom_point(alpha = .5) + 
+  xlim(0, .11) + ylim(0, .11) +
+  theme_minimal() +
+  labs(x = "Unique fraction in databases", y = "Unique fraction in databases + \npangenome nbhd",
+       title = "Fraction of predictive hashes") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  geom_text_repel(data=subset(res, f_unique_weighted_sgc > .04),
+                  aes(f_unique_weighted_db, y = f_unique_weighted_sgc, 
+                      label= ifelse(species == "", genus, species)),
+                  nudge_x = .05) 
+
+ggplot(res, aes(x = f_unique_weighted_db, y = f_unique_weighted_sgc)) +
+  geom_point(alpha = .5) + 
+  xlim(0, .11) + ylim(0, .11) +
+  theme_minimal() +
+  labs(x = "Unique fraction in databases", y = "Unique fraction in databases + \npangenome nbhd",
+       title = "Fraction of predictive hashes") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "grey") +
+  geom_text_repel(data=subset(res, f_unique_weighted_sgc > .04),
+                  aes(f_unique_weighted_db, y = f_unique_weighted_sgc, 
+                      label= ifelse(species == "", genus, species)),
+                  nudge_x = .05)

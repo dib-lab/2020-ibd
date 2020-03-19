@@ -1,3 +1,8 @@
+## This script performs a principle coordinate analysis for filtered signatures
+## from the IBD datasets (currently excludes iHMP). It uses the compare matrix
+## produced by the sourmash compare command to calculate distances between 
+## signatures.
+
 setwd("~/github/ibd")
 library(dplyr)
 library(ggplot2)
@@ -74,3 +79,18 @@ ggExtra::ggMarginal(comp_plt, type = "density",
                     groupColour = T, groupFill = T)
 comp_plt
 
+
+# tsne --------------------------------------------------------------------
+
+library(Rtsne)
+tsne_model <- Rtsne(comp, check_duplicates=FALSE, pca=TRUE, perplexity=5, theta=0.5, dims=2)
+tsne_y <- as.data.frame(tsne_model$Y) 
+tsne_y$sample <- rownames(comp)
+tsne_y<- left_join(tsne_y, info, by = c("sample" = "library_name")) # join with metadata
+tsne_plt <- ggplot(tsne_y, aes(x = V1, y = V2, color = diagnosis, shape = study_accession)) +
+  geom_point() +
+  theme_minimal()  +
+  labs(x = paste0("t-SNE 1"), 
+       y = paste0("t-SNE 2")) + 
+  scale_color_viridis_d()
+tsne_plt
