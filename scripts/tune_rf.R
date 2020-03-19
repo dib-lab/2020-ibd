@@ -1,92 +1,107 @@
+library(readr)
+library(dplyr)
+library(ggplot2)
 library(ranger)
+library(mlr)
+library(tuneRanger)
+source(snakemake@input[['eval_model']])
+source(snakemake@input[['ggconfusion']])
+
 set.seed(1)
 
-# inspiration for tuning organization:
-# https://uc-r.github.io/random_forests#tune
+ibd_filt <- read_csv(snakemake@input[['ibd_filt']])
+ibd_filt <- as.data.frame(ibd_filt)
+rownames(ibd_filt) <- ibd_filt$X1
+ibd_filt <- ibd_filt[ , -1]
 
-# read in data ------------------------------------------------------------
-
-ibd_novalidation_filt <- read.csv(snakemake@input[['ibd_novalidation']],
-                                  row.names = 1)
-# read in info, which has diagnosis information
+## read in study metadata
+## collapse duplicate libraries so each sample only has one row
 info <- read_tsv(snakemake@input[['info']]) %>%
-  # read in info, which has diagnosis information
-  info <- read_tsv("inputs/working_metadata.tsv") %>%
-  select(library_name, diagnosis) %>% 
-  distinct() %>%
-  mutate(library_name = gsub("-", "\\.", library_name)) %>%
-  filter(library_name %in% rownames(ibd_novalidation_filt))
+  select(study_accession, library_name, diagnosis) %>%
+  mutate(library_name = gsub("\\-", "\\.", library_name)) %>%
+  filter(library_name %in% rownames(ibd_filt)) %>%
+  distinct()
+
+## set validation cohort and remove it from variable selection
+info_validation <- info %>%
+  filter(study_accession == snakemake@params[['validation_study']]) %>%
+  mutate(library_name = gsub("-", "\\.", library_name))
+ibd_validation <- ibd_filt[rownames(ibd_filt) %in% info_validation$library_name, ]
+# match order of to ibd_filt
+info_validation <- info_validation[order(match(info_validation$library_name, rownames(ibd_validation))), ]
+# check names
+all.equal(info_validation$library_name, rownames(ibd_validation))
+# make diagnosis var
+diagnosis_validation <- info_validation$diagnosis
 
 
-# make test and train -----------------------------------------------------
+## remove validation cohort from training data
+# using tuneRanger, we do not need to use a train/test/validation framework.
+# Instead, tuneRanger does not need a test set because each tree is only trained 
+# on a subset of the data (bag), so we can use the rest (out of bag) to obtain 
+# an unbiased performance estimation of a single tree and therefore of all trees.
+# see: https://github.com/PhilippPro/tuneRanger/issues/8
 
-train <- sample(nrow(ibd_novalidation_filt), 
-                0.7*nrow(ibd_novalidation_filt), 
-                replace = FALSE)
-train_set <- ibd_novalidation_filt[train, ]
-test_set <- ibd_novalidation_filt[-train, ]
+info_novalidation <- info %>%
+  filter(study_accession != snakemake@params[['validation_study']]) %>%
+  mutate(library_name = gsub("-", "\\.", library_name))
+ibd_novalidation <- ibd_filt[rownames(ibd_filt) %in% info_novalidation$library_name, ]
+# match order of to ibd_filt
+info_novalidation <- info_novalidation[order(match(info_novalidation$library_name, rownames(ibd_novalidation))), ]
+# check names
+all.equal(info_novalidation$library_name, rownames(ibd_novalidation))
+# make diagnosis var
+diagnosis_novalidation <- info_novalidation$diagnosis
 
-# generate "diagnosis" vector for each of train_set 
-diagnosis_train <- info %>% filter(library_name %in% rownames(train_set))
-diagnosis_train <- diagnosis_train[order(match(diagnosis_train$library_name, rownames(train_set))), ]# order library_name by rownames of train
-# check that everything is ordered correctly
-all.equal(rownames(train_set), diagnosis_train$library_name)
-diagnosis_train <- diagnosis_train$diagnosis
+# Include classification vars as cols in df
+ibd_novalidation$diagnosis <- diagnosis_novalidation
+ibd_validation$diagnosis <- diagnosis_validation
 
-# generate "diagnosis" vector for each of train_set 
-diagnosis_test <- info %>% filter(library_name %in% rownames(test_set))
-diagnosis_test <- diagnosis_test[order(match(diagnosis_test$library_name, rownames(test_set))), ]# order library_name by rownames of test
-# check that everything is ordered correctly
-all.equal(rownames(test_set), diagnosis_test$library_name)
-diagnosis_test <- diagnosis_test$diagnosis
+# tune ranger -------------------------------------------------------------
 
-# tune rf -----------------------------------------------------------------
+# Make an mlr task with the ibd_train dataset here 
+tmp <- ibd_novalidation
+colnames(tmp) <-  make.names(colnames(tmp))
+ibd_task <- makeClassifTask(data = tmp, target = "diagnosis")
+# Run tuning process
+res <- tuneRanger(ibd_task, num.threads = snakemake@params[['threads']])
 
-# hyperparameter grid search
-hyper_grid <- expand.grid(
-  mtry       = seq(sqrt(ncol(ibd_novalidation_filt))/2, 
-                   sqrt(ncol(ibd_novalidation_filt))*8, 
-                   by = 20),
-  node_size  = c(5, 7, 10),
-  sampe_size = c(.70, .80),
-  OOB_RMSE   = 0
-)
+# write model parameters to a file
+write_tsv(res$recommended.pars, snakemake@output[['recommended_pars']])
 
-for(i in 1:nrow(hyper_grid)) { 
-  # train model
-  model <- ranger(
-    formula         = diagnosis_train ~ ., 
-    data            = train_set, 
-    num.trees       = 10000,
-    mtry            = hyper_grid$mtry[i],
-    min.node.size   = hyper_grid$node_size[i],
-    sample.fraction = hyper_grid$sampe_size[i],
-    seed            = 1
-  )
-  
-  # add OOB error to grid
-  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
-}
+# build optimal model ----------------------------------------------------------
 
-# build optimal rf -------------------------------------------------------
+# extract model parameters and use to build an optimal RF
 
-optimal_ranger <- ranger(
-  formula         = diagnosis_train ~ ., 
-  data            = train_set, 
+# use model parameters to build optimized RF
+ibd_novalidation$diagnosis <- as.factor(ibd_novalidation$diagnosis)
+optimal_rf <- ranger(
+  dependent.variable.name = "diagnosis",
+  mtry            = res$recommended.pars$mtry,
   num.trees       = 10000,
-  mtry            = 960,
-  min.node.size   = 5,
-  sample.fraction = .7,
+  data            = ibd_novalidation,
+  sample.fraction = res$recommended.pars$sample.fraction,
+  min.node.size   = res$recommended.pars$min.node.size,
   seed            = 1,
   importance      = 'impurity'
 )
 
-saveRDS(optimal_ranger, snakemake@output[['optimal_rf']])
+saveRDS(optimal_rf, file = snakemake@output[['optimal_rf']])
 
-pred_test <- predict(optimal_ranger, test_set)
-pred_test_tab <-table(observed = diagnosis_test, predicted = pred_test$predictions)
-write.table(pred_test_tab, snakemake@output[['pred_test']])
-
-pred_train <- predict(optimal_ranger, train_set)
-pred_train_tab <- table(observed = diagnosis_train, predicted = pred_train$predictions)
-write.table(pred_train_tab, snakemake@output[['pred_train']])
+# evaluate the accuracy of the model and generate a confusion matrix
+# training data
+evaluate_model(optimal_ranger = optimal_rf, 
+               data = ibd_novalidation, 
+               reference_class = diagnosis_novalidation, 
+               set = "novalidation", 
+               study_as_validation = snakemake@params[['validation_study']],
+               accuracy_csv = snakemake@output[['training_accuracy']],
+               confusion_pdf = snakemake@output[['training_confusion']])
+# validation data
+evaluate_model(optimal_ranger = optimal_rf, 
+               data = ibd_validation, 
+               reference_class = diagnosis_validation, 
+               set = "validation", 
+               study_as_validation = snakemake@params[['validation_study']],
+               accuracy_csv = snakemake@output[['validation_accuracy']],
+               confusion_pdf = snakemake@output[['validation_confusion']])

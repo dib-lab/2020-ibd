@@ -24,6 +24,8 @@ rule all:
         expand("outputs/vita_rf/{study}_vita_rf.RDS", study = STUDY),
         expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
         expand("outputs/vita_rf/{study}_ibd_filt.csv", study = STUDY),
+        # optimal RF outputs:
+        expand('outputs/optimal_rf/{study}_optimal_rf.RDS', study = STUDY),
         # variable characterization outputs
         expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
@@ -315,11 +317,24 @@ rule vita_var_sel_rf:
     conda: 'rf.yml'
     script: "scripts/vita_rf.R"
 
-#rule loo_validation:
-#    input:
-#    output:
-#    conda: 'rf.yml'
-#    script: "scripts/tune_rf.R"
+rule loo_validation:
+    input: 
+        ibd_filt = 'outputs/vita_rf/{study}_ibd_filt.csv',
+        info = 'inputs/working_metadata.tsv',
+        eval_model = 'scripts/function_evaluate_model.R',
+        ggconfusion = 'scripts/ggplotConfusionMatrix.R'
+    output: 
+        recommended_pars = 'outputs/optimal_rf/{study}_rec_pars.tsv',
+        optimal_rf = 'outputs/optimal_rf/{study}_optimal_rf.RDS',
+        training_accuracy = 'outputs/optimal_rf/{study}_training_acc.csv',
+        training_confusion = 'outputs/optimal_rf/{study}_training_confusion.pdf',
+        validation_accuracy = 'outputs/optimal_rf/{study}_validation_acc.csv',
+        validation_confusion = 'outputs/optimal_rf/{study}_validation_confusion.pdf'
+    params:
+        threads = 20,
+        validation_study = "{study}"
+    conda: 'tuneranger.yml'
+    script: "scripts/tune_rf.R"
 
 
 ############################################
