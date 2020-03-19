@@ -310,7 +310,7 @@ rule vita_var_sel_rf:
         vita_vars = "outputs/vita_rf/{study}_vita_vars.txt",
         ibd_filt = "outputs/vita_rf/{study}_ibd_filt.csv"
     params: 
-        threads = 16,
+        threads = 32,
         validation_study = "{study}"
     conda: 'rf.yml'
     script: "scripts/vita_rf.R"
