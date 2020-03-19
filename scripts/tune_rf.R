@@ -8,10 +8,15 @@ set.seed(1)
 
 ibd_novalidation_filt <- read.csv(snakemake@input[['ibd_novalidation']],
                                   row.names = 1)
-diagosis <- read.table(snakemake@input[['ibd_novalidation_diagnosis']], 
-                       header = T)
-diagnosis <- diagnosis$x
-ibd_novalidation_filt$diagnosis <- diagnosis
+# read in info, which has diagnosis information
+info <- read_tsv(snakemake@input[['info']]) %>%
+  # read in info, which has diagnosis information
+  info <- read_tsv("inputs/working_metadata.tsv") %>%
+  select(library_name, diagnosis) %>% 
+  distinct() %>%
+  mutate(library_name = gsub("-", "\\.", library_name)) %>%
+  filter(library_name %in% rownames(ibd_novalidation_filt))
+
 
 # make test and train -----------------------------------------------------
 
@@ -20,13 +25,25 @@ train <- sample(nrow(ibd_novalidation_filt),
                 replace = FALSE)
 train_set <- ibd_novalidation_filt[train, ]
 test_set <- ibd_novalidation_filt[-train, ]
-diagnosis_train <- diagnosis[train]
-diagnosis_test <- diagnosis[-train]
+
+# generate "diagnosis" vector for each of train_set 
+diagnosis_train <- info %>% filter(library_name %in% rownames(train_set))
+diagnosis_train <- diagnosis_train[order(match(diagnosis_train$library_name, rownames(train_set))), ]# order library_name by rownames of train
+# check that everything is ordered correctly
+all.equal(rownames(train_set), diagnosis_train$library_name)
+diagnosis_train <- diagnosis_train$diagnosis
+
+# generate "diagnosis" vector for each of train_set 
+diagnosis_test <- info %>% filter(library_name %in% rownames(test_set))
+diagnosis_test <- diagnosis_test[order(match(diagnosis_test$library_name, rownames(test_set))), ]# order library_name by rownames of test
+# check that everything is ordered correctly
+all.equal(rownames(test_set), diagnosis_test$library_name)
+diagnosis_test <- diagnosis_test$diagnosis
 
 # tune rf -----------------------------------------------------------------
 
 # hyperparameter grid search
-hyper_grid2 <- expand.grid(
+hyper_grid <- expand.grid(
   mtry       = seq(sqrt(ncol(ibd_novalidation_filt))/2, 
                    sqrt(ncol(ibd_novalidation_filt))*8, 
                    by = 20),
@@ -35,7 +52,7 @@ hyper_grid2 <- expand.grid(
   OOB_RMSE   = 0
 )
 
-for(i in 1:nrow(hyper_grid2)) { 
+for(i in 1:nrow(hyper_grid)) { 
   # train model
   model <- ranger(
     formula         = diagnosis_train ~ ., 
@@ -48,7 +65,7 @@ for(i in 1:nrow(hyper_grid2)) {
   )
   
   # add OOB error to grid
-  hyper_grid2$OOB_RMSE[i] <- sqrt(model$prediction.error)
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
 # build optimal rf -------------------------------------------------------
