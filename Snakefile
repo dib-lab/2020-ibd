@@ -8,28 +8,32 @@ from collections import Counter
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
-
-h = pd.read_csv("inputs/hmp2_mgx_metadata.tsv", sep = "\t", header = 0)
-HMP = h['External.ID'].unique().tolist()
+STUDY = m['study_accession'].unique().tolist()
 
 rule all:
     input:
-        "outputs/comp/all_filt_comp.csv",
-        #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
-        #"outputs/rf_validation/pred_srp057027.txt",
-        #"outputs/rf_validation/pred_srp057027.csv",
-        #"outputs/rf_validation/pred_prjna385949.txt",
-        #"outputs/rf_validation/pred_prjna385949.csv",
-        #"outputs/gather/vita_vars.csv",
+        # sourmash compare outputs:
+        "outputs/comp/all_filt_permanova_cosine.csv",
+        "outputs/comp/all_filt_permanova_jaccard.csv",
+        "outputs/comp/study_plt_all_filt_jaccard.pdf",
+        "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf",
+        "outputs/comp/study_plt_all_filt_cosine.pdf",
+        "outputs/comp/diagnosis_plt_all_filt_cosine.pdf",
+        # variable selection outputs:
+        "outputs/filt_sig_hashes/count_total_hashes.txt",
+        expand("outputs/vita_rf/{study}_vita_rf.RDS", study = STUDY),
+        expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
+        expand("outputs/vita_rf/{study}_ibd_filt.csv", study = STUDY),
+        # variable characterization outputs
+        expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
+        expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
+        expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY)
         #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
-        #expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/results.csv", 
-        #       hmp = HMP, gather_genomes = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_hmp.txt",       
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
 
 ########################################
 ## PREPROCESSING
@@ -210,6 +214,25 @@ rule get_greater_than_1_filt_sigs:
                 print(key, file=f)
 
 
+rule calc_total_hashes_sigs:
+    input: expand("outputs/sigs/{library}.sig", library = LIBRARIES)
+    output: "outputs/filt_sig_hashes/count_total_hashes.txt"
+    run:
+        files = input
+
+        all_mins = []
+        for file in files:
+            if os.path.getsize(file) > 0:
+                sigfp = open(file, 'rt')
+                siglist = list(signature.load_signatures(sigfp))
+                loaded_sig = siglist[1]
+                mins = loaded_sig.minhash.get_mins() # Get the minhashes
+                all_mins += mins
+
+        with open(str(output), "w") as f:
+            print(len(all_mins), file=f)
+
+
 rule convert_greater_than_1_hashes_to_sig:
     input: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
     output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
@@ -225,7 +248,7 @@ rule filter_signatures_to_greater_than_1_hashes:
     output: "outputs/filt_sigs/{library}_filt.sig"
     conda: 'sourmash.yml'
     shell:'''
-    sourmash signature intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
+    sourmash sig intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
     '''
 
 rule name_filtered_sigs:
@@ -233,7 +256,7 @@ rule name_filtered_sigs:
     output: "outputs/filt_sigs_named/{library}_filt_named.sig"
     conda: 'sourmash.yml'
     shell:'''
-    sourmash signature rename -o {output} -k 31 {input} {wildcards.library}_filt
+    sourmash sig rename -o {output} -k 31 {input} {wildcards.library}_filt
     '''
 
 rule convert_greater_than_1_signatures_to_csv:
@@ -283,115 +306,29 @@ rule vita_var_sel_rf:
         feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
         pomona = "outputs/vita_rf/pomona_install.txt"
     output:
-        vita_rf = "outputs/vita_rf/vita_rf.RDS",
-        vita_vars = "outputs/vita_rf/vita_vars.txt",
-        ibd_novalidation = "outputs/vita_rf/ibd_novalidation_filt.csv",
-        ibd_novalidation_diagnosis = "outputs/vita_rf/bd_novalidation_filt_diagnosis.txt",
-        ibd_validation = "outputs/vita_rf/ibd_validation_filt.csv"
+        vita_rf = "outputs/vita_rf/{study}_vita_rf.RDS",
+        vita_vars = "outputs/vita_rf/{study}_vita_vars.txt",
+        ibd_filt = "outputs/vita_rf/{study}_ibd_filt.csv"
+    params: 
+        threads = 32,
+        validation_study = "{study}"
     conda: 'rf.yml'
     script: "scripts/vita_rf.R"
 
-rule tune_rf:
-    input:
-        ibd_novalidation = "outputs/vita_rf/ibd_novalidation_filt.csv",
-        ibd_novalidation_diagnosis = "outputs/vita_rf/bd_novalidation_filt_diagnosis.txt" 
-    output:
-        optimal_rf = "outputs/optimal_rf/optimal_ranger.RDS",
-        pred_test = "outputs/optimal_rf/pred_test_tab.txt",
-        pred_train = "outputs/optimal_rf/pred_train_tab.txt"
-    conda: 'rf.yml'
-    script: "scripts/tune_rf.R"
+#rule loo_validation:
+#    input:
+#    output:
+#    conda: 'rf.yml'
+#    script: "scripts/tune_rf.R"
 
-rule validate_rf:
-    input:
-        optimal_rf = "outputs/optimal_rf/optimal_ranger.RDS",
-        ibd_validation = "outputs/vita_rf/ibd_validation_filt.csv",
-        info = "inputs/working_metadata.tsv" 
-    output:
-        pred_srp = "outputs/rf_validation/pred_srp057027.txt",
-        pred_srp_df = "outputs/rf_validation/pred_srp057027.csv",
-        pred_prjna = "outputs/rf_validation/pred_prjna385949.txt",
-        pred_prjna_df = "outputs/rf_validation/pred_prjna385949.csv"
-    conda: "rf.yml"
-    script: "scripts/validate_rf.R"
-
-########################################
-## HMP Validation
-########################################
- 
-rule compute_signatures_hmp:
-    """
-    5 datasets other than hmp are preprocessed using the above model.
-    A subset of these are used to train the random forest classifier
-    below. However, the hmp is a validation set. We can use the hmp
-    to test whether our model is applicable to new datasets 
-    regardless of preprocessing pipeline.
-
-    Here, we calculate signatures to contain only the greater-than
-    one hashes so that they can be included in the PCoA analysis
-    below. Later, we will filter these signatures to hashes
-    from random forests vita variable selection to apply to 
-    optimal random forest classifier to the hmp.
-    """
-    input:
-        r1='inputs/hmp/{sample}_R1.fastq.gz',
-        r2='inputs/hmp/{sample}_R2.fastq.gz'
-    output: 'outputs/sigs_hmp/{hmp}.scaled2k.sig'
-    conda: 'sourmash.yml'
-    shell:'''
-    sourmash compute -o {output} --merge {wildcards.sample}_mgx --scaled 2000 -k 21,31,51 --track-abundance {input.r1} {input.r2} 
-    '''
-
-rule filter_signatures_to_greater_than_1_hashes_hmp:
-    input:
-        filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig",
-        sigs = "outputs/sigs_hmp/{hmp}.sig"
-    output: "outputs/filt_sigs_hmp/{hmp}_filt.sig"
-    conda: 'sourmash.yml'
-    shell:'''
-    sourmash signature intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
-    '''
-
-rule name_filtered_sigs_hmp:
-    input: "outputs/filt_sigs_hmp/{hmp}_filt.sig"
-    output: "outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig"
-    conda: 'sourmash.yml'
-    shell:'''
-    sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt    '''
-
-rule convert_greater_than_1_signatures_to_csv_hmp:
-    input: "outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig"
-    output: "outputs/filt_sigs_named_csv_hmp/{hmp}_filt_named.csv"
-    conda: 'sourmash.yml'
-    shell:'''
-    python scripts/sig_to_csv.py {input} {output}
-    '''
-
-rule filter_signatures_to_vita_hashes_hmp:
-    input:
-        filt_sig = "outputs/filt_sig_hashes/vita_hashes.sig",
-        sigs = "outputs/sigs_hmp/{hmp}.sig"
-    output: "outputs/filt_sigs_vita_hmp/{hmp}_filt_vita.sig"
-    conda: 'sourmash.yml'
-    shell:'''
-    sourmash signature intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
-    '''
-
-rule name_vita_filtered_sigs:
-    input: "outputs/filt_sigs_vita_hmp/{hmp}_filt_vita.sig"
-    output: "outputs/filt_sigs_vita_named_hmp/{hmp}_filt_vita_named.sig"
-    conda: "sourmash.yml"
-    shell:'''
-    sourmash signature rename -o {output} -k 31 {input} {wildcards.hmp}_filt_vita
-    '''
 
 ############################################
 ## Predictive hash characterization - gather
 ############################################
 
 rule convert_vita_vars_to_sig:
-    input: "outputs/vita_rf/vita_vars.txt"
-    output: "outputs/vita_rf/vita_vars.sig"
+    input: "outputs/vita_rf/{study}_vita_vars.txt"
+    output: "outputs/vita_rf/{study}_vita_vars.sig"
     conda: "sourmash.yml"
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
@@ -453,56 +390,100 @@ rule untar_genbank:
     tar xf {input} -C {params.outdir}
     '''
 
-rule gather_vita_vars:
+rule download_gather_refseq:
+    output: "inputs/gather_databases/refseq-d2-k31.tar.gz"
+    shell:'''
+    wget -O {output} https://s3-us-west-2.amazonaws.com/sourmash-databases/2018-03-29/refseq-d2-k31.tar.gz
+    '''
+
+rule untar_refseq:
+    output: "inputs/gather_databases/refseq-d2-k31.sbt.json"
+    input:  "inputs/gather_databases/refseq-d2-k31.tar.gz"
+    params: outdir = "inputs/gather_databases"
+    shell: '''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule gather_vita_vars_all:
     input:
-        sig="outputs/vita_rf/vita_vars.sig",
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
         db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
         db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
         db3="inputs/gather_databases/nayfach-k31.sbt.json",
         db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
     output: 
-        csv="outputs/gather/vita_vars.csv",
-        matches="outputs/gather/vita_vars.matches",
-        un="outputs/gather/vita_vars.un"
+        csv="outputs/gather/{study}_vita_vars_all.csv",
+        matches="outputs/gather/{study}_vita_vars_all.matches",
+        un="outputs/gather/{study}_vita_vars_all.un"
     conda: 'sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db4} {input.db3} {input.db2}
     '''
 
-rule download_gather_match_genomes:
-    output: "outputs/gather/gather_genomes.tar.gz"
+rule gather_vita_vars_genbank:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db="inputs/gather_databases/genbank-d2-k31.sbt.json",
+    output: 
+        csv="outputs/gather/{study}_vita_vars_genbank.csv",
+        matches="outputs/gather/{study}_vita_vars_genbank.matches",
+        un="outputs/gather/{study}_vita_vars_genbank.un"
+    conda: 'sourmash.yml'
     shell:'''
-    wget -O {output} https://osf.io/ungza/download
+    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
-rule untar_gather_match_genomes:
-    output:  directory("outputs/gather_genomes/")
-    input:"outputs/gather/gather_genomes.tar.gz"
-    params: outdir = "outputs/gather_genomes"
+rule gather_vita_vars_refseq:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db="inputs/gather_databases/refseq-d2-k31.sbt.json",
+    output: 
+        csv="outputs/gather/{study}_vita_vars_refseq.csv",
+        matches="outputs/gather/{study}_vita_vars_refseq.matches",
+        un="outputs/gather/{study}_vita_vars_refseq.un"
+    conda: 'sourmash.yml'
     shell:'''
-    mkdir -p {params.outdir}
-    tar xf {input} -C {params.outdir}
+    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
-rule gtdbtk_gather_matches:
-    """
-    this rule require the gtdbtk databases. The tool finds the database by 
-    using a path specified in a file in the environment. I predownloaded the 
-    databases and placed them in the required location.
-    The path is in this file:
-    .snakemake/conda/9de8946b/etc/conda/activate.d/gtdbtk.sh
-    """
-    input: directory("outputs/gather_genomes/")
-    #input: aggregate_decompress_gather_matches
-    output: "outputs/gtdbtk/gtdbtk.bac120.summary.tsv"
-    params:  outdir = "outputs/gtdbtk"
-    conda: "gtdbtk.yml"
-    shell:'''
-    gtdbtk classify_wf --genome_dir {input} --out_dir {params.outdir} --cpus 8 
-    '''
+
+# THESE GENOMES WILL NEED TO BE UPDATED WITH THE NEW OUTPUT
+# FROM VARIABLE SELECTION
+#rule download_gather_match_genomes:
+#    output: "outputs/gather/gather_genomes.tar.gz"
+#    shell:'''
+#    wget -O {output} https://osf.io/ungza/download
+#    '''
+
+#rule untar_gather_match_genomes:
+#    output:  directory("outputs/gather_genomes/")
+#    input:"outputs/gather/gather_genomes.tar.gz"
+#    params: outdir = "outputs/gather_genomes"
+#    shell:'''
+#    mkdir -p {params.outdir}
+#    tar xf {input} -C {params.outdir}
+#    '''
+
+# THIS RULE SHOULD BE REPLACED WITH SOURMASH LCA CLASSIFY
+#rule gtdbtk_gather_matches:
+#    """
+#    this rule require the gtdbtk databases. The tool finds the database by 
+#    using a path specified in a file in the environment. I predownloaded the 
+#    databases and placed them in the required location.
+#    The path is in this file:
+#    .snakemake/conda/9de8946b/etc/conda/activate.d/gtdbtk.sh
+#    """
+#    input: directory("outputs/gather_genomes/")
+#    #input: aggregate_decompress_gather_matches
+#    output: "outputs/gtdbtk/gtdbtk.bac120.summary.tsv"
+#    params:  outdir = "outputs/gtdbtk"
+#    conda: "gtdbtk.yml"
+#    shell:'''
+#    gtdbtk classify_wf --genome_dir {input} --out_dir {params.outdir} --cpus 8 
+#    '''
 
 #############################################
-# Spacegraphcats Genome Queries -- Libraries
+# Spacegraphcats Genome Queries
 #############################################
 
 checkpoint spacegraphcats_gather_matches:
@@ -606,86 +587,6 @@ rule paladin_align_plass:
     paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
     '''
 
-#############################################
-# Spacegraphcats Genome Queries -- HMP
-#############################################
-
-checkpoint spacegraphcats_gather_matches_hmp:
-    input: 
-        query = directory("outputs/gather_genomes/"),
-        conf = expand("inputs/sgc_conf/{hmp}_r1_conf.yml", hmp = HMP),
-        r1 = expand("inputs/hmp/{hmp}_R1.fastq.gz", hmp = HMP),
-        r2 = expand("inputs/hmp/{hmp}_R2.fastq.gz", hmp = HMP)
-    output: 
-        directory(expand("outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/", hmp = HMP))
-    params: outdir = "outputs/sgc_genome_queries_hmp"
-    conda: "spacegraphcats.yml"
-    shell:'''
-    python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}
-    '''
-
-rule calc_sig_nbhd_reads_hmp:
-    input: "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_sigs_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.sig"
-    conda: "sourmash.yml"
-    shell:'''
-    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.hmp}_{wildcards.gather_genome_hmp} {input}
-    '''
-
-def aggregate_spacegraphcats_gather_matches_hmp(wildcards):
-    checkpoint_output = checkpoints.spacegraphcats_gather_matches_hmp.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_read_sigs_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.sig",
-                        hmp = HMP, 
-                        gather_genome_hmp = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz")).gather_genome_hmp)
-    # file_names will return all 129 queries.
-    # because this takes a long time, we will subset the file names returned
-    # to the 4 nbhds that account for the largest number of predictive hashes.
-    bacteroides = [f for f in file_names if "SRS476121_69" in f]
-    faecalibacterium =  [f for f in file_names if "SRS147022_17" in f]
-    rtorques =  [f for f in file_names if "GCA_001406235.1_14207_7_41_genomic" in f]
-    fplautii =  [f for f in file_names if "GCA_001405435.1_14207_7_29_genomic" in f]
-    select_file_names = bacteroides + faecalibacterium + rtorques + fplautii
-    return select_file_names
-
-
-rule aggregate_signatures_hmp:
-    input: aggregate_spacegraphcats_gather_matches_hmp
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_hmp.txt"
-    shell:'''
-    touch {output}
-    '''
-
-rule plass_nbhd_reads_hmp:
-    input: "outputs/sgc_genome_queries_hmp/{hmp}_k31_r1_search_oh0/{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_plass_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.faa"
-    conda: "plass.yml"
-    shell:'''
-    plass assemble {input} {output} tmp
-    '''
-
-rule cdhit_plass_hmp:
-    input: "outputs/nbhd_read_plass_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.faa"
-    output: "outputs/nbhd_read_cdhit_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "plass.yml"
-    shell:'''
-    cd-hit -i {input} -o {output} -c 1
-    '''
-
-def aggregate_spacegraphcats_gather_matches_plass_hmp(wildcards):
-    checkpoint_output = checkpoints.spacegraphcats_gather_matches_hmp.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_read_cdhit_hmp/{hmp}/{gather_genome_hmp}.cdbg_ids.reads.plass.cdhit.faa",
-                        hmp = HMP, 
-                        gather_genome_hmp = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_hmp}.fna.cdbg_ids.reads.fa.gz")).gather_genome_hmp)
-    return file_names
-
-
-rule aggregate_spacegraphcats_gather_matches_plass_hmp:
-    input: aggregate_spacegraphcats_gather_matches_plass_hmp
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_hmp.txt"
-    shell:'''
-    touch {output}
-    '''
-
 ########################################
 ## PCoA
 ########################################
@@ -693,8 +594,7 @@ rule aggregate_spacegraphcats_gather_matches_plass_hmp:
 rule compare_signatures_cosine:
     input: 
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
-        expand("outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig", hmp = HMP)
-    output: "outputs/comp/all_filt_comp.csv"
+    output: "outputs/comp/all_filt_comp_cosine.csv"
     conda: "sourmash.yml"
     shell:'''
     sourmash compare -k 31 -p 8 --csv {output} {input}
@@ -703,61 +603,69 @@ rule compare_signatures_cosine:
 rule compare_signatures_jaccard:
     input: 
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
-        expand("outputs/filt_sigs_named_hmp/{hmp}_filt_named.sig", hmp = HMP)
     output: "outputs/comp/all_filt_comp_jaccard.csv"
     conda: "sourmash.yml"
     shell:'''
     sourmash compare --ignore-abundance -k 31 -p 8 --csv {output} {input}
     '''
 
-#rule permanova:
+rule permanova_jaccard:
+    input: 
+        comp = "outputs/comp/all_filt_comp_jaccard.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        perm = "outputs/comp/all_filt_permanova_jaccard.csv"
+    conda: "vegan.yml"
+    script: "scripts/run_permanova.R"
 
-#rule plot_comp:
+rule permanova_cosine:
+    input: 
+        comp = "outputs/comp/all_filt_comp_cosine.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        perm = "outputs/comp/all_filt_permanova_cosine.csv"
+    conda: "vegan.yml"
+    script: "scripts/run_permanova.R"
+
+rule plot_comp_jaccard:
+    input:
+        comp = "outputs/comp/all_filt_comp_jaccard.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        study = "outputs/comp/study_plt_all_filt_jaccard.pdf",
+        diagnosis = "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf"
+    conda: "ggplot.yml"
+    script: "scripts/plot_comp.R"
+
+rule plot_comp_cosine:
+    input:
+        comp = "outputs/comp/all_filt_comp_cosine.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        study = "outputs/comp/study_plt_all_filt_cosine.pdf",
+        diagnosis = "outputs/comp/diagnosis_plt_all_filt_cosine.pdf"
+    conda: "ggplot.yml"
+    script: "scripts/plot_comp.R"
 
 ########################################
 ## Differential abundance
 ########################################
 
-rule hash_table_long_unnormalized_hmp:
+rule hash_table_long_unnormalized:
     """
     Unlike the hashtable that is input into the random forest analysis, this
     hash table is not normalized by number of hashes in the filtered signature. 
     Differential expression software that we will be using to calculate 
     differential abundance expects unnormalized counts.
     """
-    input: 
-        expand("outputs/filt_sigs_named_csv_hmp/{hmp}_filt_named.csv", hmp = HMP)
-    output: csv = "outputs/hash_tables/hmp_unnormalized_abund_hashes_long.csv"
-    conda: 'r.yml'
-    script: "scripts/all_unnormalized_hash_abund_long.R"
-        
-rule hash_table_wide_unnormalized_hmp:
-    input: "outputs/hash_tables/hmp_unnormalized_abund_hashes_long.csv"
-    output: "outputs/hash_tables/hmp_unnormalized_abund_hashes_wide.feather"
-    run:
-        import pandas as pd
-        import feather
-
-        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
-        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
-        ibd_wide = ibd_wide.fillna(0)
-        ibd_wide['sample'] = ibd_wide.index
-        ibd_wide = ibd_wide.reset_index(drop=True)
-        ibd_wide.columns = ibd_wide.columns.astype(str)
-        ibd_wide.to_feather(str(output)) 
-
-rule hash_table_long_unnormalized_libs:
-    """
-    see description in rule hash_table_long_unnormalized_hmp.
-    """
     input: expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
-    output: csv = "outputs/hash_tables/libs_unnormalized_abund_hashes_long.csv"
+    output: csv = "outputs/hash_tables/unnormalized_abund_hashes_long.csv"
     conda: 'r.yml'
     script: "scripts/all_unnormalized_hash_abund_long.R"
 
-rule hash_table_wide_unnormalized_libs:
-    input: "outputs/hash_tables/libs_unnormalized_abund_hashes_long.csv"
-    output: "outputs/hash_tables/libs_unnormalized_abund_hashes_wide.feather"
+rule hash_table_wide_unnormalized:
+    input: "outputs/hash_tables/unnormalized_abund_hashes_long.csv"
+    output: "outputs/hash_tables/unnormalized_abund_hashes_wide.feather"
     run:
         import pandas as pd
         import feather
