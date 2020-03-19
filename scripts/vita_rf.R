@@ -6,12 +6,11 @@ library(Pomona)
 
 set.seed(1)
 
-# perform variable selection within random forests on ibd minhashes (k 31, 
+# perform variable selection within random forests on minhashes (k 31,
 # scaled 2000, with hashes that were present only once across all samples
-# removed). Uses the Pomona package vita implementation, which wraps the ranger 
-# package. Saves output as RDS for faster loading of output objects into 
-# subsequent R sessions. 
-
+# removed). Uses the Pomona package vita implementation, which wraps the ranger
+# package. Saves output as RDS for faster loading of output objects into
+# subsequent R sessions.
 
 ## read in data ------------------------------------------------------------
 
@@ -19,49 +18,45 @@ set.seed(1)
 
 ibd <- read_feather(snakemake@input[['feather']]) # read in hash abund table
 ibd <- as.data.frame(ibd)                         # transform to dataframe
+ibd$sample <- gsub("_filt_named\\.sig", "", ibd$sample)
 rownames(ibd) <- ibd$sample                       # set sample as rownames
 ibd <- ibd[ , -ncol(ibd)]                         # remove the samples column
 
 ## read in study metadata
-info <- read_tsv(snakemake@input[['info']]) %>% 
+## collapse duplicate libraries so each sample only has one row
+info <- read_tsv(snakemake@input[['info']]) %>%
   select(study_accession, library_name, diagnosis) %>%
   mutate(library_name = gsub("\\-", "\\.", library_name)) %>%
   filter(library_name %in% rownames(ibd)) %>%
   distinct()
 
-## set validation cohorts (e.g. rm time series from training and testing)
-info_validation <- info %>% 
-  filter(study_accession %in% c("SRP057027", "PRJNA385949"))
+## set validation cohort and remove it from variable selection
+# info_validation <- info %>%
+#   filter(study_accession == snakemake@params[["validation_study"]]) %>%
+#   mutate(library_name = gsub("-", "\\.", library_name))
+# ibd_validation <- ibd[rownames(ibd) %in% info_validation$library_name, ]
 
-info_novalidation <- info %>% 
-  filter(!study_accession %in% c("SRP057027", "PRJNA385949"))
-
-## remove validation from ibd
+## remove validation cohort from variable selection
+info_novalidation <- info %>%
+  filter(study_accession != snakemake@params[["validation_study"]]) %>%
+  mutate(library_name = gsub("-", "\\.", library_name))
 ibd_novalidation <- ibd[rownames(ibd) %in% info_novalidation$library_name, ]
 
 ## make classification vector
-## match order of classification to ibd
+## match order of to ibd
 info_novalidation <- info_novalidation[match(rownames(ibd_novalidation), info_novalidation$library_name), ]
 ## make diagnosis var
-diagnosis <- info_novalidation$diagnosis 
-
-## split to test and train
-train <- sample(nrow(ibd_novalidation), 0.7*nrow(ibd_novalidation), replace = FALSE)
-train_set <- ibd_novalidation[train, ]
-test_set <- ibd_novalidation[-train, ]
-
-diagnosis_train <- diagnosis[train]
-diagnosis_test <- diagnosis[-train]
+diagnosis_novalidation <- info_novalidation$diagnosis
 
 # run vita ----------------------------------------------------------------
 
 ## perform variant selection
-## var.sel.vita calculates p-values based on the empirical null distribution 
-## from non-positive VIMs as described in Janitza et al. (2015). 
-ibd_vita <- var.sel.vita(x = train_set, y = diagnosis_train, p.t = 0.05, 
-                         ntree = 5000, mtry.prop = 0.2, nodesize.prop = 0.1, 
-                         no.threads = 10, method = "ranger", 
-                         type = "classification")
+## var.sel.vita calculates p-values based on the empirical null distribution
+## from non-positive VIMs as described in Janitza et al. (2015).
+ibd_vita <- var.sel.vita(x = ibd_novalidation, y = diagnosis_novalidation, p.t = 0.05,
+                        ntree = 10000, mtry.prop = 0.2, nodesize.prop = 0.1,
+                        no.threads = snakemake@params[["threads"]], 
+                        method = "ranger", type = "classification")
 saveRDS(ibd_vita, snakemake@output[["vita_rf"]])
 
 # write files -------------------------------------------------------------
@@ -69,17 +64,9 @@ saveRDS(ibd_vita, snakemake@output[["vita_rf"]])
 ## write predictive hashes
 var <- ibd_vita$var                 # separate out selected predictive hashes
 var <- gsub("X", "", var)           # remove the X from the beginning of hashes
-write.table(var, snakemake@output[['vita_vars']], 
+write.table(var, snakemake@output[['vita_vars']],
             quote = F, col.names = F, row.names = F)
 
-## filter to predictive hashes and write training/testing set (novalidation) to files
-ibd_filt <- ibd_novalidation[ , colnames(ibd_novalidation) %in% var] # subset ibd to hashes in ibd_vita
-write.csv(ibd_filt, snakemake@output[['ibd_novalidation']], quote = F)
-write.table(diagnosis, snakemake@output[['ibd_novalidation_diagnosis']], 
-            row.names = F, quote = F)
-
-## filter to predictive hashes and write validation set to files
-ibd_validation <- ibd[rownames(ibd) %in% info_validation$library_name, ]
-ibd_validation_filt <- ibd_validation[ , colnames(ibd_validation) %in% var] # subset ibd to hashes in ibd_vita
-write.csv(ibd_validation_filt, snakemake@output[['ibd_validation']], quote = F)
-
+## filter to predictive hashes and write to fie
+ibd_filt <- ibd[ , colnames(ibd) %in% var] # subset ibd to hashes in ibd_vita
+write.csv(ibd_filt, snakemake@output[['ibd_filt']], quote = F)

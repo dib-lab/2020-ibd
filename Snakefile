@@ -8,17 +8,32 @@ from collections import Counter
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
+STUDY = m['study_accession'].unique().tolist()
 
 rule all:
     input:
-        "outputs/comp/all_filt_comp.csv",
-        #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
-        #"outputs/gather/vita_vars.csv",
+        # sourmash compare outputs:
+        "outputs/comp/all_filt_permanova_cosine.csv",
+        "outputs/comp/all_filt_permanova_jaccard.csv",
+        "outputs/comp/study_plt_all_filt_jaccard.pdf",
+        "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf",
+        "outputs/comp/study_plt_all_filt_cosine.pdf",
+        "outputs/comp/diagnosis_plt_all_filt_cosine.pdf",
+        # variable selection outputs:
+        "outputs/filt_sig_hashes/count_total_hashes.txt",
+        expand("outputs/vita_rf/{study}_vita_rf.RDS", study = STUDY),
+        expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
+        expand("outputs/vita_rf/{study}_ibd_filt.csv", study = STUDY),
+        # variable characterization outputs
+        expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
+        expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
+        expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY)
         #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
 
 ########################################
 ## PREPROCESSING
@@ -199,6 +214,25 @@ rule get_greater_than_1_filt_sigs:
                 print(key, file=f)
 
 
+rule calc_total_hashes_sigs:
+    input: expand("outputs/sigs/{library}.sig", library = LIBRARIES)
+    output: "outputs/filt_sig_hashes/count_total_hashes.txt"
+    run:
+        files = input
+
+        all_mins = []
+        for file in files:
+            if os.path.getsize(file) > 0:
+                sigfp = open(file, 'rt')
+                siglist = list(signature.load_signatures(sigfp))
+                loaded_sig = siglist[1]
+                mins = loaded_sig.minhash.get_mins() # Get the minhashes
+                all_mins += mins
+
+        with open(str(output), "w") as f:
+            print(len(all_mins), file=f)
+
+
 rule convert_greater_than_1_hashes_to_sig:
     input: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
     output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
@@ -272,9 +306,12 @@ rule vita_var_sel_rf:
         feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
         pomona = "outputs/vita_rf/pomona_install.txt"
     output:
-        vita_rf = "outputs/vita_rf/vita_rf.RDS",
-        vita_vars = "outputs/vita_rf/vita_vars.txt",
-        ibd_filt = "outputs/vita_rf/ibd_filt.csv",
+        vita_rf = "outputs/vita_rf/{study}_vita_rf.RDS",
+        vita_vars = "outputs/vita_rf/{study}_vita_vars.txt",
+        ibd_filt = "outputs/vita_rf/{study}_ibd_filt.csv"
+    params: 
+        threads = 32,
+        validation_study = "{study}"
     conda: 'rf.yml'
     script: "scripts/vita_rf.R"
 
@@ -290,8 +327,8 @@ rule vita_var_sel_rf:
 ############################################
 
 rule convert_vita_vars_to_sig:
-    input: "outputs/vita_rf/vita_vars.txt"
-    output: "outputs/vita_rf/vita_vars.sig"
+    input: "outputs/vita_rf/{study}_vita_vars.txt"
+    output: "outputs/vita_rf/{study}_vita_vars.sig"
     conda: "sourmash.yml"
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
@@ -353,21 +390,62 @@ rule untar_genbank:
     tar xf {input} -C {params.outdir}
     '''
 
-rule gather_vita_vars:
+rule download_gather_refseq:
+    output: "inputs/gather_databases/refseq-d2-k31.tar.gz"
+    shell:'''
+    wget -O {output} https://s3-us-west-2.amazonaws.com/sourmash-databases/2018-03-29/refseq-d2-k31.tar.gz
+    '''
+
+rule untar_refseq:
+    output: "inputs/gather_databases/refseq-d2-k31.sbt.json"
+    input:  "inputs/gather_databases/refseq-d2-k31.tar.gz"
+    params: outdir = "inputs/gather_databases"
+    shell: '''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule gather_vita_vars_all:
     input:
-        sig="outputs/vita_rf/vita_vars.sig",
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
         db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
         db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
         db3="inputs/gather_databases/nayfach-k31.sbt.json",
         db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
     output: 
-        csv="outputs/gather/vita_vars.csv",
-        matches="outputs/gather/vita_vars.matches",
-        un="outputs/gather/vita_vars.un"
+        csv="outputs/gather/{study}_vita_vars_all.csv",
+        matches="outputs/gather/{study}_vita_vars_all.matches",
+        un="outputs/gather/{study}_vita_vars_all.un"
     conda: 'sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db4} {input.db3} {input.db2}
     '''
+
+rule gather_vita_vars_genbank:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db="inputs/gather_databases/genbank-d2-k31.sbt.json",
+    output: 
+        csv="outputs/gather/{study}_vita_vars_genbank.csv",
+        matches="outputs/gather/{study}_vita_vars_genbank.matches",
+        un="outputs/gather/{study}_vita_vars_genbank.un"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    '''
+
+rule gather_vita_vars_refseq:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db="inputs/gather_databases/refseq-d2-k31.sbt.json",
+    output: 
+        csv="outputs/gather/{study}_vita_vars_refseq.csv",
+        matches="outputs/gather/{study}_vita_vars_refseq.matches",
+        un="outputs/gather/{study}_vita_vars_refseq.un"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    '''
+
 
 # THESE GENOMES WILL NEED TO BE UPDATED WITH THE NEW OUTPUT
 # FROM VARIABLE SELECTION
@@ -531,9 +609,43 @@ rule compare_signatures_jaccard:
     sourmash compare --ignore-abundance -k 31 -p 8 --csv {output} {input}
     '''
 
-#rule permanova:
+rule permanova_jaccard:
+    input: 
+        comp = "outputs/comp/all_filt_comp_jaccard.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        perm = "outputs/comp/all_filt_permanova_jaccard.csv"
+    conda: "vegan.yml"
+    script: "scripts/run_permanova.R"
 
-#rule plot_comp:
+rule permanova_cosine:
+    input: 
+        comp = "outputs/comp/all_filt_comp_cosine.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        perm = "outputs/comp/all_filt_permanova_cosine.csv"
+    conda: "vegan.yml"
+    script: "scripts/run_permanova.R"
+
+rule plot_comp_jaccard:
+    input:
+        comp = "outputs/comp/all_filt_comp_jaccard.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        study = "outputs/comp/study_plt_all_filt_jaccard.pdf",
+        diagnosis = "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf"
+    conda: "ggplot.yml"
+    script: "scripts/plot_comp.R"
+
+rule plot_comp_cosine:
+    input:
+        comp = "outputs/comp/all_filt_comp_cosine.csv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        study = "outputs/comp/study_plt_all_filt_cosine.pdf",
+        diagnosis = "outputs/comp/diagnosis_plt_all_filt_cosine.pdf"
+    conda: "ggplot.yml"
+    script: "scripts/plot_comp.R"
 
 ########################################
 ## Differential abundance
