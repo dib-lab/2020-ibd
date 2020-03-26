@@ -12,3 +12,4 @@ dependencies:
    - r-caret=6.0_85
    - r-mlr=2.17.0
    - r-tuneranger=0.5 
+   - r-e1071=1.7_3 

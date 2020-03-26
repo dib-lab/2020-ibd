@@ -1,4 +1,4 @@
-te_model <- function(optimal_ranger, data, reference_class, set = "train", 
+evaluate_model <- function(optimal_ranger, data, reference_class, set = "train", 
                            study_as_validation = "iHMP", accuracy_csv = NULL,
                            confusion_pdf = NULL) {
   library(ranger)
