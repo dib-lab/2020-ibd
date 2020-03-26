@@ -29,7 +29,9 @@ rule all:
         # variable characterization outputs
         expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
-        expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY)
+        expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
+        #directory("outputs/gather_matches/")
+        "outputs/gather_matches/hash_to_genome_map_gather_all.csv"
         #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
@@ -221,15 +223,14 @@ rule calc_total_hashes_sigs:
     output: "outputs/filt_sig_hashes/count_total_hashes.txt"
     run:
         files = input
-
-        all_mins = []
+        all_mins = set()
         for file in files:
             if os.path.getsize(file) > 0:
                 sigfp = open(file, 'rt')
                 siglist = list(signature.load_signatures(sigfp))
                 loaded_sig = siglist[1]
                 mins = loaded_sig.minhash.get_mins() # Get the minhashes
-                all_mins += mins
+                all_mins.update(mins)
 
         with open(str(output), "w") as f:
             print(len(all_mins), file=f)
@@ -460,6 +461,151 @@ rule gather_vita_vars_refseq:
     shell:'''
     sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
+
+rule merge_vita_vars_sig_all:
+    input: expand("outputs/vita_rf/{study}_vita_vars.sig", study = STUDY)
+    output: "outputs/vita_rf/vita_vars_merged.sig"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash sig merge -o {output} {input}
+    '''
+
+rule combine_gather_vita_vars_all:
+    output: "outputs/gather_matches/vita_vars_all.csv"
+    input: expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY)
+    run:
+        import pandas as pd
+        
+        li = []
+        for filename in input:
+            df = pd.read_csv(str(filename), index_col=None, header=0)
+            df["study"] = str(filename)
+            li.append(df)
+
+        frame = pd.concat(li, axis=0, ignore_index=True)
+        frame.to_csv(str(output))
+
+
+checkpoint collect_gather_vita_vars_all_sig_matches:
+    input:
+        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db3="inputs/gather_databases/nayfach-k31.sbt.json",
+        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json",
+        csv="outputs/gather/vita_vars_all.csv"
+    output:
+        directory("outputs/gather_matches/")
+    run:
+        from sourmash import signature
+        import pandas as pd
+
+        # load gather results
+        df = pd.read_csv(input[4])
+
+        # for each row, determine which database the result came from
+        for index, row in df.iterrows():
+            if row["filename"] == "inputs/gather_databases/almeida-mags-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.almeida-mags-k31/" + row["md5"]
+            elif row["filename"] == "inputs/gather_databases/genbank-d2-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.genbank-d2-k31/" + row["md5"]
+            elif row["filename"] == "inputs/gather_databases/nayfach-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.nayfach-k31/" + row["md5"]
+            elif row["filename"] == "inputs/gather_databases/pasolli-mags-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.pasolli-mags-k31/" + row["md5"]
+            # open the signature, parse its name, and write the signature out to a new
+            # folder
+            sigfp = open(sigfp, 'rt')
+            sig = signature.load_one_signature(sigfp)
+            out_sig = str(sig.name())
+            out_sig = out_sig.split('/')[-1]
+            out_sig = "outputs/gather_matches/" + out_sig + ".sig"
+            with open(out_sig, 'wt') as fp:
+                signature.save_signatures([sig], fp)      
+
+
+def aggregate_collect_gather_vita_vars_all_sig_matches(wildcards):
+    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output  
+    file_names = expand("outputs/gather_matches/{genome}.sig", 
+                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
+    return file_names
+    
+#rule finished_collect_gather_vita_vars_all_sig_matches:
+#    input: aggregate_collect_gather_vita_vars_all_sig_matches
+#    output: "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches.txt"
+#    shell:'''
+#    touch {output}
+#    '''
+
+rule create_hash_genome_map_gather_vita_vars_all:
+    input:
+        #genomes = "outputs/gather_matches/{genome}.sig",
+        genomes = aggregate_collect_gather_vita_vars_all_sig_matches,
+        vita_vars = "outputs/vita_rf/vita_vars_merged.sig"
+    output: "outputs/gather_matches/hash_to_genome_map_gather_all.csv"
+    run:
+        from sourmash import signature
+        import pandas as pd
+        
+        print(input)
+        print(type(input))
+        sigs = input[0]
+        print(sigs)
+        # read in all genome signatures that had gather 
+        # matches for the var imp hashes create a dictionary, 
+        # where the key is the genome and the values are the minhashes
+        genome_dict = {}
+        for sig in sigs:
+            print(sig)
+            sigfp = open(sig, 'rt')
+            siglist = list(signature.load_signatures(sigfp))
+            loaded_sig = siglist[0] 
+            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+            genome_dict[sig] = mins
+
+        # read in vita variables
+        sigfp = open(str(input[1]), 'rt')
+        vita_vars = sig = signature.load_one_signature(sigfp)
+        vita_vars = vita_vars.minhash.get_mins() 
+
+        # generate a list of all minhashes from all genomes
+        all_mins = []
+        for file in sigs:
+            if os.path.getsize(file) > 0:
+                sigfp = open(file, 'rt')
+                siglist = list(signature.load_signatures(sigfp))
+                loaded_sig = siglist[1]
+                mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+                all_mins += mins
+
+        # define a function where if a hash is a value, 
+        # return all key for which it is a value
+        def get_all_keys_if_value(dictionary, hash_query):
+            genomes = list()
+            for genome, v in dictionary.items():
+                if hash_query in v:
+                    genomes.append(genome)
+            return genomes
+
+        # create a dictionary where each vita_vars hash is a key, 
+        # and values are the genome signatures in which that hash
+        # is contained
+        vita_hash_dict = {}
+        for hashy in vita_vars:
+            keys = get_all_keys_if_value(genome_dict, hashy)
+            vita_hash_dict[hashy] = keys
+
+        # transform this dictionary into a dataframe and format the info nicely
+        df = pd.DataFrame(list(vita_hash_dict.values()), index = vita_hash_dict.keys())
+        df = df.reset_index()
+        df = pd.melt(df, id_vars=['index'], var_name= "drop", value_name='genome')
+        # remove tmp col drop
+        df = df.drop('drop', 1)
+        # drop duplicate rows in the df
+        df = df.drop_duplicates()
+        # write the dataframe to csv
+        df.to_csv(str(output), index = False) 
+
+
 
 
 # THESE GENOMES WILL NEED TO BE UPDATED WITH THE NEW OUTPUT
