@@ -31,7 +31,9 @@ rule all:
         expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
         #directory("outputs/gather_matches/")
-        "outputs/gather_matches/hash_to_genome_map_gather_all.csv"
+        "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
+        "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
+        "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt"
         #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
         #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
@@ -471,7 +473,7 @@ rule merge_vita_vars_sig_all:
     '''
 
 rule combine_gather_vita_vars_all:
-    output: "outputs/gather_matches/vita_vars_all.csv"
+    output: "outputs/gather/vita_vars_all.csv"
     input: expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY)
     run:
         import pandas as pd
@@ -493,14 +495,13 @@ checkpoint collect_gather_vita_vars_all_sig_matches:
         db3="inputs/gather_databases/nayfach-k31.sbt.json",
         db4="inputs/gather_databases/pasolli-mags-k31.sbt.json",
         csv="outputs/gather/vita_vars_all.csv"
-    output:
-        directory("outputs/gather_matches/")
+    output: directory("outputs/gather_matches/")
     run:
         from sourmash import signature
         import pandas as pd
 
         # load gather results
-        df = pd.read_csv(input[4])
+        df = pd.read_csv(input.csv)
 
         # for each row, determine which database the result came from
         for index, row in df.iterrows():
@@ -518,44 +519,35 @@ checkpoint collect_gather_vita_vars_all_sig_matches:
             sig = signature.load_one_signature(sigfp)
             out_sig = str(sig.name())
             out_sig = out_sig.split('/')[-1]
+            out_sig = out_sig.split(" ")[0]
             out_sig = "outputs/gather_matches/" + out_sig + ".sig"
-            with open(out_sig, 'wt') as fp:
+            with open(str(out_sig), 'wt') as fp:
                 signature.save_signatures([sig], fp)      
 
 
 def aggregate_collect_gather_vita_vars_all_sig_matches(wildcards):
-    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output  
+    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output[0]  
     file_names = expand("outputs/gather_matches/{genome}.sig", 
                         genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
     return file_names
     
-#rule finished_collect_gather_vita_vars_all_sig_matches:
-#    input: aggregate_collect_gather_vita_vars_all_sig_matches
-#    output: "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches.txt"
-#    shell:'''
-#    touch {output}
-#    '''
 
 rule create_hash_genome_map_gather_vita_vars_all:
     input:
         #genomes = "outputs/gather_matches/{genome}.sig",
         genomes = aggregate_collect_gather_vita_vars_all_sig_matches,
         vita_vars = "outputs/vita_rf/vita_vars_merged.sig"
-    output: "outputs/gather_matches/hash_to_genome_map_gather_all.csv"
+    output: "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv"
     run:
         from sourmash import signature
         import pandas as pd
         
-        print(input)
-        print(type(input))
-        sigs = input[0]
-        print(sigs)
+        sigs = input.genomes
         # read in all genome signatures that had gather 
         # matches for the var imp hashes create a dictionary, 
         # where the key is the genome and the values are the minhashes
         genome_dict = {}
         for sig in sigs:
-            print(sig)
             sigfp = open(sig, 'rt')
             siglist = list(signature.load_signatures(sigfp))
             loaded_sig = siglist[0] 
@@ -563,7 +555,7 @@ rule create_hash_genome_map_gather_vita_vars_all:
             genome_dict[sig] = mins
 
         # read in vita variables
-        sigfp = open(str(input[1]), 'rt')
+        sigfp = open(str(input.vita_vars), 'rt')
         vita_vars = sig = signature.load_one_signature(sigfp)
         vita_vars = vita_vars.minhash.get_mins() 
 
@@ -573,7 +565,7 @@ rule create_hash_genome_map_gather_vita_vars_all:
             if os.path.getsize(file) > 0:
                 sigfp = open(file, 'rt')
                 siglist = list(signature.load_signatures(sigfp))
-                loaded_sig = siglist[1]
+                loaded_sig = siglist[0]
                 mins = loaded_sig.minhash.get_mins() # Get the minhashes 
                 all_mins += mins
 
@@ -606,8 +598,59 @@ rule create_hash_genome_map_gather_vita_vars_all:
         df.to_csv(str(output), index = False) 
 
 
+rule download_sourmash_lca_db:
+    output: "inputs/gather_databases/gtdb-release89-k31.lca.json.gz"
+    shell:'''
+    wget -O {output} https://osf.io/gs29b/download
+    '''
 
+rule sourmash_lca_classify_vita_vars_all_sig_matches:
+    input:
+        db = "inputs/gather_databases/gtdb-release89-k31.lca.json.gz",
+        genomes = "outputs/gather_matches/{genome}.sig"
+    output: "outputs/gather_matches_lca_classify/{genome}.csv"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash lca classify --db {input.db} --query {input.genomes} -o {output}
+    '''
 
+def aggregate_collect_gather_vita_vars_all_sig_matches_lca_classify(wildcards):
+    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output[0]  
+    file_names = expand("outputs/gather_matches_lca_classify/{genome}.csv", 
+                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
+    return file_names
+
+    
+rule finished_collect_gather_vita_vars_all_sig_matches_lca_classify:
+    input: aggregate_collect_gather_vita_vars_all_sig_matches_lca_classify
+    output: "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt"
+    shell:'''
+    touch {output}
+    '''
+
+rule sourmash_lca_summarize_vita_vars_all_sig_matches:
+    input:
+        db = "inputs/gather_databases/gtdb-release89-k31.lca.json.gz",
+        genomes = "outputs/gather_matches/{genome}.sig"
+    output: "outputs/gather_matches_lca_summarize/{genome}.csv"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash lca summarize --db {input.db} --query {input.genomes} -o {output}
+    '''
+
+def aggregate_collect_gather_vita_vars_all_sig_matches_lca_summarize(wildcards):
+    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output[0]  
+    file_names = expand("outputs/gather_matches_lca_summarize/{genome}.csv", 
+                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
+    return file_names
+
+    
+rule finished_collect_gather_vita_vars_all_sig_matches_lca_summarize:
+    input: aggregate_collect_gather_vita_vars_all_sig_matches_lca_summarize
+    output: "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt"
+    shell:'''
+    touch {output}
+    '''
 # THESE GENOMES WILL NEED TO BE UPDATED WITH THE NEW OUTPUT
 # FROM VARIABLE SELECTION
 #rule download_gather_match_genomes:
