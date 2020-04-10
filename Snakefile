@@ -26,19 +26,18 @@ rule all:
         expand("outputs/vita_rf/{study}_ibd_filt.csv", study = STUDY),
         # optimal RF outputs:
         expand('outputs/optimal_rf/{study}_optimal_rf.RDS', study = STUDY),
-        # variable characterization outputs
+        # variable characterization outputs:
         expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
-        #directory("outputs/gather_matches/")
         "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
-        "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt"
-        #"outputs/gtdbtk/gtdbtk.bac120.summary.tsv",
-        #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genomes}.fna.contigs.sig", 
-        #       library = LIBRARIES, gather_genomes = GATHER_GENOMES)
+        "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
+        # spacegraphcats outputs:
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_sigs/{library}.txt", library = LIBRARIES)
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        # corncob
         #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
 
 ########################################
@@ -651,53 +650,34 @@ rule finished_collect_gather_vita_vars_all_sig_matches_lca_summarize:
     shell:'''
     touch {output}
     '''
-# THESE GENOMES WILL NEED TO BE UPDATED WITH THE NEW OUTPUT
-# FROM VARIABLE SELECTION
-#rule download_gather_match_genomes:
-#    output: "outputs/gather/gather_genomes.tar.gz"
-#    shell:'''
-#    wget -O {output} https://osf.io/ungza/download
-#    '''
 
-#rule untar_gather_match_genomes:
-#    output:  directory("outputs/gather_genomes/")
-#    input:"outputs/gather/gather_genomes.tar.gz"
-#    params: outdir = "outputs/gather_genomes"
-#    shell:'''
-#    mkdir -p {params.outdir}
-#    tar xf {input} -C {params.outdir}
-#    '''
-
-# THIS RULE SHOULD BE REPLACED WITH SOURMASH LCA CLASSIFY
-#rule gtdbtk_gather_matches:
-#    """
-#    this rule require the gtdbtk databases. The tool finds the database by 
-#    using a path specified in a file in the environment. I predownloaded the 
-#    databases and placed them in the required location.
-#    The path is in this file:
-#    .snakemake/conda/9de8946b/etc/conda/activate.d/gtdbtk.sh
-#    """
-#    input: directory("outputs/gather_genomes/")
-#    #input: aggregate_decompress_gather_matches
-#    output: "outputs/gtdbtk/gtdbtk.bac120.summary.tsv"
-#    params:  outdir = "outputs/gtdbtk"
-#    conda: "gtdbtk.yml"
-#    shell:'''
-#    gtdbtk classify_wf --genome_dir {input} --out_dir {params.outdir} --cpus 8 
-#    '''
 
 #############################################
 # Spacegraphcats Genome Queries
 #############################################
 
+rule download_gather_match_genomes:
+    output: "outputs/gather/gather_genomes_loso.tar.gz"
+    shell:'''
+    wget -O {output} https://osf.io/tsu9c/download
+    '''
+
+rule untar_gather_match_genomes:
+    output:  directory("outputs/gather_matches_loso")
+    input:"outputs/gather/gather_genomes_loso.tar.gz"
+    params: outdir = "outputs/"
+    shell:'''
+    mkdir -p {params.outdir}
+    tar xf {input} -C {params.outdir}
+    '''
+
 checkpoint spacegraphcats_gather_matches:
     input: 
-        query = directory("outputs/gather_genomes/"),
-        conf = expand("inputs/sgc_conf/{library}_r1_conf.yml", library = LIBRARIES),
-        reads = expand("outputs/abundtrim/{library}.abundtrim.fq.gz", library = LIBRARIES)
+        query = directory("outputs/gather_matches_loso"),
+        conf = "inputs/sgc_conf/{library}_r1_conf.yml",
+        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: 
-        directory(expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/", library = LIBRARIES))
-        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.fa.gz",
+        directory("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/")
     params: outdir = "outputs/sgc_genome_queries"
     conda: "spacegraphcats.yml"
     shell:'''
@@ -705,7 +685,7 @@ checkpoint spacegraphcats_gather_matches:
     '''
 
 rule calc_sig_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.reads.fa.gz"
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     conda: "sourmash.yml"
     shell:'''
@@ -716,22 +696,21 @@ def aggregate_spacegraphcats_gather_matches(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
     file_names = expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig",
-                        library = LIBRARIES, 
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.fna.cdbg_ids.reads.fa.gz")).gather_genome)
+                        library = wildcards.library, 
+                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.fna.gz.cdbg_ids.reads.fa.gz")).gather_genome)
     # file_names will return all 129 queries.
     # because this takes a long time, we will subset the file names returned
     # to the 4 nbhds that account for the largest number of predictive hashes.
-    bacteroides = [f for f in file_names if "SRS476121_69" in f]
-    faecalibacterium =  [f for f in file_names if "SRS147022_17" in f]
-    rtorques =  [f for f in file_names if "GCA_001406235.1_14207_7_41_genomic" in f]
-    fplautii =  [f for f in file_names if "GCA_001405435.1_14207_7_29_genomic" in f]
-    select_file_names = bacteroides + faecalibacterium + rtorques + fplautii
+    acetatifactor = [f for f in file_names if "SRS1719498_9" in f]
+    fprauznitzii =  [f for f in file_names if "SRS1719577_6" in f]
+    cbolteae =  [f for f in file_names if "GCF_000371685.1_Clos_bolt_90B3_V1_genomic" in f]
+    select_file_names = acetatifactor + fprauznitzii + cbolteae
     return select_file_names
 
 
 rule aggregate_signatures:
     input: aggregate_spacegraphcats_gather_matches
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt"
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_sigs/{library}.txt"
     shell:'''
     touch {output}
     '''
