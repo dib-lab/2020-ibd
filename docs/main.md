@@ -93,16 +93,16 @@ reads was eliminated. All studies with time-series data were used as
 validation sets. In total, we analyzed 2290 samples.   
 
 
-| Study           | UC  | CD  | non-IBD | Accession   | Set        |
-|-----------------|-----|-----|---------|-------------|------------|
-| [@lloyd2019]    | 375 | 599 | 364     | ibdudb.org  | Validation |
-| [@qin2010]      | 42  | 8   | 214     | PRJEB2054   | Training   |
-| [@gevers2014]   | 0   | 51  | 0       | PRJNA237362 | Training   |
-| [@hall2017]     | 48  | 87  | 20      | PRJNA385949 | Validation |
-| [@franzosa2019] | 76  | 88  | 56      | PRJNA400072 | Training   |
-| [@lewis2015]    | 0   | 312 | 25      | SRP057027   | Validation |
+| Cohort      | Cohort names             | Country          | Total | CD  | UC  | nonIBD | Reference    |
+|-------------|--------------------------|------------------|-------|-----|-----|--------|--------------|
+| iHMP        | IBDMDB                   | USA              | 106   | 50  | 30  | 26     | [@lloyd2019] |
+| PRJEB2054   | MetaHIT                  | Denmark, Spain   | 124   | 4   | 21  | 99     | [@qin2010]   |
+| SRP057027   | NA                       | Canada, USA      | 112   | 87  | 0   | 25     | [@lewis2015] |
+| PRJNA385949 | PRISM, STiNKi            | USA              | 17    | 9   | 5   | 3      | [@hall2017]  |
+| PRJNA400072 | PRISM, LLDeep, and NLIBD | USA, Netherlands | 218   | 87  | 76  | 55     | [@franzosa2019] |
+| PRJNA237362 | RISK                     | North America    | 28    | 23  | 0   | 5      | [@gevers2014] |
+| Total       |                          |                  | 605   | 260 | 132 | 213    |               |
 Table: Six IBD cohorts used in this meta-analysis. {#tbl:cohorts}
-
 
 ### Reference-free approach for meta-analysis of IBD metagenomes.
 
@@ -305,7 +305,6 @@ low-coverage sequences. Therefore, we removed all hashes that had abundance 1
 when all signatures were combined. We refer to these as filtered signatures. 
 
 ### Principle Coordinates Analysis
-[//]: # analysis script in sandbox/02\_filt\_comp\_all/plot\_comp.R
 
 We used jaccard distance and cosine distance implemented in `sourmash compare`
 to pairwise compare filtered signatures. We then used the `dist()` function 
@@ -316,47 +315,46 @@ test for sources of variation in these distance matrices, we performed
 PERMANOVA using the `adonis` function in the R vegan package [@oksanen2010].
 
 ### Random Forest Classification
-[//]: # analysis scripts in sandbox/0\*.R
 
 We built a random forest classifier to predict UC, CD, and non-IBD status using
 filtered signatures. First, we transformed sourmash signatures into a hash
 abundance table where each metagenome was a sample, each hash was a feature,
 and abundances were recorded for each hash for each sample. We normalized 
 abundances by dividing by the total number of hashes in each filtered 
-signature. We split our dataset into training, testing, and validation sets, 
-where all time-series samples were included in the validation set. We did this
-1) so we could assess how small intraindividual changes led to 
-misclassification and 2) to avoid biasing our training and testing sets by 
-training and testing on the same patient. For samples from the three remaing 
-studies, we performed a random 70:30 split to build the training and testing
-sets.   
+signature. We then used a leave-one-study-out validation approach where we 
+trained six models, each of which was trained on five studies and validated
+on the sixth. To build each model, we first performed vita variable selection
+on the training set as implemented in the Pomona and ranger packages 
+[@degenhardt2017; @wright2015]. Vita variable selection reduces the number of
+variables (e.g. hashes) a smaller set of predictive variables through selection
+of variables with high cross-validated permutation variable importace [@janitz2018].
+Using this smaller set of hashes, we then built an optimized random forest model
+using tuneRanger [@probst2018]. We evaluated each validation set using the
+optimal model, and extracted variable importance measures for each hash for 
+subsequent analysis. 
 
-Then, we used vita variable selection on the training set as implemented in the
-Pomona and ranger packages [@degenhardt2017; @wright2015]. Using this subset
-of 14,481 k-mers, we built and tuned our final random forest model using
-the ranger package [@wright2015]. Final model parameters were `num.trees` = 10000,
-`mtry` = 960, `min.node.size` = 5, and `sample.fraction` = .7.
 
-To test whether CD misclassifications were more common in non-colonic IBD, we
-used the iHMP metadata (available at ibdmdb.org) to assess baseline Montreal
-location as defined previously [@silverberg2005]. We defined L1, L4, and L1+L4
-as non-colonic presentation of IBD, and designated all other classification as 
-colonic. We then used a chi-squared test using the R `chi.square()` function  
-to test whether we observed more misclassification for non-colonic CD patients 
-than for colonic CD patients. 
+[//]: # To test whether CD misclassifications were more common in non-colonic IBD, we
+[//]: # used the iHMP metadata (available at ibdmdb.org) to assess baseline Montreal
+[//]: # location as defined previously [@silverberg2005]. We defined L1, L4, and L1+L4
+[//]: # as non-colonic presentation of IBD, and designated all other classification as 
+[//]: #colonic. We then used a chi-squared test using the R `chi.square()` function  
+[//]: #to test whether we observed more misclassification for non-colonic CD patients 
+[//]: #than for colonic CD patients. 
 
 ### Predictive k-mer characterization 
 
-We used sourmash `gather` with parameters `k 31` and `--scaled 2000` to characterize
-the predictive k-mers from the random forest model by determining which known genomes
-contained predictive k-mers [@brown2016]. Sourmash `gather` queries a signature containing k-mer
-representations against databases of known k-mer representations [@pierce2019].
+We used sourmash `gather` with parameters `k 31` and `--scaled 2000` to determine
+known genomes that contained predictive k-mers [@brown2016]. Sourmash `gather` searches
+a database of known k-mers for matches with a query [@pierce2019].
 We used the sourmash GenBank database (2018.03.29, https://osf.io/snphy/), and 
 built three additional databases from medium- and high-quality metagenome-assembled 
 genomes from three human microbiome metagenome reanalysis efforts (https://osf.io/hza89/) 
 [@pasolli2019; @nayfach2019; @almeida2019].
 In total, approximately 420,000 microbial genomes and metagenome-assembled genomes
-were represented by these three databases. 
+were represented by these three databases. We then used the sourmash `lca`
+commands against the GTDB taxonomy database to taxnomically classify the genomes that 
+contained predictive k-mers.
  
 ### Compact de Bruijn graph queries for predictive genomes
 
