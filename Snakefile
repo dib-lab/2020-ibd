@@ -263,6 +263,14 @@ rule name_filtered_sigs:
     sourmash sig rename -o {output} -k 31 {input} {wildcards.library}_filt
     '''
 
+rule describe_filtered_sigs:
+    input: expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES)
+    output: "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash signature describe --csv {output} {input}
+    '''
+
 rule convert_greater_than_1_signatures_to_csv:
     input: "outputs/filt_sigs_named/{library}_filt_named.sig"
     output: "outputs/filt_sigs_named_csv/{library}_filt_named.csv"
@@ -795,7 +803,8 @@ rule compare_signatures_jaccard:
 rule permanova_jaccard:
     input: 
         comp = "outputs/comp/all_filt_comp_jaccard.csv",
-        info = "inputs/working_metadata.tsv"
+        info = "inputs/working_metadata.tsv",
+        sig_info = "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
     output: 
         perm = "outputs/comp/all_filt_permanova_jaccard.csv"
     conda: "vegan.yml"
@@ -804,7 +813,8 @@ rule permanova_jaccard:
 rule permanova_cosine:
     input: 
         comp = "outputs/comp/all_filt_comp_cosine.csv",
-        info = "inputs/working_metadata.tsv"
+        info = "inputs/working_metadata.tsv",
+        sig_info = "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
     output: 
         perm = "outputs/comp/all_filt_permanova_cosine.csv"
     conda: "vegan.yml"
