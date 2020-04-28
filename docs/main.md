@@ -47,7 +47,7 @@ As with reference-based approaches, these reads are typically left unanalyzed.
 Further, within-study confounders from biological and technical artifact may lead to false associations. 
 This can be ameliorated by meta-analysis.  
 
-Here we perform a meta-analysis of six studies of IBD gut metagenome cohorts comprising 260 CD, 132 UC and 213 healthy controls [@lloyd2019; @lewis2015; @hall2017; @franzosa2019; @gevers2014; @qin2010]. 
+Here we perform a meta-analysis of six studies of IBD gut metagenome cohorts comprising 260 CD, 132 UC and 213 healthy controls (see **Table {@tbl:cohorts}**) [@lloyd2019; @lewis2015; @hall2017; @franzosa2019; @gevers2014; @qin2010]. 
 First, we re-analyzed each study using a consistent k-mer-based, reference-free approach. 
 We demonstrate that study and patient predict more variation than disease status. 
 Next, we used random forests to accurately predict disease status and to determine the k-mers that are predictive of UC and CD. 
@@ -55,17 +55,6 @@ Then, we use compact de Bruijn graph queries to reassociate k-mers with sequence
 Our analysis pipeline is lightweight and relies on well-documented and maintained software, making it extensible to other large cohorts of metagenomic sequencing data.
 
 ## Results
-
-### Many cohorts of IBD stool metagenome samples
-
-Sample collection, DNA extraction, library preparation, and sequencing all introduce technical artifacts and biases into metagenomics sequencing data that are difficult to separate from biological signal. 
-Metaanlysis improves detection of biological signal by obscuring signals of technical artifacts that vary between studies. 
-As such, we used six IBD cohorts with stool metagenomes in this analysis {@tbl:cohorts}. 
-We selected cohorts with Illumina shotgun stool metagenomes for which CD, UC, and nonIBD status was recorded for all samples.
-Any sample with fewer than one million reads was eliminated. 
-All studies with time-series data were used as validation sets. 
-In total, we analyzed 605 samples.   
-
 
 | Cohort      | Cohort names             | Country          | Total | CD  | UC  | nonIBD | Reference    |
 |-------------|--------------------------|------------------|-------|-----|-----|--------|--------------|
@@ -78,83 +67,66 @@ In total, we analyzed 605 samples.
 | Total       |                          |                  | 605   | 260 | 132 | 213    |               |
 Table: Six IBD cohorts used in this meta-analysis. {#tbl:cohorts}
 
-### Reference-free approach for meta-analysis of IBD metagenomes.
+### Annotation-free approach for meta-analysis of IBD metagenomes.
 
-Given that both reference-based and *de novo* methods suffer from substantial and biased loss of information in the analysis of metagenomes, we sought a reference- and assembly- free pipeline to fully characterize each sample. 
-We used scaled MinHash sketching as implemented in sourmash to produce a compressed representation of the k-mers contained in each sample [@pierce2019]. 
-K-mers are nucleotide sequences of length *k*. 
+Given that both reference-based and *de novo* methods suffer from substantial and biased loss of information in the analysis of metagenomes, we sought a reference- and assembly-free pipeline to fully characterize each sample.
+K-mers, words of length *k* in nucleotide sequences, have previously been exploited for annotation-free characterization of sequencing data (CITATION).
 K-mers are superior to alignment and assembly in metagenome analysis because: 
 1) k-mers enable exact matching, which is fast and requires little computational resources; 
 2) k-mers do not need to be present in reference databases to be included in analysis; and 
 3) k-mers capture information from reads even when there is low coverage or high strain variation, both of which preclude assembly. 
-We used a k-mer size of 31 in our analysis as high similarity (e.g. many k-mers in common) at this size approximates species-level taxonomic similarity [@koslicki2016]. 
-Further, a 4.7 Mbp genome such as *Escherichia coli* K-12 (substrain MGI655) contains approximately 4.6 million k-mers, but only a fraction of these are needed to recapitulate similarity measurements using other metrics [@pierce2019]. 
-Therefore, we retained 1/2000th of the distinct, random k-mers from each sample or our analysis. 
+However, k-mers are complex sets given that there are approximately n^k k-mers in a nucleotide sequence (e.g. 4.7 Mbp genome such as *Escherichia coli* K-12 (substrain MGI655) contains approximately 4.6 million k-mers).  
+However, only a fraction of these are needed to recapitulate similarity measurements using other metrics [@pierce2019]. 
+Thus we used scaled MinHash sketching as implemented in sourmash to produce a compressed representation of the k-mers contained in each sample [@pierce2019]. 
 At a scaled value of 2000, an average of one k-mer will be detected in each 2000 base pair window, and 99.8% of 10,000 base pair windows will have at least one k-mer representative. 
-Because the same sets of k-mers are retained, this approach creates a consistent set of marker sequences across samples. 
-This enables comparisons between samples.
+We refer to the subsampled representative set of k-mers as a *signature*, and to each subsampled k-mer in a signature as a *hash*. 
+Importantly, this approach creates a consistent set of hashes across samples by retaining the same hashes when the same k-mers are observed. 
+This enables comparisons between metagenomes.
 
 Using this method, adapter sequences, human DNA, and sequencing errors can falsely inflate or deflate similarity measurements. 
 As such, we also used a consistent preprocessing pipeline to adapter trim, remove human DNA, and k-mer trim (e.g. remove erroneous k-mers). 
-Because k-mer trimming retains some erroneous k-mers, we further filtered signatures to remove hashes that occured once across all samples. 
-This removed additional k-mers that were most likely to be errors while keeping k-mers that were real but low abundant in some samples. 
-There were 57,479,783 distinct hashes across all samples, of which 9,334,204 remained after filtering. 
+Because k-mer trimming retains some erroneous k-mers, we further filtered signatures to retain hashes that were present in multiple signatures. 
+This removed hashes that were likely to be errors while keeping hashes that were real but of low abundance in some signatures. 
+There were 46,267,678 distinct hashes across all samples, of which 7,376,151 remained after filtering. 
 
-
-[//]: # The most common hash appeared in 944 of 954 non iHMP samples.
-
-### Study accounts for more variation that disease across cohorts
+### K-mers capture variation due to disease subtype
 
 In this study, we aimed to identify microbial signatures associated with IBD. 
 However, given that biological and technical artifacts can differ greatly between metagenome studies [@wirbel2019], we first quantified these sources of variation. 
-Only variables patient, study, diagnosis, and library size were recorded for all samples. 
-Using filtered signatures, we calculated pairwise distance matrices using jaccard distance and cosine distance, where jaccard distance captured sample richness and cosine distance captured samle diversity. 
-We performed principle coordinate analysis and PERMANOVA using these distance matrices (**Figure {@fig:comp-plts}**). 
-Patient accounts for the most variation of the four factors tested (jaccard: .622, p < .001; cosine: .647, p < .001). 
-This reinforces that inter-individual variation is higher than intra-individual variation (CITATIONS). 
-Study accounts for the next highest amount of variation (jaccard: .122, p < .001; cosine: .118, p < .001). 
-This illustrates that technical artifacts introduce biases with strong signals that can be ameliorated by metanalysis. 
-Diagnosis accounts for a small but significant amount of variation (jaccard: .035, p < .001; cosine .020, p < .001), a pattern we would expect given the heterogeneity of the IBD disease spectrum and echoes patterns observed for colorectral cancer [@wirbel2019]. 
-We conclude that both sequence richness and diversity vary by patient, study, and disease status.
+We calculated pairwise distance matrices using jaccard distance and cosine distance between filtered signatures, where jaccard distance captured sample richness and cosine distance captured sample diversity. 
+We performed principle coordinate analysis and PERMANOVA with these distance matrices (**Figure {@fig:comp-plts}**), using the variables study accession, diagnosis, library size, and number of hashes in a filtered signature (**Table {@tbl:permanova}**). 
+Number of hashes in a filtered signature accounts for the highest variation, possibly reflecting reduced diversity in stool metagenomes of CD and UC patients (CITATIONS). 
+Study accounts for the second highest variation, emphasizing that technical artifacts can introduce biases with strong signals.
+Diagnosis accounts similar amount of variation as study, demonstrating that there is a small but detectable signal of IBD subtype in stool metagenomes.   
+We conclude that both sequence richness and diversity vary by number of hashes, study, and diagnosis.
 
-![Principle component analysis of metagenomes from IBD cohorts. 
-Individual and study account for the most variation in for both A) Jaccard distance and B) PCoA of cosine distance.](../figures/minhash-comp-plts-all.pdf){#fig:comp-plts}
+![Principle coordinate analysis of metagenomes from IBD cohorts.](../figures/minhash-comp-plts-all.pdf){#fig:comp-plts}
   
-### Metagenomic markers differentiate IBD status across cohorts
+### Hashes are weakly predictive of IBD subtype
 
-To evaluate whether filtered signatures predict IBD status across studies, we built a random forests classifier. 
-We used 70% of metagenome samples from three non-time series cohorts as a training set, the remaining 30% as a test set, and three time series cohorts as validation sets. 
-Given the high-dimensional structure of this dataset (e.g. many more k-mers than samples), we first used the vita method to select predictive hashes in the training set [@degenhardt2017]. 
-This reduced the number of hashes used in the classifier from 9,334,204 to 14,481. 
-Vita variable selection iteratively removes the bottom 20% of predictive k-mers in successive rounds of random forests, and stops when the out of bag error begins to rise. 
-In omics data, this results in the elimination of correlated features that carry redundant information [@he2010]. 
+To evaluate whether the variation captured by diagnosis is predictive of IBD disease subtype, we built a random forests classifier to predict CD, UC, or non-IBD.
+We used a leave-one-study-out cross-validation approach where we built and optimized a classifier using five cohorts and validated on the sixth.  
+Given the high-dimensional structure of this dataset (e.g. many more hashes than samples), we first used the vita method to select predictive hashes in the training set [@janitza2018, @degenhardt2017]. 
+Vita variable selection is based on permuation of variable importance, where p-values for variable importance are calculated against a null distribution that is built from variables that are estimated as non-important [@janitza2018].
+This approach retains important variables that are correlated [@janitza2018; @seifert2019], which is desirable in omics-settings where correlated features are often involved in a coordinated biological response, e.g. part of the same operon, genome, or pathway (CITATIONS). 
+Variable selection reduced the number of hashes used in each model to XX-XX (**TABLE?**). 
+Using this reduced set of hashes, we then optimized each random forests classifier on the training set, producing six optimized models.
+We validated each model on the left-out study.
+The accuracy on the validation studies ranged from 49.1%-75.9% (**FIGURE ACCURACY BARPLOT AND CONFUSION MATRICES**), outperforming previously published models built on metagenomic data alone (CITATIONS).
 
-Using the predictive hashes, we then built a random forest classifier to predict UC, CD, or non-IBD status across samples. 
-100% of samples were classified accurately in the training set  while 92% of samples were classified accurately in the test set. 
+We next sought to understand whether there was a consistent biological signal captured among classifiers by evaluating the fraction of shared hashes between models.
+We intersected each set of hashes used to build each optimized classifier (**FIGURE UPSET PLOT WITH VAR IMP**).
+Nine hundred thrity two hashes were shared between all classifiers, while 3,859 hashes were shared between at least five studies.
+The presence of shared hashes between classifiers indicates that there is a weak but consistent biological signal for IBD subtype between cohorts.      
 
-We validated our model on three time series cohorts. 
-Given that patient explains the most variation in samples, we excluded these cohorts from the training dataset to reduce bias from intra-individual testing and training. 
-Accuracy ranged from 65.8%-80.4% in our validation cohorts (**Table ?**). 
-Interestingly, out model was robust to read preprocessing techniques; in cohorts SRP057027 and PRJNA385949, we used the same read preprocessing pipeline as we used for our training and testing sets. 
-Accuracy was 80.4% and 65.4% for these cohorts, respectively. 
-Then, for the iHMP cohort, we used preprocessed reads as provided at ibdmdb.org, which used a different read quality control pipeline.
-Accuracy was 77.6% on this cohort.
-
-[//]: # SRP057027; 337 samples, 113 patients) @lewis2015 all CD
-
-[//]: # PRJNA385949; 155 samples, 24 patients) @hall2017
-
-[//]: # iHMP IBD cohort (1338 samples, 106 patients) 
-
-The most common error our model made was misclassification of CD as nonIBD. 
-We next sought to understand the source of this error. 
-CD presents mouth-anus and can localize to the upper gastrointestinal tract, the illeum, the colon, or any combination of those sites. 
-We hypothesized that CD misclassification as nonIBD would occur more frequently in non-colonic CD patients. 
-The iHMP IBD cohort has extensive metadata, including baseline Montreal classification for disease location for most CD patients. 
-Using this localization information, we found that non-colonic CD patients were significantly more likely to be misclassified as nonIBD than colonic patients (chi-square test, p < .001). 
+Shared hashes accounted for XX% of all hashes used to build the optimized classifiers.
+If shared hashes are predictive of IBD subtype, we would expect that these hashes would account for an outsized proportion of variable importance in the optimized classifiers.
+To calculate the relative variable importance contributed by each hash, we first normalized the variable importance values within each classifier by dividing by the total variable importance (e.g. sum to 1 within each classifier).
+We then normalized the variable importance of across all classifiers by dividing by the total number of classifiers (e.g. divided by six so the total variable importance of all hashes across all classifiers summed to 1).
+40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with XX% attributable to the 954 hashes shared between all six classifiers. 
+This indicates that shared hashes contribute a large fraction of predictive power for classification of IBD subtype. 
 
 
-[//]: # compare to other random forests for IBD from literature
 
 ### Some predictors of IBD associate with known genomes
 
@@ -196,6 +168,7 @@ All code associated with our analyses is available at www.github.com/dib-lab/202
 
 We searched the NCBI Sequence Read Archive and BioProject databases for shotgun metagenome studies that sequenced fecal samples from humans with Crohn's disease, ulcerative colitis, and healthy controls. 
 We included studies sequenced on Illumina platforms with paired-end chemistries and with sample libraries that contained greater than one million reads. 
+For time series intervention cohorts, we selected the first time point to ensure all metagenomes came from treatment-naive subjects. 
 
 We downloaded metagenomic fastq files from the European Nucleotide Archive using the "fastq_ftp" link and concatenated fastq files annotated as the same library into single files. 
 We also downloaded iHMP samples from idbudb.org.
