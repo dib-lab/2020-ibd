@@ -163,7 +163,7 @@ While most genomes maintained a similar proportion of importance with or without
 While an *Acetatifactor* species anchored the most importance prior to pangenome construction, the specific species of *Acetatifactor* switched from *sp900066565*, to *sp900066365*. 
 This suggests that pangenome queries might give a more complete picture of the strains involved in IBD (DOES THIS SUGGEST SOMETHING DIFFERENT/BETTER?).   
 
-Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance, indicating that substantial pangenomic elements were hidden in for this organism in particular. 
+Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance, indicating that substantial pangenomic elements were hidden for this organism in particular. 
 Or something. 
 
 ### Differential Abundance of Pangenomes
