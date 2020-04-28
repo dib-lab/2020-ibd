@@ -198,17 +198,18 @@ We searched the NCBI Sequence Read Archive and BioProject databases for shotgun 
 We included studies sequenced on Illumina platforms with paired-end chemistries and with sample libraries that contained greater than one million reads. 
 
 We downloaded metagenomic fastq files from the European Nucleotide Archive using the "fastq_ftp" link and concatenated fastq files annotated as the same library into single files. 
-We used Trimmomatic (version 0.39) to adapter trim reads using all default paired-end adapter sequences (`ILLUMINACLIP:{inputs/adapters.fa}:2:0:15`) and lightly quality-trimmed the reads (`MINLEN:31 LEADING:2 TRAILING:2 SLIDINGWINDOW:4:2`) (CITATION). 
-We then removed human DNA using BBHash and a masked version of hg19 (CITATION). 
-Next, we trimmed low-abundance k-mers from sequences that have high coverage using khmer's `trim-low-abund.py` (CITATION).  
+We also downloaded iHMP samples from idbudb.org.
+We used Trimmomatic (version 0.39) to adapter trim reads using all default Trimmomatic paired-end adapter sequences (`ILLUMINACLIP:{inputs/adapters.fa}:2:0:15`) and lightly quality-trimmed the reads (`MINLEN:31 LEADING:2 TRAILING:2 SLIDINGWINDOW:4:2`) [@bolger2014]. 
+We then removed human DNA using BBMap and a masked version of hg19 [@bushnell2014]. 
+Next, we trimmed low-abundance k-mers from sequences that have high coverage using khmer's `trim-low-abund.py` [@crusoe2015].  
 
 Using these trimmed reads, we generated scaled MinHash signatures for each library using sourmash (k-size 31, scaled 2000, abundance tracking on) [@brown2016]. 
 We selected a k-mer size of 31 because of its species-level specificity [@koslicki2016].
 A signature is composed of hashes, where each hash represents a k-mer contained in the original sequence; hashing k-mers to integers reduces storage space and improves computational run times when performing comparisons.
-As such, we use hashes as proxies for the k-mer sequences.  
 
 Although we adapter, quality, and k-mer trimmed our reads, some erroneous k-mers were likely included in the MinHash sequences, especially for low-coverage sequences. 
-Therefore, we removed all hashes that had abundance 1 when all signatures were combined. We refer to these as filtered signatures. 
+Therefore, we retained all hashes that were present in multiple samples.
+We refer to these as filtered signatures. 
 
 ### Principle Coordinates Analysis
 
@@ -217,35 +218,47 @@ We then used the `dist()` function in base R to compute distance matrices.
 We used the `cmdscale()` function to perform principle coordinate analysis [@gower1966]. 
 We used ggplot2 and ggMarginal to visualize the principle coordinate analysis [@wickham2019]. 
 To test for sources of variation in these distance matrices, we performed PERMANOVA using the `adonis` function in the R vegan package [@oksanen2010].
+The PERMANOVA was modeled as `~ diagnosis + study accession + library size + number of hashes`.
 
-### Random Forest Classification
+### Random forest classification
 
 We built a random forest classifier to predict CD, UC, and non-IBD status using filtered signatures. 
 First, we transformed sourmash signatures into a hash abundance table where each metagenome was a sample, each hash was a feature, and abundances were recorded for each hash for each sample. 
 We normalized abundances by dividing by the total number of hashes in each filtered signature. 
 We then used a leave-one-study-out validation approach where we trained six models, each of which was trained on five studies and validated on the sixth. 
 To build each model, we first performed vita variable selection on the training set as implemented in the Pomona and ranger packages [@degenhardt2017; @wright2015]. 
-Vita variable selection reduces the number of variables (e.g. hashes) a smaller set of predictive variables through selection of variables with high cross-validated permutation variable importace [@janitz2018].
+Vita variable selection reduces the number of variables (e.g. hashes) a smaller set of predictive variables through selection of variables with high cross-validated permutation variable importace [@janitza2018].
 Using this smaller set of hashes, we then built an optimized random forest model using tuneRanger [@probst2018]. 
 We evaluated each validation set using the optimal model, and extracted variable importance measures for each hash for subsequent analysis. 
-
 
 [//]: # To test whether CD misclassifications were more common in non-colonic IBD, we used the iHMP metadata (available at ibdmdb.org) to assess baseline Montreal location as defined previously [@silverberg2005]. 
 [//]: # We defined L1, L4, and L1+L4 as non-colonic presentation of IBD, and designated all other classification as colonic. 
 [//]: # We then used a chi-squared test using the R `chi.square()` function to test whether we observed more misclassification for non-colonic CD patients than for colonic CD patients. 
 
-### Predictive k-mer characterization 
+### Characterization of predictive k-mers
 
-We used sourmash `gather` with parameters `k 31` and `--scaled 2000` to determine known genomes that contained predictive k-mers [@brown2016]. 
+We used sourmash `gather` with parameters `k 31` and `--scaled 2000` to anchor predictive hashes to known genomes [@brown2016]. 
 Sourmash `gather` searches a database of known k-mers for matches with a query [@pierce2019].
 We used the sourmash GenBank database (2018.03.29, https://osf.io/snphy/), and built three additional databases from medium- and high-quality metagenome-assembled genomes from three human microbiome metagenome reanalysis efforts (https://osf.io/hza89/) [@pasolli2019; @nayfach2019; @almeida2019].
-In total, approximately 420,000 microbial genomes and metagenome-assembled genomes were represented by these three databases. 
-We then used the sourmash `lca` commands against the GTDB taxonomy database to taxnomically classify the genomes that contained predictive k-mers.
- 
+In total, approximately 420,000 microbial genomes and metagenome-assembled genomes were represented by these four databases. 
+We used the sourmash `lca` commands against the GTDB taxonomy database to taxonomically classify the genomes that contained predictive hashes.
+To calculate the cumulative variable importance attributable to a single genome, we used an iterative winner-takes-all approach.
+The genome with the largest fraction of predictive k-mers won the variable importance for all hashes contained within its genome.
+These hashes were then removed, and we repeated the process for the genome with the next largest fraction of predictive k-mers. 
+
+To identify hashes that were predictive in at least five of six models, we took the union of predictive hashes from all combinations of five models, as well as from the union of all six models.
+We re-anchored these hashes to known genomes using sourmash `gather` as above. 
+
 ### Compact de Bruijn graph queries for predictive genomes
 
 We used spacegraphcats `search` to retreive k-mers in the compact de Bruijn graph neighborhood of the genomes that matched predictive k-mers (CITATION). 
-We then used spacegraphcats `extract_reads` to retreive the reads that contained those k-mers.
+We then used spacegraphcats `extract_reads` to retreive the reads and `extract_contigs` to retreive unitigs in the compact de Bruijn graph that contained those k-mers, respectively.
+
+### Characterization of graph pangenomes
+
+**Pangenome signatures** To evaluate 
+
+**Differential abundance**
 
 ### Compact de Bruijn graph queries for unknown predictive k-mers
 
