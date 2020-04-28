@@ -126,22 +126,20 @@ We then normalized the variable importance of across all classifiers by dividing
 40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with XX% attributable to the 954 hashes shared between all six classifiers. 
 This indicates that shared hashes contribute a large fraction of predictive power for classification of IBD subtype. 
 
+### Some predictive hashes anchor to known genomes
 
-
-### Some predictors of IBD associate with known genomes
-
-We next evaluated the identity and function of the predictive k-mers in our random forests classifier. 
-We first compared the k-mers against sequences in reference databases. 
-We used sourmash gather to estimate the proportion of sequenced genomes contained in our predictive k-mers [@pierce2019]. 
+We next evaluated the identity of the predictive hashes in each classifier. 
+We first compared the predictive hashes against sequences in reference databases. 
+We used sourmash gather to anchor predictive hashes to known genomes [@pierce2019]. 
 We compared our predictive hashes against all microbial genomes in GenBank, as well as metagenome-assembled genomes from three recent reassembly efforts from human microbiome metagenomes [@pasolli2019; @nayfach2019; @almeida2019]. 
-68.7% of hashes matched 129 genomes from these databases. 
-The largest number of hashes matched *Clostriales bacterium* (2.9% hashes, 18.2% of genome), *Ruminococcus gnavus* (2.8% hashes, 21.2% of genome), and *Clostridium clostridioforme* (2.7% of hashes, 13.5% of genome) (**Figure {@fig:gather}**). 
-These genomes have been associated with IBD in past studies (CITATIONS).
+Between 75.1-80.3% of of hashes anchored to 1,161 genomes (**FIGURE STACKED BARPLOT DB %**). 
+However, the 3,859 hashes shared between at least five classifiers anchored to only 41 genomes (**FIGURE GENOME UPSET PLOT or CUMULATIVE VARIABLE IMPORTANCE PLOT FOR GENOMES**).
+Futher, these 41 genomes accounted for 50.5% of the total variable importance, a 10.3% increase over the hashes alone.
+In contrast to all hashes, only 69.4% of these hashes were identifiable, a decrease of 5.7-10.9%. 
+This indicates that hashes that are more likely to be important for IBD subtype classification are less likely to be anchored to genomes in reference databases.
 
 
-![Taxonomic composition of predictive k-mers present in reference databases. 
-We used sourmash gather to identify genome matches in GenBank and human microbiome metagenome-assembled genomes. 
-Then, we used GTDBtk to assign taxonomy to each match.](../figures/gather_order_viz.pdf){#fig:gather}
+
 
 ### Unknown but predictive k-mers XXX
 
