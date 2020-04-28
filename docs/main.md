@@ -138,25 +138,41 @@ Futher, these 41 genomes accounted for 50.5% of the total variable importance, a
 In contrast to all hashes, only 69.4% of these hashes were identifiable, a decrease of 5.7-10.9%. 
 This indicates that hashes that are more likely to be important for IBD subtype classification are less likely to be anchored to genomes in reference databases.
 
+Using sourmash lca classify to assign GTDB taxonomy, we find 38 species represented among the 41 genomes. 
+The genome that anchors the most variable importance is **Acetatifactor sp900066565**. 
+(Add %phyla/etc? Is it even worth analyzing these that much when everything changes after spacegraphcats?)
+However, we observe that while most genomes assign to one species, 19 assign to one or more distantly related genomes. 
+When we take the Jaccard index of these 41 genomes, we observe little similarity despite contamination (**FIGURE SOURMASH CONTAM 41 GENOMES**). 
+Therefore, we proceeded with analysis with the idea that each of the 41 genomes is a self-contained entity that captures distinct biology.
 
+### Unknown but predictive hashes represent novel pangenomic elements
 
-
-### Unknown but predictive k-mers XXX
-
-Given that 31.3% of predictive k-mers from our random forest classifier did not match known sequences in databases, we next sought to characterize these k-mers. 
-We reasoned that many unknown but predictive k-mers likely originate from closely related strain variants of identified genomes, thus we first sought to recover these associations. 
-We performed compact de Bruijn graph queries with the 129 genomes that contained predictive k-mers (sgc CITATION?) to extract neighboring sequences to these genomes. 
-85.4% of unknown k-mers were in the neighborhood of these 129 genomes (68.7% in query genomes, 16.7% in query neighborhoods).
-This suggests that 16.7% of predictive k-mer originate from strain-variable or accessory genome components. 
+Given that 30.6% of hashes shared between at least five classifiers did not anchor to genomes in databases, we next sought to characterize these hashes. 
+We reasoned that many unknown but predictive hashes likely originate from closely related strain variants of identified genomes and sought to recover these variants. 
+We performed compact de Bruijn graph queries into each metagenome sample with the 41 genomes that contained predictive hashes (CITATION: SPACEGRAPHCATS).
+This produced pangenome neighborhoods for each of the 41 genomes.
+86.1% of unknown hashes shared between at least five classifiers were in the pangenomes of the 41 genomes, a 16.7% increase over the 41 genomes alone. 
+This suggests that at least 16.7% of these hashes originate from novel strain-variable or accessory elements in the pangenomes. 
 These components are not recoverable by reference-based or *de novo* approaches, but are important for disease classification.
+Further, these pangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier (**FIGURE % BARPLOT**).
+The pangenomes also captured 74.5% of all variable importance, a 24% increase over the 41 genomes alone. 
+This indicates that pangenomic variation contributes substantial predictive power toward IBD subtype classification.
 
-An additional 14.6% of k-mers were neither in known genomes or in the neighborhood of known genomes. ... 
+Pangenomic neighborhood queries disproportionately impact the variable importance anchored by specific genomes (**FIGURE SCATTER PLOT**).
+While most genomes maintained a similar proportion of importance with or without pangenome queries, three pangenomes shifted dramatically.
+While an *Acetatifactor* species anchored the most importance prior to pangenome construction, the specific species of *Acetatifactor* switched from *sp900066565*, to *sp900066365*. 
+This suggests that pangenome queries might give a more complete picture of the strains involved in IBD (DOES THIS SUGGEST SOMETHING DIFFERENT/BETTER?).   
+
+Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance, indicating that substantial pangenomic elements were hidden in for this organism in particular. 
+Or something. 
+
+### Differential Abundance of Pangenomes
+
+TBD   
 
 ## Discussion
 
 + This pipeline generates an inclusive summary of all sequences contained in the metagenome while reducing the computational footprint of the data and its analysis.
-+ (CD misclassification results) This indicates that the colon microbiome of patients with non-colonic CD presents more like a microbiome of a nonIBD patient, suggesting that microbial signatures of IBD are localized to the site of disease. 
-+ Our random forest results indicate that there are markers of IBD that are conserved across studies. 
  
 ## Methods
 
