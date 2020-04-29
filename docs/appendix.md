@@ -1,10 +1,10 @@
 # Appendix
 
-## Testing random seed of variable selection
+## Description of IBD metagenome study cohorts
 
 ## Construction of human microbiome metagenome assembled genome databases
 
 Available at 
-## 129 genome accessions and taxonomy
+## 41 genome accessions and taxonomy
 
 Available for download https://osf.io/ungza/
