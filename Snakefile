@@ -694,7 +694,7 @@ checkpoint spacegraphcats_gather_matches:
     params: outdir = "outputs/sgc_genome_queries"
     conda: "spacegraphcats.yml"
     shell:'''
-    python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+    spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
 
 rule calc_sig_nbhd_reads:
