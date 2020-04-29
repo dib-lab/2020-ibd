@@ -8,11 +8,11 @@ author:
     - Alicia Gingrich
     - C. Titus Brown
 date: \today{}
-geometry: margin=1in
+geometry: "left=1cm,right=5cm,top=1cm,bottom=2cm"
 bibliography: bibliography.bib
 header-includes:
     - \usepackage{setspace}
-    - \doublespacing
+    - \singlespacing
     - \usepackage{lineno}
     - \linenumbers
 fontfamily: helvet
@@ -56,7 +56,7 @@ Our analysis pipeline is lightweight and relies on well-documented and maintaine
 
 ## Results
 
-| Cohort      | Cohort names             | Country          | Total | CD  | UC  | nonIBD | Reference    |
+| **Cohort**  |**Cohort names**          | **Country**      |**Total**|**CD**|**UC**|**nonIBD**|**Reference**|
 |-------------|--------------------------|------------------|-------|-----|-----|--------|--------------|
 | iHMP        | IBDMDB                   | USA              | 106   | 50  | 30  | 26     | [@lloyd2019] |
 | PRJEB2054   | MetaHIT                  | Denmark, Spain   | 124   | 4   | 21  | 99     | [@qin2010]   |
@@ -69,7 +69,7 @@ Table: Six IBD cohorts used in this meta-analysis. {#tbl:cohorts}
 
 ### Annotation-free approach for meta-analysis of IBD metagenomes.
 
-Given that both reference-based and *de novo* methods suffer from substantial and biased loss of information in the analysis of metagenomes, we sought a reference- and assembly-free pipeline to fully characterize each sample.
+Given that both reference-based and *de novo* methods suffer from substantial and biased loss of information in the analysis of metagenomes, we sought a reference- and assembly-free pipeline to fully characterize each sample (**Figure {@fig:pipeline}**).
 K-mers, words of length *k* in nucleotide sequences, have previously been exploited for annotation-free characterization of sequencing data (CITATION).
 K-mers are superior to alignment and assembly in metagenome analysis because: 
 1) k-mers enable exact matching, which is fast and requires little computational resources; 
@@ -89,6 +89,9 @@ Because k-mer trimming retains some erroneous k-mers, we further filtered signat
 This removed hashes that were likely to be errors while keeping hashes that were real but of low abundance in some signatures. 
 There were 46,267,678 distinct hashes across all samples, of which 7,376,151 remained after filtering. 
 
+
+![Overview of pipeline used in this paper.](figures/fig1.pdf){#fig:pipeline}
+
 ### K-mers capture variation due to disease subtype
 
 In this study, we aimed to identify microbial signatures associated with IBD. 
@@ -100,22 +103,42 @@ Study accounts for the second highest variation, emphasizing that technical arti
 Diagnosis accounts similar amount of variation as study, demonstrating that there is a small but detectable signal of IBD subtype in stool metagenomes.   
 We conclude that both sequence richness and diversity vary by number of hashes, study, and diagnosis.
 
-![Principle coordinate analysis of metagenomes from IBD cohorts.](../figures/minhash-comp-plts-all.pdf){#fig:comp-plts}
+![Principle coordinate analysis of metagenomes from IBD cohorts performed on filtered signatures. **A** Jaccard distance. **B** Angular distance.](figures/fig2.pdf){#fig:comp-plts}
   
+
+| **Variable** | **Jaccard distance** | **Angular distance**|
+|--------------|----------------------|---------------------|
+| Number of hashes | 9.9%\*           | |
+| Study accession  | 6.6%\*           | |
+| Diagnosis        | 6.2%\*           | |
+| Library size     | 0.009%\*         | |
+Table: Results from PERMANOVA performed on Jaccard and Angular distance matrices. Number of hashes refers to the number of hashes in the filtered signature, while library size refers to the number of raw reads per sample. \* denotes p < .001. {#tbl:permanova}
+
+ 
 ### Hashes are weakly predictive of IBD subtype
 
 To evaluate whether the variation captured by diagnosis is predictive of IBD disease subtype, we built a random forests classifier to predict CD, UC, or non-IBD.
 We used a leave-one-study-out cross-validation approach where we built and optimized a classifier using five cohorts and validated on the sixth.  
-Given the high-dimensional structure of this dataset (e.g. many more hashes than samples), we first used the vita method to select predictive hashes in the training set [@janitza2018, @degenhardt2017]. 
+Given the high-dimensional structure of this dataset (e.g. many more hashes than samples), we first used the vita method to select predictive hashes in the training set [@janitza2018; @degenhardt2017]. 
 Vita variable selection is based on permuation of variable importance, where p-values for variable importance are calculated against a null distribution that is built from variables that are estimated as non-important [@janitza2018].
 This approach retains important variables that are correlated [@janitza2018; @seifert2019], which is desirable in omics-settings where correlated features are often involved in a coordinated biological response, e.g. part of the same operon, genome, or pathway (CITATIONS). 
-Variable selection reduced the number of hashes used in each model to XX-XX (**TABLE?**). 
+Variable selection reduced the number of hashes used in each model to 29,264-41,701 (**Table {@tbl:varselhashes}**). 
 Using this reduced set of hashes, we then optimized each random forests classifier on the training set, producing six optimized models.
 We validated each model on the left-out study.
-The accuracy on the validation studies ranged from 49.1%-75.9% (**FIGURE ACCURACY BARPLOT AND CONFUSION MATRICES**), outperforming previously published models built on metagenomic data alone (CITATIONS).
+The accuracy on the validation studies ranged from 49.1%-75.9% (**Figure {@fig:acc-plts}**), outperforming previously published models built on metagenomic data alone (CITATIONS).
+
+|**Validation study**|**Selected hashes** |
+|--------------------|--------------------|
+| iHMP        | 39628 |
+| PRJEB2054   | 35343 |
+| PRJNA237362 | 40726 |
+| PRJNA385949 | 41701 |
+| PRJNA400072 | 32578 |
+| SRP057027   | 29264 |
+Table: Number of hashes retained after Vita variable selection for each of 6 classifiers. Classifiers are labelled by the validation study that was held out from training. {#tbl:varselhashes}
 
 We next sought to understand whether there was a consistent biological signal captured among classifiers by evaluating the fraction of shared hashes between models.
-We intersected each set of hashes used to build each optimized classifier (**FIGURE UPSET PLOT WITH VAR IMP**).
+We intersected each set of hashes used to build each optimized classifier (**Figure {@fig:acc-plts}**).
 Nine hundred thrity two hashes were shared between all classifiers, while 3,859 hashes were shared between at least five studies.
 The presence of shared hashes between classifiers indicates that there is a weak but consistent biological signal for IBD subtype between cohorts.      
 
@@ -126,14 +149,16 @@ We then normalized the variable importance of across all classifiers by dividing
 40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with XX% attributable to the 954 hashes shared between all six classifiers. 
 This indicates that shared hashes contribute a large fraction of predictive power for classification of IBD subtype. 
 
+![Random forest classifiers weakly predict IBD subtype. **A** Accuracy of leave-one-study-out random forest classifiers on training and validation sets. The validation study is on the x axis. **B** Confusion matrices depicting performance of each leave-one-study-out random forest classifier on the validation set. **C** Upset plot depicting intersections of sets of hashes with variable importance in each random forests classifier.](./figures/fig3.pdf){#fig:acc-plts}
+
 ### Some predictive hashes anchor to known genomes
 
 We next evaluated the identity of the predictive hashes in each classifier. 
 We first compared the predictive hashes against sequences in reference databases. 
 We used sourmash gather to anchor predictive hashes to known genomes [@pierce2019]. 
 We compared our predictive hashes against all microbial genomes in GenBank, as well as metagenome-assembled genomes from three recent reassembly efforts from human microbiome metagenomes [@pasolli2019; @nayfach2019; @almeida2019]. 
-Between 75.1-80.3% of of hashes anchored to 1,161 genomes (**FIGURE STACKED BARPLOT DB %**). 
-However, the 3,859 hashes shared between at least five classifiers anchored to only 41 genomes (**FIGURE GENOME UPSET PLOT or CUMULATIVE VARIABLE IMPORTANCE PLOT FOR GENOMES**).
+Between 75.1-80.3% of of hashes anchored to 1,161 genomes (**Figure {@fig:genomes-plt}**). 
+However, the 3,859 hashes shared between at least five classifiers anchored to only 41 genomes (**Figure {@fig:genomes-plt}**).
 Futher, these 41 genomes accounted for 50.5% of the total variable importance, a 10.3% increase over the hashes alone.
 In contrast to all hashes, only 69.4% of these hashes were identifiable, a decrease of 5.7-10.9%. 
 This indicates that hashes that are more likely to be important for IBD subtype classification are less likely to be anchored to genomes in reference databases.
@@ -142,8 +167,10 @@ Using sourmash lca classify to assign GTDB taxonomy, we find 38 species represen
 The genome that anchors the most variable importance is **Acetatifactor sp900066565**. 
 (Add %phyla/etc? Is it even worth analyzing these that much when everything changes after spacegraphcats?)
 However, we observe that while most genomes assign to one species, 19 assign to one or more distantly related genomes. 
-When we take the Jaccard index of these 41 genomes, we observe little similarity despite contamination (**FIGURE SOURMASH CONTAM 41 GENOMES**). 
+When we take the Jaccard index of these 41 genomes, we observe little similarity despite contamination (**Figure {@fig:genomes-plt}**). 
 Therefore, we proceeded with analysis with the idea that each of the 41 genomes is a self-contained entity that captures distinct biology.
+
+![Predictive hashes shared between at least five of six random forest classifiers anchor to 41 genomes. **A** 75.1-80.3% of hashes XXXXX .](./figures/fig4.pdf){#fig:genomes-plt}
 
 ### Unknown but predictive hashes represent novel pangenomic elements
 
@@ -154,17 +181,19 @@ This produced pangenome neighborhoods for each of the 41 genomes.
 86.1% of unknown hashes shared between at least five classifiers were in the pangenomes of the 41 genomes, a 16.7% increase over the 41 genomes alone. 
 This suggests that at least 16.7% of these hashes originate from novel strain-variable or accessory elements in the pangenomes. 
 These components are not recoverable by reference-based or *de novo* approaches, but are important for disease classification.
-Further, these pangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier (**FIGURE % BARPLOT**).
+Further, these pangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier (**Figure {@fig:genomes-plt}**).
 The pangenomes also captured 74.5% of all variable importance, a 24% increase over the 41 genomes alone. 
 This indicates that pangenomic variation contributes substantial predictive power toward IBD subtype classification.
 
-Pangenomic neighborhood queries disproportionately impact the variable importance anchored by specific genomes (**FIGURE SCATTER PLOT**).
+Pangenomic neighborhood queries disproportionately impact the variable importance anchored by specific genomes (**Figure {@fig:sgc-plt}**).
 While most genomes maintained a similar proportion of importance with or without pangenome queries, three pangenomes shifted dramatically.
 While an *Acetatifactor* species anchored the most importance prior to pangenome construction, the specific species of *Acetatifactor* switched from *sp900066565*, to *sp900066365*. 
 This suggests that pangenome queries might give a more complete picture of the strains involved in IBD (DOES THIS SUGGEST SOMETHING DIFFERENT/BETTER?).   
 
 Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance, indicating that substantial pangenomic elements were hidden for this organism in particular. 
 Or something. 
+
+![Pangenome neighborhoods reassign variable importance for some genomes.](./figures/fig5.png){#fig:sgc-plt}
 
 ### Differential Abundance of Pangenomes
 
@@ -215,12 +244,8 @@ We normalized abundances by dividing by the total number of hashes in each filte
 We then used a leave-one-study-out validation approach where we trained six models, each of which was trained on five studies and validated on the sixth. 
 To build each model, we first performed vita variable selection on the training set as implemented in the Pomona and ranger packages [@degenhardt2017; @wright2015]. 
 Vita variable selection reduces the number of variables (e.g. hashes) a smaller set of predictive variables through selection of variables with high cross-validated permutation variable importace [@janitza2018].
-Using this smaller set of hashes, we then built an optimized random forest model using tuneRanger [@probst2018]. 
+Using this smaller set of hashes, we then built an optimized random forest model using tuneRanger [@probst2019]. 
 We evaluated each validation set using the optimal model, and extracted variable importance measures for each hash for subsequent analysis. 
-
-[//]: # To test whether CD misclassifications were more common in non-colonic IBD, we used the iHMP metadata (available at ibdmdb.org) to assess baseline Montreal location as defined previously [@silverberg2005]. 
-[//]: # We defined L1, L4, and L1+L4 as non-colonic presentation of IBD, and designated all other classification as colonic. 
-[//]: # We then used a chi-squared test using the R `chi.square()` function to test whether we observed more misclassification for non-colonic CD patients than for colonic CD patients. 
 
 ### Characterization of predictive k-mers
 
