@@ -20,37 +20,34 @@ fontfamily: helvet
 
 ## Introduction
 
-Metagenomic sequencing captures the functional potential of microbial communities through DNA sequencing of genes and organisms. 
-Metagenomics has been used to profile many human microbial communities, including those that change in or contribute toward disease. 
+Metagenomics captures the functional potential of microbial communities through DNA sequencing of genes and organisms. 
+Metagenomics has been used to profile many human microbial communities, including those that change in or contribute to disease. 
 In particular, human gut microbiomes have been extensively characterized for their potential role in diseases such as obesity [@greenblum2012], type II diabetes [@qin2012], colorectal cancer [@wirbel2019], and inflammatory bowel disease [@lloyd2019; @morgan2012; @hall2017; @franzosa2019]. 
 Inflammatory bowel disease (IBD) refers to a spectrum of diseases characterized by chronic inflammation of the intestines and is likely caused by host-mediated inflammatory responses at least in part elicited by microorganisms [@kostic2014]. 
 However, no causative or consistent microbial signature has been associated with IBD to date. 
 
 [//]: # need a transition sentence here
 
-Statements about biology...
+Statements about biology, determined once computation is all done
 
 [//]: # In many studies, IBD is associated with lower biodiversity [@lewis2015; @moustafa2018; @qin2010], however one study failed to replicate this finding [@lloyd2019]. Some studies have noted lower Firmicutes and higher Gammaproteobacteria in IBD, however one study noted that disease state is not independently associated with microbiome shifts after correcting for other covariates [@morgan2012]. Another study found that a novel *Ruminococcus gnavus* clade is enriched in IBD and that this enrichment would be masked in 16s rRNA amplicon studies given commensurate shifts in other closely-related species [@hall2017]. Additionally, time-course studies of IBD have shown that inter-individual differences contribute more to microbiome variation than disease status [@lloyd2019]. 
 
 [//]: # Both reactive oxygen species and reactive nitrogen species are likely important in IBD [@keshavarzian2003; @winter2014]. 
 
-Although there is no consistent taxonomic or functional trend in the gut microbiome associated with IBD status, metagenomic studies conducted unto this point have left substantial portions of reads unanalyzed. 
+Although there is no consistent taxonomic or functional trend in the gut microbiome associated with IBD diagnosis, metagenomic studies conducted unto this point have left substantial portions of reads unanalyzed. 
 Reference-based pipelines commonly used to analyze metagenomic data from IBD cohorts such as HUMANn2 characterize on average 31%-60% of reads from the human gut microbiome [@franzosa2014; @lloyd2019]. 
 Reads fail to map when there is no closely related organism or sequence in the reference database. 
 Reads that do not map to references are typically ignored in downstream analysis. 
 To combat these issues, reference-free approaches like *de novo* assembly and binning are used to generate metagenome-assembled genome bins (MAGs). 
-MAGs represent species-level composites of genomes of organisms in a sample, and thus often more closely recapitulate the organisms in the sample. 
+MAGs represent species-level composites of closely related organisms in a sample, and thus often more closely recapitulate genomes found in a sample. 
 However, *de novo* approaches fail when there is low-coverage of or high strain variation in gut microbes, or with sequencing error [@olson2017]. 
-Even when performed on a massive scale,an average of 12.5% of reads fail to map to all *de novo* assembled organisms from human microbiomes [@pasolli2019], meaning some sequences are not assembled or binned.
+Even when performed on a massive scale, an average of 12.5% of reads fail to map to all *de novo* assembled organisms from human microbiomes [@pasolli2019], meaning some sequences are not assembled or binned.
 As with reference-based approaches, these reads are typically left unanalyzed.
-
-Further, within-study confounders from biological and technical artifact may lead to false associations. 
-This can be ameliorated by meta-analysis.  
 
 Here we perform a meta-analysis of six studies of IBD gut metagenome cohorts comprising 260 CD, 132 UC and 213 healthy controls (see **Table {@tbl:cohorts}**) [@lloyd2019; @lewis2015; @hall2017; @franzosa2019; @gevers2014; @qin2010]. 
 First, we re-analyzed each study using a consistent k-mer-based, reference-free approach. 
-We demonstrate that study and patient predict more variation than disease status. 
-Next, we used random forests to accurately predict disease status and to determine the k-mers that are predictive of UC and CD. 
+We demonstrate that diagnosis accounts for a small but significant amount of variation between samples. 
+Next, we used random forests to predict IBD diagnosis and to determine the k-mers that are predictive of UC and CD. 
 Then, we use compact de Bruijn graph queries to reassociate k-mers with sequence context and perform taxonomic and functional characterization of these sequence neighborhoods. 
 Our analysis pipeline is lightweight and relies on well-documented and maintained software, making it extensible to other large cohorts of metagenomic sequencing data.
 
@@ -101,7 +98,6 @@ We performed principle coordinate analysis and PERMANOVA with these distance mat
 Number of hashes in a filtered signature accounts for the highest variation, possibly reflecting reduced diversity in stool metagenomes of CD and UC patients (CITATIONS). 
 Study accounts for the second highest variation, emphasizing that technical artifacts can introduce biases with strong signals.
 Diagnosis accounts similar amount of variation as study, demonstrating that there is a small but detectable signal of IBD subtype in stool metagenomes.   
-We conclude that both sequence richness and diversity vary by number of hashes, study, and diagnosis.
 
 ![Principle coordinate analysis of metagenomes from IBD cohorts performed on filtered signatures. **A** Jaccard distance. **B** Angular distance.](figures/fig2.pdf){#fig:comp-plts}
   
@@ -117,11 +113,11 @@ Table: Results from PERMANOVA performed on Jaccard and Angular distance matrices
  
 ### Hashes are weakly predictive of IBD subtype
 
-To evaluate whether the variation captured by diagnosis is predictive of IBD disease subtype, we built a random forests classifier to predict CD, UC, or non-IBD.
+To evaluate whether the variation captured by diagnosis is predictive of IBD disease subtype, we built random forests classifiers to predict CD, UC, or non-IBD.
 We used a leave-one-study-out cross-validation approach where we built and optimized a classifier using five cohorts and validated on the sixth.  
 Given the high-dimensional structure of this dataset (e.g. many more hashes than samples), we first used the vita method to select predictive hashes in the training set [@janitza2018; @degenhardt2017]. 
 Vita variable selection is based on permuation of variable importance, where p-values for variable importance are calculated against a null distribution that is built from variables that are estimated as non-important [@janitza2018].
-This approach retains important variables that are correlated [@janitza2018; @seifert2019], which is desirable in omics-settings where correlated features are often involved in a coordinated biological response, e.g. part of the same operon, genome, or pathway (CITATIONS). 
+This approach retains important variables that are correlated [@janitza2018; @seifert2019], which is desirable in omics-settings where correlated features are often involved in a coordinated biological response, e.g. part of the same operon, pathways, or genome (CITATIONS). 
 Variable selection reduced the number of hashes used in each model to 29,264-41,701 (**Table {@tbl:varselhashes}**). 
 Using this reduced set of hashes, we then optimized each random forests classifier on the training set, producing six optimized models.
 We validated each model on the left-out study.
@@ -137,16 +133,16 @@ The accuracy on the validation studies ranged from 49.1%-75.9% (**Figure {@fig:a
 | SRP057027   | 29264 |
 Table: Number of hashes retained after Vita variable selection for each of 6 classifiers. Classifiers are labelled by the validation study that was held out from training. {#tbl:varselhashes}
 
-We next sought to understand whether there was a consistent biological signal captured among classifiers by evaluating the fraction of shared hashes between models.
+We next sought to understand whether there was a consistent biological signal captured among classifiers by evaluating the fraction of shared hashes selected by variable selection between models.
 We intersected each set of hashes used to build each optimized classifier (**Figure {@fig:acc-plts}**).
 Nine hundred thrity two hashes were shared between all classifiers, while 3,859 hashes were shared between at least five studies.
 The presence of shared hashes between classifiers indicates that there is a weak but consistent biological signal for IBD subtype between cohorts.      
 
-Shared hashes accounted for XX% of all hashes used to build the optimized classifiers.
+Shared hashes accounted for 2.8% of all hashes used to build the optimized classifiers.
 If shared hashes are predictive of IBD subtype, we would expect that these hashes would account for an outsized proportion of variable importance in the optimized classifiers.
 To calculate the relative variable importance contributed by each hash, we first normalized the variable importance values within each classifier by dividing by the total variable importance (e.g. sum to 1 within each classifier).
-We then normalized the variable importance of across all classifiers by dividing by the total number of classifiers (e.g. divided by six so the total variable importance of all hashes across all classifiers summed to 1).
-40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with XX% attributable to the 954 hashes shared between all six classifiers. 
+We then normalized the variable importance across all classifiers by dividing by the total number of classifiers (e.g. divided by six so the total variable importance of all hashes across all classifiers summed to 1).
+40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with 21.5% attributable to the 932 hashes shared between all six classifiers. 
 This indicates that shared hashes contribute a large fraction of predictive power for classification of IBD subtype. 
 
 ![Random forest classifiers weakly predict IBD subtype. **A** Accuracy of leave-one-study-out random forest classifiers on training and validation sets. The validation study is on the x axis. **B** Confusion matrices depicting performance of each leave-one-study-out random forest classifier on the validation set. **C** Upset plot depicting intersections of sets of hashes with variable importance in each random forests classifier.](./figures/fig3.pdf){#fig:acc-plts}
@@ -179,9 +175,9 @@ We reasoned that many unknown but predictive hashes likely originate from closel
 We performed compact de Bruijn graph queries into each metagenome sample with the 41 genomes that contained predictive hashes (CITATION: SPACEGRAPHCATS).
 This produced pangenome neighborhoods for each of the 41 genomes.
 86.1% of unknown hashes shared between at least five classifiers were in the pangenomes of the 41 genomes, a 16.7% increase over the 41 genomes alone. 
-This suggests that at least 16.7% of these hashes originate from novel strain-variable or accessory elements in the pangenomes. 
+This suggests that at least 16.7% of shared hashes originate from novel strain-variable or accessory elements in pangenomes. 
 These components are not recoverable by reference-based or *de novo* approaches, but are important for disease classification.
-Further, these pangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier (**Figure {@fig:genomes-plt}**).
+Further, these pangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier, indicating that pangenomes contain novel sequences not captured in any database (**Figure {@fig:genomes-plt}**).
 The pangenomes also captured 74.5% of all variable importance, a 24% increase over the 41 genomes alone. 
 This indicates that pangenomic variation contributes substantial predictive power toward IBD subtype classification.
 
@@ -201,8 +197,6 @@ TBD
 
 ## Discussion
 
-+ This pipeline generates an inclusive summary of all sequences contained in the metagenome while reducing the computational footprint of the data and its analysis.
- 
 ## Methods
 
 All code associated with our analyses is available at www.github.com/dib-lab/2020-ibd/
