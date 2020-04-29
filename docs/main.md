@@ -8,11 +8,11 @@ author:
     - Alicia Gingrich
     - C. Titus Brown
 date: \today{}
-geometry: "left=1cm,right=5cm,top=1cm,bottom=2cm"
+geometry: "left=1in,right=1in,top=1in,bottom=1in"
 bibliography: bibliography.bib
 header-includes:
     - \usepackage{setspace}
-    - \singlespacing
+    - \doublespacing
     - \usepackage{lineno}
     - \linenumbers
 fontfamily: helvet
@@ -166,7 +166,7 @@ However, we observe that while most genomes assign to one species, 19 assign to 
 When we take the Jaccard index of these 41 genomes, we observe little similarity despite contamination (**Figure {@fig:genomes-plt}**). 
 Therefore, we proceeded with analysis with the idea that each of the 41 genomes is a self-contained entity that captures distinct biology.
 
-![Predictive hashes shared between at least five of six random forest classifiers anchor to 41 genomes. **A** 75.1-80.3% of hashes XXXXX .](./figures/fig4.pdf){#fig:genomes-plt}
+![Some predictive hashes from random forest classifiers anchor to known genomes. **A** 75.1-80.3% of all hashes used to train classifiers anchor to known genomes in RefSeq, GenBank, or human microbiome metagenome-assembled genome databases. A further 4.2-5.6% of hashes anchor to pangenomes of a subset of these genomes. **B** The 3,859 hashes shared between at least five classifiers anchor to 41 genomes. Genomes account for different amounts of variable importance in each model. Genomes are labelled by 38 GTDB taxonomy assignments. Genomes labelled in red were classified as multiple distantly related species, likely indicating contamination. **C** Jaccard similarity between 41 genomes. The highest similarity between genomes is .37, while most genomes have no similarity. This indicates that each genome represents distinct nucleotide sequence.](./figures/fig4.pdf){#fig:genomes-plt}
 
 ### Unknown but predictive hashes represent novel pangenomic elements
 
