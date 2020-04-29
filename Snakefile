@@ -34,7 +34,7 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # spacegraphcats outputs:
-        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_sigs/{library}.txt", library = LIBRARIES)
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES)
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
         #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
         # corncob
@@ -662,7 +662,7 @@ rule download_gather_match_genomes:
     wget -O {output} https://osf.io/tsu9c/download
     '''
 
-rule untar_gather_match_genomes:
+checkpoint untar_gather_match_genomes:
     output:  directory("outputs/gather_matches_loso")
     input:"outputs/gather/gather_genomes_loso.tar.gz"
     params: outdir = "outputs/"
@@ -671,9 +671,22 @@ rule untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
+#GATHER_GENOMES = []
+#for (dirpath, dirnames, filenames) in walk("outputs/gather_matches_loso"):
+#    GATHER_GENOMES.extend(filenames)
+#    break 
+
+def aggregate_untar_gather_match_genomes(wildcards):
+    # checkpoint_output produces the output dir from the checkpoint rule.
+    checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
+    file_names = expand("outputs/gather_matches_loso/{gather_genome}.gz",
+                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
+    return file_names
+
+
 checkpoint spacegraphcats_gather_matches:
     input: 
-        query = directory("outputs/gather_matches_loso"),
+        query = aggregate_untar_gather_match_genomes,
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: 
@@ -681,11 +694,11 @@ checkpoint spacegraphcats_gather_matches:
     params: outdir = "outputs/sgc_genome_queries"
     conda: "spacegraphcats.yml"
     shell:'''
-    python -m spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+    spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
 
 rule calc_sig_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.gz.cdbg_ids.reads.fa.gz"
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     conda: "sourmash.yml"
     shell:'''
@@ -694,23 +707,33 @@ rule calc_sig_nbhd_reads:
 
 def aggregate_spacegraphcats_gather_matches(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
+    #checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
     file_names = expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig",
                         library = wildcards.library, 
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.fna.gz.cdbg_ids.reads.fa.gz")).gather_genome)
-    # file_names will return all 129 queries.
+                        #gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
+                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
+    # file_names will return all 41 queries.
     # because this takes a long time, we will subset the file names returned
-    # to the 4 nbhds that account for the largest number of predictive hashes.
+    # to the 3 nbhds that account for the largest number of predictive hashes.
     acetatifactor = [f for f in file_names if "SRS1719498_9" in f]
     fprauznitzii =  [f for f in file_names if "SRS1719577_6" in f]
     cbolteae =  [f for f in file_names if "GCF_000371685.1_Clos_bolt_90B3_V1_genomic" in f]
     select_file_names = acetatifactor + fprauznitzii + cbolteae
     return select_file_names
 
+# WHAT'S THE BEST WAY TO CHECK THAT ALL OF THE SPACEGRAPHCATS QUERIES COMPLETE?
+# I TRIED SOLVING THE CHECKPOINT FROM THE UNTAR RULE INSTEAD, BUT THAT PROMPTED
+# THE CALC_SIG_NBHD_READS RULE TO FAIL WHEN A FILE DIDN'T ALREADY EXIST. 
+# HOWEVER, IF SPACEGRAPHCATS FAILS ON ITS OWN, BECAUSE CHECKPOINTS ARE 
+# FLEXIBLE AS TO THE NUMBER OF OUTPUT FILES, ITS DIFFICULT TO CATCH THESE FAILURES.
+# I TRIED INSTEAD TO MAKE A NEW VARIABLE BASED ON THE GENOMES THAT WERE DOWNLOADED,
+# AND TO EXPAND THE OUTPUT BASED ON THAT, BUT THAT SEEMED NOT TO WORK EITHER...
+# SO I'M AT A LOSS.
 
 rule aggregate_signatures:
     input: aggregate_spacegraphcats_gather_matches
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_sigs/{library}.txt"
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt"
     shell:'''
     touch {output}
     '''
