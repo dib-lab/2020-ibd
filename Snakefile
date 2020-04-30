@@ -34,9 +34,8 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # spacegraphcats outputs:
-        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES)
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES),
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt", library = LIBRARIES)
         # corncob
         #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
 
@@ -759,34 +758,35 @@ def aggregate_spacegraphcats_gather_matches_plass(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
     file_names = expand("outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa", 
+                        library = wildcards.library,
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
     return file_names
 
 rule aggregate_spacegraphcats_gather_matches_plass:
     input: aggregate_spacegraphcats_gather_matches_plass
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt"
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt"
     shell:'''
     touch {output}
     '''
 
-rule paladin_index_plass:
-    input: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    output: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
-    conda: "plass.yml"
-    shell: '''
-    paladin index -r3 {input}
-    '''
+#rule paladin_index_plass:
+#    input: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+#    output: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
+#    conda: "plass.yml"
+#    shell: '''
+#    paladin index -r3 {input}
+#    '''
 
-rule paladin_align_plass:
-    input:
-        indx="outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
-        reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_paladin/{library}/{gather_genome}.sam"
-    params: indx = "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "plass.yml"
-    shell:'''
-    paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
-    '''
+#rule paladin_align_plass:
+#    input:
+#        indx="outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
+#        reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.reads.fa.gz"
+#    output: "outputs/nbhd_read_paladin/{library}/{gather_genome}.sam"
+#    params: indx = "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+#    conda: "plass.yml"
+#    shell:'''
+#    paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
+#    '''
 
 ########################################
 ## PCoA
