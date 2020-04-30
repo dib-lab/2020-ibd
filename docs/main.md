@@ -104,10 +104,10 @@ Diagnosis accounts similar amount of variation as study, demonstrating that ther
 
 | **Variable** | **Jaccard distance** | **Angular distance**|
 |--------------|----------------------|---------------------|
-| Number of hashes | 9.9%\*           | |
-| Study accession  | 6.6%\*           | |
-| Diagnosis        | 6.2%\*           | |
-| Library size     | 0.009%\*         | |
+| Number of hashes | 9.9%\*           | 6.2%\*|
+| Study accession  | 6.6%\*           | 13.5%\*|
+| Diagnosis        | 6.2%\*           | 3.3%\* |
+| Library size     | 0.009%\*         | 0.01%\*|
 Table: Results from PERMANOVA performed on Jaccard and Angular distance matrices. Number of hashes refers to the number of hashes in the filtered signature, while library size refers to the number of raw reads per sample. \* denotes p < .001. {#tbl:permanova}
 
  
