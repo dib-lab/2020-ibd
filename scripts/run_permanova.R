@@ -15,6 +15,12 @@ info <- read_tsv(snakemake@input[['info']]) %>%
   summarise(read_count = sum(read_count)) %>%
   as.data.frame()
 
+sigs <- read_csv(snakemake@input[['sig_info']]) %>%
+  mutate(name = gsub("_filt", "", name)) %>%
+  select(name, n_hashes)
+
+info <- left_join(info, sigs, by = c("library_name" = "name"))
+
 # dist and permanova ------------------------------------------------------
 
 dist <- dist(comp)                                       # compute distances
@@ -23,7 +29,7 @@ info$diagnosis <- as.factor(info$diagnosis)              # set factors for model
 info$study_accession <- as.factor(info$study_accession)
 info$subject <- as.factor(info$subject)
 
-perm <- adonis(dist ~ diagnosis + study_accession, 
+perm <- adonis(dist ~ diagnosis + study_accession + read_count + n_hashes, 
                data = info, 
                permutations = 10000)
 
