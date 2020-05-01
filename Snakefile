@@ -742,10 +742,10 @@ def aggregate_collect_gather_at_least_5_of_6_sig_matches(wildcards):
     
 rule compare_at_least_5_of_6_sigs:
     input: aggregate_collect_gather_at_least_5_of_6_sig_matches
-    output: "outputs/comp_loso_sigs/comp_jaccard"
+    output: "outputs/comp_loso/comp_jaccard"
     conda: "sourmash.yml"
     shell:''' 
-    sourmash compare --ignore-abundance -k 31 {output} {input}
+    sourmash compare --ignore-abundance -k 31 -o {output} {input}
     '''
 
 rule plot_at_least_5_of_6_sigs:
