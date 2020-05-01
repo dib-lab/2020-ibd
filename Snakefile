@@ -1,7 +1,8 @@
 import pandas as pd
-import feather
+#import feather
 import numpy as np
 from sourmash import signature
+import sourmash
 import glob
 import os
 from collections import Counter
@@ -685,15 +686,15 @@ rule at_least_5_of_6_gather:
     """
     input:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
-        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
-        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db3="inputs/gather_databases/nayfach-k31.sbt.json",
-        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
+        db1="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db2="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
+        db4="inputs/gather_databases/nayfach-k31.sbt.json",
     output: 
         csv="outputs/gather/at_least_5_studies_vita_vars.csv",
     conda: 'sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db4} {input.db3} {input.db2}
+    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
     '''
 
 checkpoint collect_gather_at_least_5_of_6_sig_matches:
@@ -736,7 +737,7 @@ checkpoint collect_gather_at_least_5_of_6_sig_matches:
 def aggregate_collect_gather_at_least_5_of_6_sig_matches(wildcards):
     checkpoint_output = checkpoints.collect_gather_at_least_5_of_6_sig_matches.get(**wildcards).output[0]  
     file_names = expand("outputs/gather_matches_loso_sigs/{genome41}.sig", 
-                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome41}.sig")).genome)
+                        genome41 = glob_wildcards(os.path.join(checkpoint_output, "{genome41}.sig")).genome41)
     return file_names
     
 rule compare_at_least_5_of_6_sigs:
@@ -791,6 +792,7 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars:
             sig = sig.split('/')[-1]
             sig = sig.split(" ")[0]
             sig = sig + ".sig"
+            sig = "outputs/gather_matches_loso_sigs/" + sig
             # load in signature
             sigfp = open(sig, 'rt')
             siglist = list(signature.load_signatures(sigfp))
