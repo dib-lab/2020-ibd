@@ -1,6 +1,8 @@
 import pandas as pd
-import feather
+#import feather
+import numpy as np
 from sourmash import signature
+import sourmash
 import glob
 import os
 from collections import Counter
@@ -658,6 +660,168 @@ rule finished_collect_gather_vita_vars_all_sig_matches_lca_summarize:
     shell:'''
     touch {output}
     '''
+
+###################################################
+# Predictive hash characterization -- shared hashes
+###################################################
+
+rule at_least_5_of_6_hashes:
+    """
+    R script that takes as input the output vita vars,
+    intersects the vars, and writes out to text file
+    """
+    input: expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY)
+    output: at_least_5 = "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
+    conda: 'ggplot.yml'
+    script: 'scripts/at_least_5_studies.R'
+
+
+rule at_least_5_of_6_sig:
+   """
+   convert output of at_least_5_of_6_hashes to signature
+   """
+   input: "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
+   output: "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
+   conda: "sourmash.yml"
+   shell:'''
+   python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
+   '''
+
+rule at_least_5_of_6_gather:
+    """
+    run gather on the signature that contains hashes from
+    at least 5 of 6 models
+    """
+    input:
+        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        db1="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db2="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
+        db4="inputs/gather_databases/nayfach-k31.sbt.json",
+    output: 
+        csv="outputs/gather/at_least_5_studies_vita_vars.csv",
+    conda: 'sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
+    '''
+
+checkpoint collect_gather_at_least_5_of_6_sig_matches:
+    input:
+        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db3="inputs/gather_databases/nayfach-k31.sbt.json",
+        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json",
+        csv="outputs/gather/at_least_5_studies_vita_vars.csv"
+    output: directory("outputs/gather_matches_loso_sigs/")
+    run:
+        from sourmash import signature
+        import pandas as pd
+
+        # load gather results
+        df = pd.read_csv(input.csv)
+
+        # for each row, determine which database the result came from
+        for index, row in df.iterrows():
+            if row["filename"] == "inputs/gather_databases/almeida-mags-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.almeida-mags-k31/" + row["md5"]
+            elif row["filename"] == "inputs/gather_databases/genbank-d2-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.genbank-d2-k31/" + row["md5"]
+            elif row["filename"] == "inputs/gather_databases/nayfach-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.nayfach-k31/" + row["md5"]
+            elif row["filename"] == "inputs/gather_databases/pasolli-mags-k31.sbt.json":
+                sigfp = "inputs/gather_databases/.sbt.pasolli-mags-k31/" + row["md5"]
+            # open the signature, parse its name, and write the signature out to a new
+            # folder
+            sigfp = open(sigfp, 'rt')
+            sig = signature.load_one_signature(sigfp)
+            out_sig = str(sig.name())
+            out_sig = out_sig.split('/')[-1]
+            out_sig = out_sig.split(" ")[0]
+            out_sig = "outputs/gather_matches_loso_sigs/" + out_sig + ".sig"
+            with open(str(out_sig), 'wt') as fp:
+                signature.save_signatures([sig], fp)      
+
+
+def aggregate_collect_gather_at_least_5_of_6_sig_matches(wildcards):
+    checkpoint_output = checkpoints.collect_gather_at_least_5_of_6_sig_matches.get(**wildcards).output[0]  
+    file_names = expand("outputs/gather_matches_loso_sigs/{genome41}.sig", 
+                        genome41 = glob_wildcards(os.path.join(checkpoint_output, "{genome41}.sig")).genome41)
+    return file_names
+    
+rule compare_at_least_5_of_6_sigs:
+    input: aggregate_collect_gather_at_least_5_of_6_sig_matches
+    output: "outputs/comp_loso/comp_jaccard"
+    conda: "sourmash.yml"
+    shell:''' 
+    sourmash compare --ignore-abundance -k 31 -o {output} {input}
+    '''
+
+rule plot_at_least_5_of_6_sigs:
+    input: "outputs/comp_loso/comp_jaccard"
+    output: "outputs/comp_loso/comp_jaccard.matrix.pdf"
+    params: out_dir = "outputs/comp_loso"
+    conda: "sourmash.yml"
+    shell:'''
+    sourmash plot --pdf --labels --output-dir {params.out_dir} {input} 
+    '''
+
+rule create_hash_genome_map_at_least_5_of_6_vita_vars:
+    input:
+        sigs = aggregate_collect_gather_at_least_5_of_6_sig_matches,
+        gather = "outputs/gather/at_least_5_studies_vita_vars.csv",
+    output: "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv"
+    run:
+        files = input.sigs
+         # load in all signatures that had gather matches and generate a list of all hashes 
+        all_mins = []
+        for file in files:
+            sigfp = open(file, 'rt')
+            siglist = list(signature.load_signatures(sigfp))
+            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
+            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+            all_mins += mins # load all minhashes into a list
+
+        # make all_mins a set
+        all_mins = set(all_mins)
+
+        # read in the gather matches as a dataframe
+        gather_matches = pd.read_csv(input.gather)
+
+        # loop through gather matches. For each match, read in it's
+        # signature and generate an intersection of its hashes and all of 
+        # the hashes that matched to gather. 
+        # Then, remove those hashes from the all_mins list, and repeat
+        sig_dict = {}
+        all_sig_df = pd.DataFrame(columns=['level_0', '0'])
+        for index, row in gather_matches.iterrows():
+            sig = row["name"]
+            # edit the name to match the signature names
+            sig = str(sig)
+            sig = sig.split('/')[-1]
+            sig = sig.split(" ")[0]
+            sig = sig + ".sig"
+            sig = "outputs/gather_matches_loso_sigs/" + sig
+            # load in signature
+            sigfp = open(sig, 'rt')
+            siglist = list(signature.load_signatures(sigfp))
+            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
+            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+            mins = set(mins)
+            # intersect all_mins list with mins from current signature
+            intersect_mins = mins.intersection(all_mins)
+            # add hashes owned by the signature to a dictionary 
+            sig_dict[sig] = intersect_mins
+            # convert into a dataframe
+            sig_df = pd.DataFrame.from_dict(sig_dict,'index').stack().reset_index(level=0)
+            # combine dfs
+            all_sig_df = pd.concat([all_sig_df, sig_df], sort = False)
+            # subtract intersect_mins from all_mins
+            all_mins = all_mins - mins
+
+        all_sig_df.columns = ['sig', 'tmp', 'hash']
+        all_sig_df = all_sig_df.drop(['tmp'], axis = 1)
+        all_sig_df = all_sig_df.drop_duplicates(keep = "first")
+        all_sig_df.to_csv(str(output))
 
 
 #############################################
