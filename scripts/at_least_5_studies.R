@@ -1,11 +1,11 @@
 library(readr)
 
-prjna237362 <- read_tsv(snakemake@input[1])
-prjna400072 <- read_tsv(snakemake@input[2])
-prjeb2054 <- read_tsv(snakemake@input[3])
-srp057027 <- read_tsv(snakemake@input[4])
-prjna385949 <- read_tsv(snakemake@input[5])
-ihmp <- read_tsv(snakemake@input[6])
+prjna237362 <- read_tsv(snakemake@input[[1]], col_names = "hash")
+prjna400072 <- read_tsv(snakemake@input[[2]], col_names = "hash")
+prjeb2054 <- read_tsv(snakemake@input[[3]], col_names = "hash")
+srp057027 <- read_tsv(snakemake@input[[4]], col_names = "hash")
+prjna385949 <- read_tsv(snakemake@input[[5]], col_names = "hash")
+ihmp <- read_tsv(snakemake@input[[6]], col_names = "hash")
 
 intersect_hashes_all <- Reduce(intersect, list(prjeb2054$hash, prjna237362$hash,
                                                ihmp$hash, srp057027$hash, 
