@@ -1,5 +1,5 @@
 import pandas as pd
-import feather
+#import feather
 from sourmash import signature
 import glob
 import os
@@ -738,8 +738,15 @@ rule diginorm_nbhd_reads:
     normalize-by-median.py -k 20 -C 20 -M 16e9 --gzip -o {output} {input}
     '''
 
-rule plass_nbhd_reads:
+rule cat_diginorm_nbhd_reads:
     input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.fa.gz", library = LIBRARIES)
+    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule plass_nbhd_reads:
+    input: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
     output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
     conda: "plass.yml"
     shell:'''
