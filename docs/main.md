@@ -253,7 +253,8 @@ The genome with the largest fraction of predictive k-mers won the variable impor
 These hashes were then removed, and we repeated the process for the genome with the next largest fraction of predictive k-mers. 
 
 To identify hashes that were predictive in at least five of six models, we took the union of predictive hashes from all combinations of five models, as well as from the union of all six models.
-We re-anchored these hashes to known genomes using sourmash `gather` as above. 
+We refer to these hashes as shared predictive hashes.
+We anchored variable importance of these shared predictive hashes to known genomes using sourmash `gather` as above. 
 
 ### Compact de Bruijn graph queries for predictive genomes
 
@@ -262,9 +263,21 @@ We then used spacegraphcats `extract_reads` to retreive the reads and `extract_c
 
 ### Characterization of graph pangenomes
 
-**Pangenome signatures** To evaluate 
+**Pangenome signatures** To evaluate the k-mers recovered by pangenome neighborhood queries, we generated sourmash signatures from the unitigs in each query neighborhood. 
+We merged signatures from the same query genome, producing 41 pangenome signatures. 
+We indexed these signatures to create a sourmash gather database. 
+To estimate how query neighborhoods increased the identifiable fraction of predictive hashes, we ran sourmash `gather` with the pangenome database, as well as the GenBank and human microbiome metagenome databases. 
+To estimate how query neighborhoods increased the identifiable fraction of shared predictive hashes, we ran sourmash `gather` with the pangenome database alone.
+We anchored variable importance of the shared predictive hashes to known genomes using sourmash `gather` results as above. 
 
 **Differential abundance**
+
+We used differential abundance analysis to determine which genes in each pangenome were differentially abundant in IBD subtype.
+We used diginorm on each query neighborhood implemented in khmer as `normalize-by-median.py` with parameters `-k 20 -C 20` (CITE KHMER). 
+We then combined all query neighborhoods from a single query and used Plass `assemble` with parameter `--min-length 25` to assemble each pangenome in amino acid space (CITE PLASS).
+We used CD-HIT to cluster amino acid sequences within a pagenome at 90% identity and retained the representative sequence (CITE CDHIT).
+To generate amino acid abundance for each metagenome sample for each pangenome, we used paladin to align query neighborhood reads to the pangenome amino acid representative sequences, and then used Salmon to quantify the number of reads aligned to each amino acid sequence (CITE PALADIN, AA ABUND GITHUB ISSUE).
+Using these abundances, we used DESeq2 to perform differential abundance analysis between IBD subtype, using a model `~ diagnosis + study_accession` (CITE). 
 
 ### Compact de Bruijn graph queries for unknown predictive k-mers
 
