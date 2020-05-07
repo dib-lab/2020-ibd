@@ -707,12 +707,11 @@ def aggregate_spacegraphcats_gather_matches_sigs(wildcards):
                         library = wildcards.library, 
                         #gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
-    #acetatifactor = [f for f in file_names if "SRS1719498_9" in f]
-    #fprauznitzii =  [f for f in file_names if "SRS1719577_6" in f]
-    #cbolteae =  [f for f in file_names if "GCF_000371685.1_Clos_bolt_90B3_V1_genomic" in f]
-    #select_file_names = acetatifactor + fprauznitzii + cbolteae
-    #return select_file_names
-    return file_names
+    acetatifactor = [f for f in file_names if "SRS1719498_9" in f]
+    fprauznitzii =  [f for f in file_names if "SRS1719577_6" in f]
+    cbolteae =  [f for f in file_names if "GCF_000371685.1_Clos_bolt_90B3_V1_genomic" in f]
+    select_file_names = acetatifactor + fprauznitzii + cbolteae
+    return select_file_names
 
 
 rule aggregate_signatures:
@@ -742,15 +741,23 @@ rule plass_nbhd_reads:
     output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
     conda: "plass.yml"
     shell:'''
-    plass assemble --min-length 25 {input} {output} tmp
+    plass assemble --threads 4 --min-length 25 {input} {output} tmp
+    '''
+
+rule plass_remove_stops:
+    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
+    output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
+    conda: "screed.yml"
+    shell:'''
+    python scripts/remove-stop-plass.py {input}
     '''
 
 rule cdhit_plass:
-    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
+    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
     output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     conda: "plass.yml"
     shell:'''
-    cd-hit -i {input} -o {output} -c 1
+    cd-hit -i {input} -o {output} -c .9
     '''
 
 rule paladin_index_plass:
