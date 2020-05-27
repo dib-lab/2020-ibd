@@ -757,12 +757,12 @@ rule cdhit_plass:
     output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     conda: "plass.yml"
     shell:'''
-    cd-hit -i {input} -o {output} -c .9
+    cd-hit -M 15500 -i {input} -o {output} -c .9
     '''
 
 rule paladin_index_plass:
-    input: "outputs/nbhd_read_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    output: "outputs/nbhd_read_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
+    input: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+    output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
     conda: "plass.yml"
     shell: '''
     paladin index -r3 {input}
@@ -770,39 +770,39 @@ rule paladin_index_plass:
 
 rule paladin_align_plass:
     input:
-        indx="outputs/nbhd_read_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
+        indx="outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
         reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_paladin/{library}/{gather_genome}.sam"
-    params: indx = "outputs/nbhd_read_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+    output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
+    params: indx = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     conda: "plass.yml"
     shell:'''
     paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
     '''
 
 rule samtools_view_paladin:
-    output: "outputs/nbhd_read_paladin/{library}/{gather_genome}.bam"
-    input: "outputs/nbhd_read_paladin/{library}/{gather_genome}.sam"
+    output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
+    input: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
     conda: "plass.yml"
     shell:'''
     samtools view -b {input} > {output}
     '''
 
 rule salmon_paladin:
-    output: "outputs/nbhd_read_salmon/{library}/{gather_genome}_quant/quant.sf"
+    output: "outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant/quant.sf"
     input:
-        cdhit="outputs/nbhd_read_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa",
-        bam="outputs/nbhd_read_paladin/{library}/{gather_genome}.bam"
+        cdhit="outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa",
+        bam="outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
     params:
-        out="outputs/nbhd_read_salmon/{library}/{gather_genome}_quant"
+        out="outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant"
     conda: "plass.yml"
     shell:'''
-    salmon quant -t {input.cdhit} -l A -a {input.bam} -o {params.out} --noErrorModel
+    salmon quant -t {input.cdhit} -l A -a {input.bam} -o {params.out} --minAssignedFrags 1 || touch {output}
     '''
 
 def aggregate_spacegraphcats_gather_matches_plass(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_read_salmon/{library}/{gather_genome}_quant/quant.sf", 
+    file_names = expand("outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant/quant.sf", 
                         library = wildcards.library,
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
     return file_names
