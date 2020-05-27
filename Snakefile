@@ -36,9 +36,8 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # spacegraphcats outputs:
-        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES)
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches.txt",
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt",
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES),
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt", library = LIBRARIES)
         # corncob
         #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
 
@@ -843,11 +842,6 @@ checkpoint untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
-#GATHER_GENOMES = []
-#for (dirpath, dirnames, filenames) in walk("outputs/gather_matches_loso"):
-#    GATHER_GENOMES.extend(filenames)
-#    break 
-
 def aggregate_untar_gather_match_genomes(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
@@ -877,7 +871,7 @@ rule calc_sig_nbhd_reads:
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
     '''
 
-def aggregate_spacegraphcats_gather_matches(wildcards):
+def aggregate_spacegraphcats_gather_matches_sigs(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     #checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
@@ -885,70 +879,62 @@ def aggregate_spacegraphcats_gather_matches(wildcards):
                         library = wildcards.library, 
                         #gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
-    # file_names will return all 41 queries.
-    # because this takes a long time, we will subset the file names returned
-    # to the 3 nbhds that account for the largest number of predictive hashes.
     acetatifactor = [f for f in file_names if "SRS1719498_9" in f]
     fprauznitzii =  [f for f in file_names if "SRS1719577_6" in f]
     cbolteae =  [f for f in file_names if "GCF_000371685.1_Clos_bolt_90B3_V1_genomic" in f]
     select_file_names = acetatifactor + fprauznitzii + cbolteae
     return select_file_names
 
-# WHAT'S THE BEST WAY TO CHECK THAT ALL OF THE SPACEGRAPHCATS QUERIES COMPLETE?
-# I TRIED SOLVING THE CHECKPOINT FROM THE UNTAR RULE INSTEAD, BUT THAT PROMPTED
-# THE CALC_SIG_NBHD_READS RULE TO FAIL WHEN A FILE DIDN'T ALREADY EXIST. 
-# HOWEVER, IF SPACEGRAPHCATS FAILS ON ITS OWN, BECAUSE CHECKPOINTS ARE 
-# FLEXIBLE AS TO THE NUMBER OF OUTPUT FILES, ITS DIFFICULT TO CATCH THESE FAILURES.
-# I TRIED INSTEAD TO MAKE A NEW VARIABLE BASED ON THE GENOMES THAT WERE DOWNLOADED,
-# AND TO EXPAND THE OUTPUT BASED ON THAT, BUT THAT SEEMED NOT TO WORK EITHER...
-# SO I'M AT A LOSS.
 
 rule aggregate_signatures:
-    input: aggregate_spacegraphcats_gather_matches
+    input: aggregate_spacegraphcats_gather_matches_sigs
     output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt"
     shell:'''
     touch {output}
     '''
 
+rule diginorm_nbhd_reads:
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    output: "outputs/nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+    conda: "env.yml"
+    shell:'''
+    normalize-by-median.py -k 20 -C 20 -M 16e9 --gzip -o {output} {input}
+    '''
+
+rule cat_diginorm_nbhd_reads:
+    input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.fa.gz", library = LIBRARIES)
+    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
+    shell:'''
+    cat {input} > {output}
+    '''
+
 rule plass_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_plass/{library}/{gather_genome}.cdbg_ids.reads.plass.faa"
+    input: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
+    output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
     conda: "plass.yml"
     shell:'''
-    plass assemble {input} {output} tmp
+    plass assemble --threads 4 --min-length 25 {input} {output} tmp
+    '''
+
+rule plass_remove_stops:
+    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
+    output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
+    conda: "screed.yml"
+    shell:'''
+    python scripts/remove-stop-plass.py {input}
     '''
 
 rule cdhit_plass:
-    input: "outputs/nbhd_read_plass/{library}/{gather_genome}.cdbg_ids.reads.plass.faa"
-    output: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
+    output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     conda: "plass.yml"
     shell:'''
-    cd-hit -i {input} -o {output} -c 1
-    '''
-
-def aggregate_spacegraphcats_gather_matches_plass(wildcards):
-    # checkpoint_output produces the output dir from the checkpoint rule.
-    checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa",
-                        library = LIBRARIES, 
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.fna.cdbg_ids.reads.fa.gz")).gather_genome)
-    bacteroides = [f for f in file_names if "SRS476121_69" in f]
-    faecalibacterium =  [f for f in file_names if "SRS147022_17" in f]
-    rtorques =  [f for f in file_names if "GCA_001406235.1_14207_7_41_genomic" in f]
-    fplautii =  [f for f in file_names if "GCA_001405435.1_14207_7_29_genomic" in f]
-    select_file_names = bacteroides + faecalibacterium + rtorques + fplautii
-    return select_file_names
-
-rule aggregate_spacegraphcats_gather_matches_plass:
-    input: aggregate_spacegraphcats_gather_matches_plass
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass.txt"
-    shell:'''
-    touch {output}
+    cd-hit -M 15500 -i {input} -o {output} -c .9
     '''
 
 rule paladin_index_plass:
-    input: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    output: "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
+    input: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+    output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
     conda: "plass.yml"
     shell: '''
     paladin index -r3 {input}
@@ -956,13 +942,48 @@ rule paladin_index_plass:
 
 rule paladin_align_plass:
     input:
-        indx="outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
-        reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.fna.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_paladin/{library}/{gather_genome}.sam"
-    params: indx = "outputs/nbhd_read_cdhit/{library}/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+        indx="outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
+        reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
+    params: indx = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     conda: "plass.yml"
     shell:'''
     paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
+    '''
+
+rule samtools_view_paladin:
+    output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
+    input: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
+    conda: "plass.yml"
+    shell:'''
+    samtools view -b {input} > {output}
+    '''
+
+rule salmon_paladin:
+    output: "outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant/quant.sf"
+    input:
+        cdhit="outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa",
+        bam="outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
+    params:
+        out="outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant"
+    conda: "plass.yml"
+    shell:'''
+    salmon quant -t {input.cdhit} -l A -a {input.bam} -o {params.out} --minAssignedFrags 1 || touch {output}
+    '''
+
+def aggregate_spacegraphcats_gather_matches_plass(wildcards):
+    # checkpoint_output produces the output dir from the checkpoint rule.
+    checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
+    file_names = expand("outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant/quant.sf", 
+                        library = wildcards.library,
+                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
+    return file_names
+
+rule aggregate_spacegraphcats_gather_matches_plass:
+    input: aggregate_spacegraphcats_gather_matches_plass
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt"
+    shell:'''
+    touch {output}
     '''
 
 ########################################
