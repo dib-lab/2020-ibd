@@ -26,7 +26,7 @@ sandbox/jellyfish/
 sandbox/test_megahit/
 sandbox/test_pangenome_hash_tbl/
 size_input.txt
-docs/*pdf
+docs/20*pdf
 docs/papers
 docs/project.md
 docs/r03.md
