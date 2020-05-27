@@ -115,7 +115,7 @@ rule adapter_trim_files:
         r2 = 'outputs/trim/{library}_R2.trim.fq.gz',
         o1 = 'outputs/trim/{library}_o1.trim.fq.gz',
         o2 = 'outputs/trim/{library}_o2.trim.fq.gz'
-    conda: 'env.yml'
+    conda: 'envs/env.yml'
     shell:'''
      trimmomatic PE {input.r1} {input.r2} \
              {output.r1} {output.o1} {output.r2} {output.o2} \
@@ -130,7 +130,7 @@ rule cutadapt_files:
     output:
         r1 = 'outputs/cut/{library}_R1.cut.fq.gz',
         r2 = 'outputs/cut/{library}_R2.cut.fq.gz',
-    conda: 'env2.yml'
+    conda: 'envs/env2.yml'
     shell:'''
     cutadapt -a AGATCGGAAGAG -A AGATCGGAAGAG -o {output.r1} -p {output.r2} {input.r1} {input.r2}
     '''
@@ -142,7 +142,7 @@ rule fastqc:
     output:
         r1 = 'outputs/fastqc/{library}_R1.cut_fastqc.html',
         r2 = 'outputs/fastqc/{library}_R2.cut_fastqc.html'
-    conda: 'env2.yml'
+    conda: 'envs/env2.yml'
     shell:'''
     fastqc -o outputs/fastqc {input} 
     '''
@@ -159,7 +159,7 @@ rule remove_host:
         r1 = 'outputs/cut/{library}_R1.cut.fq.gz',
         r2 = 'outputs/cut/{library}_R2.cut.fq.gz',
         human='inputs/host/hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz'
-    conda: 'env.yml'
+    conda: 'envs/env.yml'
     shell:'''
     bbduk.sh -Xmx64g t=3 in={input.r1} in2={input.r2} out={output.r1} out2={output.r2} outm={output.human_r1} outm2={output.human_r2} k=31 ref={input.human}
     '''
@@ -169,7 +169,7 @@ rule kmer_trim_reads:
         'outputs/bbduk/{library}_R1.nohost.fq.gz',
         'outputs/bbduk/{library}_R2.nohost.fq.gz'
     output: "outputs/abundtrim/{library}.abundtrim.fq.gz"
-    conda: 'env.yml'
+    conda: 'envs/env.yml'
     shell:'''
     interleave-reads.py {input} | trim-low-abund.py --gzip -C 3 -Z 18 -M 60e9 -V - -o {output}
     '''
@@ -177,7 +177,7 @@ rule kmer_trim_reads:
 rule compute_signatures:
     input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: "outputs/sigs/{library}.sig"
-    conda: 'env.yml'
+    conda: 'envs/env.yml'
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} {input}
     '''
@@ -241,7 +241,7 @@ rule calc_total_hashes_sigs:
 rule convert_greater_than_1_hashes_to_sig:
     input: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
     output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name greater_than_one_count_hashes --filename {input} {input}
     '''
@@ -251,7 +251,7 @@ rule filter_signatures_to_greater_than_1_hashes:
         filt_sig = "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig",
         sigs = "outputs/sigs/{library}.sig"
     output: "outputs/filt_sigs/{library}_filt.sig"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash sig intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
     '''
@@ -259,7 +259,7 @@ rule filter_signatures_to_greater_than_1_hashes:
 rule name_filtered_sigs:
     input: "outputs/filt_sigs/{library}_filt.sig"
     output: "outputs/filt_sigs_named/{library}_filt_named.sig"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash sig rename -o {output} -k 31 {input} {wildcards.library}_filt
     '''
@@ -267,7 +267,7 @@ rule name_filtered_sigs:
 rule describe_filtered_sigs:
     input: expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES)
     output: "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash signature describe --csv {output} {input}
     '''
@@ -275,7 +275,7 @@ rule describe_filtered_sigs:
 rule convert_greater_than_1_signatures_to_csv:
     input: "outputs/filt_sigs_named/{library}_filt_named.sig"
     output: "outputs/filt_sigs_named_csv/{library}_filt_named.csv"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     python scripts/sig_to_csv.py {input} {output}
     '''
@@ -284,7 +284,7 @@ rule make_hash_abund_table_long_normalized:
     input: 
         expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
     output: csv = "outputs/hash_tables/normalized_abund_hashes_long.csv"
-    conda: 'r.yml'
+    conda: 'envs/r.yml'
     script: "scripts/normalized_hash_abund_long.R"
 
 rule make_hash_abund_table_wide:
@@ -310,7 +310,7 @@ rule install_pomona:
     input: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
     output:
         pomona = "outputs/vita_rf/pomona_install.txt"
-    conda: 'rf.yml'
+    conda: 'envs/rf.yml'
     script: "scripts/install_pomona.R"
 
 rule vita_var_sel_rf:
@@ -325,7 +325,7 @@ rule vita_var_sel_rf:
     params: 
         threads = 32,
         validation_study = "{study}"
-    conda: 'rf.yml'
+    conda: 'envs/rf.yml'
     script: "scripts/vita_rf.R"
 
 rule loo_validation:
@@ -344,7 +344,7 @@ rule loo_validation:
     params:
         threads = 20,
         validation_study = "{study}"
-    conda: 'tuneranger.yml'
+    conda: 'envs/tuneranger.yml'
     script: "scripts/tune_rf.R"
 
 
@@ -355,7 +355,7 @@ rule loo_validation:
 rule convert_vita_vars_to_sig:
     input: "outputs/vita_rf/{study}_vita_vars.txt"
     output: "outputs/vita_rf/{study}_vita_vars.sig"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
     '''
@@ -441,7 +441,7 @@ rule gather_vita_vars_all:
         csv="outputs/gather/{study}_vita_vars_all.csv",
         matches="outputs/gather/{study}_vita_vars_all.matches",
         un="outputs/gather/{study}_vita_vars_all.un"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db4} {input.db3} {input.db2}
     '''
@@ -454,7 +454,7 @@ rule gather_vita_vars_genbank:
         csv="outputs/gather/{study}_vita_vars_genbank.csv",
         matches="outputs/gather/{study}_vita_vars_genbank.matches",
         un="outputs/gather/{study}_vita_vars_genbank.un"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
@@ -467,7 +467,7 @@ rule gather_vita_vars_refseq:
         csv="outputs/gather/{study}_vita_vars_refseq.csv",
         matches="outputs/gather/{study}_vita_vars_refseq.matches",
         un="outputs/gather/{study}_vita_vars_refseq.un"
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
@@ -475,7 +475,7 @@ rule gather_vita_vars_refseq:
 rule merge_vita_vars_sig_all:
     input: expand("outputs/vita_rf/{study}_vita_vars.sig", study = STUDY)
     output: "outputs/vita_rf/vita_vars_merged.sig"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash sig merge -o {output} {input}
     '''
@@ -617,7 +617,7 @@ rule sourmash_lca_classify_vita_vars_all_sig_matches:
         db = "inputs/gather_databases/gtdb-release89-k31.lca.json.gz",
         genomes = "outputs/gather_matches/{genome}.sig"
     output: "outputs/gather_matches_lca_classify/{genome}.csv"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash lca classify --db {input.db} --query {input.genomes} -o {output}
     '''
@@ -641,7 +641,7 @@ rule sourmash_lca_summarize_vita_vars_all_sig_matches:
         db = "inputs/gather_databases/gtdb-release89-k31.lca.json.gz",
         genomes = "outputs/gather_matches/{genome}.sig"
     output: "outputs/gather_matches_lca_summarize/{genome}.csv"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash lca summarize --db {input.db} --query {input.genomes} -o {output}
     '''
@@ -671,7 +671,7 @@ rule at_least_5_of_6_hashes:
     """
     input: expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY)
     output: at_least_5 = "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
-    conda: 'ggplot.yml'
+    conda: 'envs/ggplot.yml'
     script: 'scripts/at_least_5_studies.R'
 
 
@@ -681,7 +681,7 @@ rule at_least_5_of_6_sig:
    """
    input: "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
    output: "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
-   conda: "sourmash.yml"
+   conda: "envs/sourmash.yml"
    shell:'''
    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
    '''
@@ -699,7 +699,7 @@ rule at_least_5_of_6_gather:
         db4="inputs/gather_databases/nayfach-k31.sbt.json",
     output: 
         csv="outputs/gather/at_least_5_studies_vita_vars.csv",
-    conda: 'sourmash.yml'
+    conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
     '''
@@ -750,7 +750,7 @@ def aggregate_collect_gather_at_least_5_of_6_sig_matches(wildcards):
 rule compare_at_least_5_of_6_sigs:
     input: aggregate_collect_gather_at_least_5_of_6_sig_matches
     output: "outputs/comp_loso/comp_jaccard"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:''' 
     sourmash compare --ignore-abundance -k 31 -o {output} {input}
     '''
@@ -759,7 +759,7 @@ rule plot_at_least_5_of_6_sigs:
     input: "outputs/comp_loso/comp_jaccard"
     output: "outputs/comp_loso/comp_jaccard.matrix.pdf"
     params: out_dir = "outputs/comp_loso"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash plot --pdf --labels --output-dir {params.out_dir} {input} 
     '''
@@ -858,7 +858,7 @@ checkpoint spacegraphcats_gather_matches:
     output: 
         directory("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/")
     params: outdir = "outputs/sgc_genome_queries"
-    conda: "spacegraphcats.yml"
+    conda: "envs/spacegraphcats.yml"
     shell:'''
     spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
@@ -866,7 +866,7 @@ checkpoint spacegraphcats_gather_matches:
 rule calc_sig_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
     '''
@@ -896,7 +896,7 @@ rule aggregate_signatures:
 rule diginorm_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
-    conda: "env.yml"
+    conda: "envs/env.yml"
     shell:'''
     normalize-by-median.py -k 20 -C 20 -M 16e9 --gzip -o {output} {input}
     '''
@@ -911,7 +911,7 @@ rule cat_diginorm_nbhd_reads:
 rule plass_nbhd_reads:
     input: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
     output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
-    conda: "plass.yml"
+    conda: "envs/plass.yml"
     shell:'''
     plass assemble --threads 4 --min-length 25 {input} {output} tmp
     '''
@@ -919,7 +919,7 @@ rule plass_nbhd_reads:
 rule plass_remove_stops:
     input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
     output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
-    conda: "screed.yml"
+    conda: "envs/screed.yml"
     shell:'''
     python scripts/remove-stop-plass.py {input}
     '''
@@ -927,7 +927,7 @@ rule plass_remove_stops:
 rule cdhit_plass:
     input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
     output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "plass.yml"
+    conda: "envs/plass.yml"
     shell:'''
     cd-hit -M 15500 -i {input} -o {output} -c .9
     '''
@@ -935,7 +935,7 @@ rule cdhit_plass:
 rule paladin_index_plass:
     input: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
     output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
-    conda: "plass.yml"
+    conda: "envs/plass.yml"
     shell: '''
     paladin index -r3 {input}
     '''
@@ -946,7 +946,7 @@ rule paladin_align_plass:
         reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
     params: indx = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "plass.yml"
+    conda: "envs/plass.yml"
     shell:'''
     paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
     '''
@@ -954,7 +954,7 @@ rule paladin_align_plass:
 rule samtools_view_paladin:
     output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
     input: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
-    conda: "plass.yml"
+    conda: "envs/plass.yml"
     shell:'''
     samtools view -b {input} > {output}
     '''
@@ -966,7 +966,7 @@ rule salmon_paladin:
         bam="outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
     params:
         out="outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant"
-    conda: "plass.yml"
+    conda: "envs/plass.yml"
     shell:'''
     salmon quant -t {input.cdhit} -l A -a {input.bam} -o {params.out} --minAssignedFrags 1 || touch {output}
     '''
@@ -994,7 +994,7 @@ rule compare_signatures_cosine:
     input: 
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
     output: "outputs/comp/all_filt_comp_cosine.csv"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash compare -k 31 -p 8 --csv {output} {input}
     '''
@@ -1003,7 +1003,7 @@ rule compare_signatures_jaccard:
     input: 
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
     output: "outputs/comp/all_filt_comp_jaccard.csv"
-    conda: "sourmash.yml"
+    conda: "envs/sourmash.yml"
     shell:'''
     sourmash compare --ignore-abundance -k 31 -p 8 --csv {output} {input}
     '''
@@ -1015,7 +1015,7 @@ rule permanova_jaccard:
         sig_info = "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
     output: 
         perm = "outputs/comp/all_filt_permanova_jaccard.csv"
-    conda: "vegan.yml"
+    conda: "envs/vegan.yml"
     script: "scripts/run_permanova.R"
 
 rule permanova_cosine:
@@ -1025,7 +1025,7 @@ rule permanova_cosine:
         sig_info = "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
     output: 
         perm = "outputs/comp/all_filt_permanova_cosine.csv"
-    conda: "vegan.yml"
+    conda: "envs/vegan.yml"
     script: "scripts/run_permanova.R"
 
 rule plot_comp_jaccard:
@@ -1035,7 +1035,7 @@ rule plot_comp_jaccard:
     output: 
         study = "outputs/comp/study_plt_all_filt_jaccard.pdf",
         diagnosis = "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf"
-    conda: "ggplot.yml"
+    conda: "envs/ggplot.yml"
     script: "scripts/plot_comp.R"
 
 rule plot_comp_cosine:
@@ -1045,7 +1045,7 @@ rule plot_comp_cosine:
     output: 
         study = "outputs/comp/study_plt_all_filt_cosine.pdf",
         diagnosis = "outputs/comp/diagnosis_plt_all_filt_cosine.pdf"
-    conda: "ggplot.yml"
+    conda: "envs/ggplot.yml"
     script: "scripts/plot_comp.R"
 
 ########################################
@@ -1061,7 +1061,7 @@ rule hash_table_long_unnormalized:
     """
     input: expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
     output: csv = "outputs/hash_tables/unnormalized_abund_hashes_long.csv"
-    conda: 'r.yml'
+    conda: 'envs/r.yml'
     script: "scripts/all_unnormalized_hash_abund_long.R"
 
 rule hash_table_wide_unnormalized:
