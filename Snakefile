@@ -991,7 +991,6 @@ rule salmon_paladin:
     '''
 
 rule install_corncob:
-    input: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
     output:
         corncob = "outputs/nbhd_reads_corncob/corncob_install.txt"
     conda: 'envs/corncob.yml'
@@ -1001,7 +1000,8 @@ rule corncob_salmon:
     input:
         quant= expand("outputs/nbhd_reads_salmon/{library}/{{gather_genome}}_quant/quant.sf", library = LIBRARIES),
         info = "inputs/working_metadata.tsv",
-        mqc_fastq = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
+        mqc_fastq = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+        corncob = "outputs/nbhd_reads_corncob/corncob_install.txt"
     output:
         dim = "outputs/nbhd_reads_corncob/{gather_genome}_dim.tsv",
         counts = "outputs/nbhd_reads_corncob/{gather_genome}_counts.tsv",
