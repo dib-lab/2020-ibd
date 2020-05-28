@@ -37,7 +37,8 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
         expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES),
-        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob.txt"
+        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob/{library}.txt", library = LIBRARIES)
+        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob.txt"
         #expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt", library = LIBRARIES)
 
 ########################################
@@ -182,7 +183,7 @@ rule fastp_trimmed_reads:
     '''
 
 rule multiqc_fastp:
-    input: "outputs/fastp_abundtrim/{library}.abundtrim.fastp.json"
+    input: expand("outputs/fastp_abundtrim/{library}.abundtrim.fastp.json", library = LIBRARIES)
     output: "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
     params: 
         indir = "outputs/fastp_abundtrim",
@@ -1015,12 +1016,13 @@ def aggregate_spacegraphcats_gather_matches_plass(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
     file_names = expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv",
+                        library = wildcards.library,
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
     return file_names
 
 rule aggregate_spacegraphcats_gather_matches_plass:
     input: aggregate_spacegraphcats_gather_matches_plass
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob.txt"
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob/{library}.txt"
     shell:'''
     touch {output}
     '''
