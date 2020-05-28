@@ -14,32 +14,31 @@ STUDY = m['study_accession'].unique().tolist()
 
 rule all:
     input:
-        # sourmash compare outputs:
+        # SOURMASH COMPARE OUTPUTS:
         "outputs/comp/all_filt_permanova_cosine.csv",
         "outputs/comp/all_filt_permanova_jaccard.csv",
         "outputs/comp/study_plt_all_filt_jaccard.pdf",
         "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf",
         "outputs/comp/study_plt_all_filt_cosine.pdf",
         "outputs/comp/diagnosis_plt_all_filt_cosine.pdf",
-        # variable selection outputs:
+        # VARIABLE SELECTION OUTPUTS:
         "outputs/filt_sig_hashes/count_total_hashes.txt",
         expand("outputs/vita_rf/{study}_vita_rf.RDS", study = STUDY),
         expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
         expand("outputs/vita_rf/{study}_ibd_filt.csv", study = STUDY),
-        # optimal RF outputs:
+        # OPTIMAL RF OUTPUTS:
         expand('outputs/optimal_rf/{study}_optimal_rf.RDS', study = STUDY),
-        # variable characterization outputs:
+        # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
         "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
-        # spacegraphcats outputs:
+        # SPACEGRAPHCATS OUTPUTS:
         expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES),
-        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt", library = LIBRARIES)
-        # corncob
-        #"outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather",
+        "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob.txt"
+        #expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt", library = LIBRARIES)
 
 ########################################
 ## PREPROCESSING
@@ -172,6 +171,25 @@ rule kmer_trim_reads:
     conda: 'envs/env.yml'
     shell:'''
     interleave-reads.py {input} | trim-low-abund.py --gzip -C 3 -Z 18 -M 60e9 -V - -o {output}
+    '''
+
+rule fastp_trimmed_reads:
+    input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
+    output: "outputs/fastp_abundtrim/{library}.abundtrim.fastp.json"
+    conda: "envs/fastp.yml"
+    shell:'''
+    fastp -i {input} --interleaved_in -j {output}
+    '''
+
+rule multiqc_fastp:
+    input: "outputs/fastp_abundtrim/{library}.abundtrim.fastp.json"
+    output: "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
+    params: 
+        indir = "outputs/fastp_abundtrim",
+        outdir = "outputs/fastp_abundtrim"
+    conda: "envs/multiqc.yml"
+    shell:'''
+    multiqc {params.indir} -o {params.outdir} 
     '''
 
 rule compute_signatures:
@@ -971,17 +989,38 @@ rule salmon_paladin:
     salmon quant -t {input.cdhit} -l A -a {input.bam} -o {params.out} --minAssignedFrags 1 || touch {output}
     '''
 
+rule install_corncob:
+    input: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
+    output:
+        corncob = "outputs/nbhd_reads_corncob/corncob_install.txt"
+    conda: 'envs/corncob.yml'
+    script: "scripts/install_corncob.R"
+
+rule corncob_salmon:
+    input:
+        quant= expand("outputs/nbhd_reads_salmon/{library}/{{gather_genome}}_quant/quant.sf", library = LIBRARIES),
+        info = "inputs/working_metadata.tsv",
+        mqc_fastq = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
+    output:
+        dim = "outputs/nbhd_reads_corncob/{gather_genome}_dim.tsv",
+        counts = "outputs/nbhd_reads_corncob/{gather_genome}_counts.tsv",
+        all_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_all_ccs.tsv",
+        sig_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
+    params: gather_genome = lambda wildcards: wildcards.gather_genome
+    conda: 'envs/corncob.yml'
+    script: "scripts/run_corncob.R"
+
+
 def aggregate_spacegraphcats_gather_matches_plass(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant/quant.sf", 
-                        library = wildcards.library,
+    file_names = expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv",
                         gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
     return file_names
 
 rule aggregate_spacegraphcats_gather_matches_plass:
     input: aggregate_spacegraphcats_gather_matches_plass
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt"
+    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob.txt"
     shell:'''
     touch {output}
     '''
@@ -1047,38 +1086,3 @@ rule plot_comp_cosine:
         diagnosis = "outputs/comp/diagnosis_plt_all_filt_cosine.pdf"
     conda: "envs/ggplot.yml"
     script: "scripts/plot_comp.R"
-
-########################################
-## Differential abundance
-########################################
-
-rule hash_table_long_unnormalized:
-    """
-    Unlike the hashtable that is input into the random forest analysis, this
-    hash table is not normalized by number of hashes in the filtered signature. 
-    Differential expression software that we will be using to calculate 
-    differential abundance expects unnormalized counts.
-    """
-    input: expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
-    output: csv = "outputs/hash_tables/unnormalized_abund_hashes_long.csv"
-    conda: 'envs/r.yml'
-    script: "scripts/all_unnormalized_hash_abund_long.R"
-
-rule hash_table_wide_unnormalized:
-    input: "outputs/hash_tables/unnormalized_abund_hashes_long.csv"
-    output: "outputs/hash_tables/unnormalized_abund_hashes_wide.feather"
-    run:
-        import pandas as pd
-        import feather
-
-        ibd = pd.read_csv(str(input), dtype = {"minhash" : "int64", "abund" : "float64", "sample" : "object"})
-        ibd_wide=ibd.pivot(index='sample', columns='minhash', values='abund')
-        ibd_wide = ibd_wide.fillna(0)
-        ibd_wide['sample'] = ibd_wide.index
-        ibd_wide = ibd_wide.reset_index(drop=True)
-        ibd_wide.columns = ibd_wide.columns.astype(str)
-        ibd_wide.to_feather(str(output))
-
-#rule differential_abundance_all:
-#    input: "outputs/hash_tables/all_unnormalized_abund_hashes_wide.feather"
-
