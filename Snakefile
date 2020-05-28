@@ -12,6 +12,31 @@ SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
 STUDY = m['study_accession'].unique().tolist()
 
+# this variable is output after random forests. 
+# Specifying this variable can be avoided by using checkpoints,
+# but this makes the DAG take forever to solve. 
+# this step requires user input anyway to download the matching
+# random forest genomes, so specifying this variable manually is a 
+# compromise. 
+GATHER_GENOMES = ["ERS235530_10.fna", "ERS235531_43.fna", "ERS235603_16.fna", 
+           "ERS396297_11.fna", "ERS396519_11.fna", "ERS473255_26.fna", 
+           "ERS537218_9.fna", "ERS537235_19.fna", "ERS537328_30.fna", 
+           "ERS537353_12.fna", "ERS608524_37.fna", "ERS608576_22.fna", 
+           "GCF_000371685.1_Clos_bolt_90B3_V1_genomic.fna", 
+           "GCF_000508885.1_ASM50888v1_genomic.fna", 
+           "GCF_001405615.1_13414_6_47_genomic.fna", 
+           "GCF_900036035.1_RGNV35913_genomic.fna", 
+           "LeChatelierE_2013__MH0074__bin.19.fa", "LiJ_2014__O2.UC28-1__bin.61.fa",
+           "LiSS_2016__FAT_DON_8-22-0-0__bin.28.fa", "LoombaR_2017__SID1050_bax__bin.11.fa",
+           "NielsenHB_2014__MH0094__bin.44.fa", "QinJ_2012__CON-091__bin.20.fa",
+           "SRR4305229_bin.5.fa", "SRR5127401_bin.3.fa", "SRR5558047_bin.10.fa",
+           "SRR6028281_bin.3.fa", "SRS075078_49.fna", "SRS103987_37.fna", 
+           "SRS104400_110.fna", "SRS143598_15.fna", "SRS1719112_8.fna", 
+           "SRS1719498_9.fna", "SRS1719577_6.fna", "SRS1735506_4.fna", 
+           "SRS1735645_19.fna", "SRS294916_20.fna", "SRS476209_42.fna", 
+           "VatanenT_2016__G80445__bin.9.fa", "VogtmannE_2016__MMRS43563715ST-27-0-0__bin.70.fa",
+           "XieH_2016__YSZC12003_37172__bin.63.fa", "ZeeviD_2015__PNP_Main_232__bin.27.fa"]
+
 rule all:
     input:
         # SOURMASH COMPARE OUTPUTS:
@@ -36,10 +61,8 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
-        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt", library = LIBRARIES),
-        expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob/{library}.txt", library = LIBRARIES)
-        #"aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob.txt"
-        #expand("aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass/{library}.txt", library = LIBRARIES)
+        #expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES)
 
 ########################################
 ## PREPROCESSING
@@ -864,18 +887,17 @@ checkpoint untar_gather_match_genomes:
 def aggregate_untar_gather_match_genomes(wildcards):
     # checkpoint_output produces the output dir from the checkpoint rule.
     checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
-    file_names = expand("outputs/gather_matches_loso/{gather_genome}.gz",
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
+    file_names = expand("outputs/gather_matches_loso/{gather_genome_tar}.gz",
+                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_tar}.gz")).gather_genome)
     return file_names
 
-
-checkpoint spacegraphcats_gather_matches:
+rule spacegraphcats_gather_matches:
     input: 
         query = aggregate_untar_gather_match_genomes,
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: 
-        directory("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/")
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     shell:'''
@@ -888,28 +910,6 @@ rule calc_sig_nbhd_reads:
     conda: "envs/sourmash.yml"
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
-    '''
-
-def aggregate_spacegraphcats_gather_matches_sigs(wildcards):
-    # checkpoint_output produces the output dir from the checkpoint rule.
-    #checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
-    checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig",
-                        library = wildcards.library, 
-                        #gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
-    acetatifactor = [f for f in file_names if "SRS1719498_9" in f]
-    fprauznitzii =  [f for f in file_names if "SRS1719577_6" in f]
-    cbolteae =  [f for f in file_names if "GCF_000371685.1_Clos_bolt_90B3_V1_genomic" in f]
-    select_file_names = acetatifactor + fprauznitzii + cbolteae
-    return select_file_names
-
-
-rule aggregate_signatures:
-    input: aggregate_spacegraphcats_gather_matches_sigs
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches/{library}.txt"
-    shell:'''
-    touch {output}
     '''
 
 rule diginorm_nbhd_reads:
@@ -1010,22 +1010,6 @@ rule corncob_salmon:
     params: gather_genome = lambda wildcards: wildcards.gather_genome
     conda: 'envs/corncob.yml'
     script: "scripts/run_corncob.R"
-
-
-def aggregate_spacegraphcats_gather_matches_plass(wildcards):
-    # checkpoint_output produces the output dir from the checkpoint rule.
-    checkpoint_output = checkpoints.spacegraphcats_gather_matches.get(**wildcards).output[0]    
-    file_names = expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv",
-                        library = wildcards.library,
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz.cdbg_ids.reads.fa.gz")).gather_genome)
-    return file_names
-
-rule aggregate_spacegraphcats_gather_matches_plass:
-    input: aggregate_spacegraphcats_gather_matches_plass
-    output: "aggregated_checkpoints/aggregate_spacegraphcats_gather_matches_plass_corncob/{library}.txt"
-    shell:'''
-    touch {output}
-    '''
 
 ########################################
 ## PCoA
