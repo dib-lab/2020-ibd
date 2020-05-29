@@ -47,4 +47,4 @@ count_info <- as.data.frame(counts$counts)
 colnames(count_info) <- info_salmon$library_name
 
 # write full counts to file
-write_tsv(count_info, path = snakemake@output[["counts"]])
+write.table(count_info, file = snakemake@output[["counts"]], quote = F)
