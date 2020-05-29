@@ -996,18 +996,37 @@ rule install_corncob:
     conda: 'envs/corncob.yml'
     script: "scripts/install_corncob.R"
 
-rule corncob_salmon:
+rule make_salmon_counts:
     input:
         quant= expand("outputs/nbhd_reads_salmon/{library}/{{gather_genome}}_quant/quant.sf", library = LIBRARIES),
         info = "inputs/working_metadata.tsv",
-        mqc_fastq = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+        mqc_fastp = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+    output:
+        counts = "outputs/nbhd_reads_tximport/{gather_genome}_counts_raw.tsv",
+    params: gather_genome = lambda wildcards: wildcards.gather_genome
+    conda: 'envs/corncob.yml'
+    script: "scripts/run_tximport.R"
+
+rule filt_salmon_counts:
+    input:
+        counts = "outputs/nbhd_reads_tximport/{gather_genome}_counts_raw.tsv",
+        info = "inputs/working_metadata.tsv",
+        mqc_fastp = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+    output: 
+        dim = "outputs/nbhd_reads_corncob/{gather_genome}_dim.tsv",
+        filt = "outputs/nbhd_reads_tximport/{gather_genome}_counts.tsv"
+    conda: 'envs/corncob.yml'
+    script: "scripts/run_filt_salmon.R"
+
+rule corncob_salmon:
+    input:
+        filt = "outputs/nbhd_reads_tximport/{gather_genome}_counts.tsv",
+        info = "inputs/working_metadata.tsv",
+        mqc_fastp = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
         corncob = "outputs/nbhd_reads_corncob/corncob_install.txt"
     output:
-        dim = "outputs/nbhd_reads_corncob/{gather_genome}_dim.tsv",
-        counts = "outputs/nbhd_reads_corncob/{gather_genome}_counts.tsv",
         all_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_all_ccs.tsv",
         sig_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
-    params: gather_genome = lambda wildcards: wildcards.gather_genome
     conda: 'envs/corncob.yml'
     script: "scripts/run_corncob.R"
 
