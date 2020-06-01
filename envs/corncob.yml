@@ -1,0 +1,21 @@
+channels:
+   - conda-forge
+   - bioconda
+   - defaults
+   - r
+dependencies:
+   - r-magrittr
+   - bioconductor-tximport 
+   - bioconductor-edger
+   - r-vgam
+   - r-optimr
+   - r-dplyr
+   - r-tibble
+   - r-numderiv
+   - r-ggplot2
+   - r-readr
+   - r-trust
+   - r-devtools
+   - r-rmutil
+   - r-brglm2
+   - r-matrix
