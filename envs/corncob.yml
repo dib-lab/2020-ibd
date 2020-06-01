@@ -10,6 +10,7 @@ dependencies:
    - r-vgam
    - r-optimr
    - r-dplyr
+   - r-tibble
    - r-numderiv
    - r-ggplot2
    - r-readr

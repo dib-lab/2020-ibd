@@ -1,4 +1,5 @@
 library(readr)
+library(tibble)
 library(dplyr)
 library(edgeR)
 
@@ -20,7 +21,9 @@ libsizes <- read_tsv(snakemake@input[['mqc_fastp']], skip = 1,
 info <- left_join(info, libsizes, by = "library_name")
 
 # read in and filter counts ------------------------------
-count_info <- read.table(snakemake@input[['counts']])
+count_info <- read_tsv(snakemake@input[['counts']])
+rownames(count_info) <- count_info$protein
+count_info <- as.data.frame(count_info[ , -1])
 
 info_salmon <- info %>%
   filter(library_name %in% colnames(count_info))
@@ -34,7 +37,7 @@ keep <- filterByExpr(y = as.matrix(count_info),
                      lib.size = info_salmon$libsize,
                      min.count = 1, min.total.count = 2)
 count_info <- count_info[keep, ]
-write.table(dim(count_info), file = snakemake@output[["dim"]], quote = F)
+write_tsv(as.data.frame(dim(count_info)), path = snakemake@output[["dim"]])
 
 # make counts integers
 count_info <- apply(count_info, 1:2, round) 
@@ -44,4 +47,8 @@ no_salmon <- info$library_name[!info$library_name  %in% info_salmon$library_name
 no_salmon_mat  <- matrix(ncol = length(no_salmon), nrow = nrow(count_info), data = 0)
 colnames(no_salmon_mat) <- no_salmon
 count_info <- cbind(count_info, no_salmon_mat)
-write.table(count_info, file = snakemake@output[["filt"]], quote = F)
+count_info <- count_info %>%
+  as.data.frame() %>%
+  add_column("protein" = rownames(count_info), .before=TRUE)
+# write full counts to file
+write_tsv(count_info, path = snakemake@output[["filt"]])

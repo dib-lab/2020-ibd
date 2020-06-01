@@ -1,5 +1,6 @@
 library(magrittr)
 library(dplyr)
+library(tibble)
 library(readr)
 library(corncob)
 
@@ -29,7 +30,9 @@ info <- left_join(info, libsizes, by = "library_name")
 
 # import counts -----------------------------------------------------------
 
-count_info <- read.table(snakemake@input[['filt']])
+count_info <- read_tsv(snakemake@input[['filt']])
+rownames(count_info) <- count_info$protein
+count_info <- as.data.frame(count_info[ , -1])
 
 # format counts for bdml ----------------------------------------------------
 

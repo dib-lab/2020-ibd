@@ -1,5 +1,6 @@
 library(dplyr)
 library(readr)
+library(tibble)
 library(tximport)
 
 
@@ -46,5 +47,7 @@ counts <- tximport(files = info_salmon$salmon, type = "salmon", txOut = T)
 count_info <- as.data.frame(counts$counts)
 colnames(count_info) <- info_salmon$library_name
 
+count_info <- count_info %>%
+  add_column("protein" = rownames(count_info), .before=TRUE)
 # write full counts to file
-write.table(count_info, file = snakemake@output[["counts"]], quote = F)
+write_tsv(count_info, path = snakemake@output[["counts"]])
