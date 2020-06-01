@@ -896,21 +896,97 @@ rule spacegraphcats_gather_matches:
         query = aggregate_untar_gather_match_genomes,
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
-    output: 
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.sig"
+    output:
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz",
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     shell:'''
     spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
 
-rule calc_sig_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+##############################################
+## Pangenome signature/variable importance
+##############################################
+
+# use default contig sigs output by sgc to start. 
+
+#rule calc_sig_nbhd_reads:
+#    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+#    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+#    conda: "envs/sourmash.yml"
+#    shell:'''
+#    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
+#    '''
+
+rule merge_sgc_sigs_to_pangenome:
+    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{gather_genome}}.gz.contigs.sig", library = LIBRARIES)
+    output: "outputs/sgc_pangenome_sigs/{gather_genome}.sig"
     conda: "envs/sourmash.yml"
     shell:'''
-    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
+    sourmash signature merge -o {output} -k 31 {input}
     '''
+
+rule rename_sgc_pangenome_sigs:
+    input: "outputs/sgc_pangenome_sigs/{gather_genome}.sig"
+    output: "outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash sig rename -o {output} {input} {wildcards.gather_genome}_pangenome
+    '''
+
+rule compare_sgc_pangenome_sigs:
+    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash compare -o {output} --ignore-abundance {input}
+    '''
+
+rule plot_sgc_pangenome_sigs:
+    input: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
+    output: "outputs/sgc_pangenome_compare/pangenome_compare.comp.matrix.pdf"
+    conda:"envs/sourmash.yml"
+    shell:'''
+    sourmash plot --labels {input}
+    '''
+
+rule compare_sgc_pangenome_sigs:
+    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_pangenome_compare/pangenome_compare.csv"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash compare --csv {output} --ignore-abundance {input}
+    '''
+
+rule index_sgc_pangenome_sigs:
+    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash index -k 31 {output} {input}
+    '''
+
+rule gather_vita_vars_study_against_sgc_pangenome_sigs:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+    output: 
+        csv="outputs/gather/{study}_vita_vars_all.csv",
+        un="outputs/gather/{study}_vita_vars_all.un"
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    '''
+
+rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
+# ADD IN ALL DBS
+
+# ADD A RULE FOR THE 5 OF 6 VITA VARS SIG
+
+##############################################
+## Pangenome differential abundance analysis
+##############################################
 
 rule diginorm_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
