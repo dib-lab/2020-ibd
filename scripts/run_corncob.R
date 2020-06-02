@@ -99,7 +99,7 @@ write_tsv(all_ccs, path = snakemake@output[["all_ccs"]])
 sig <- all_ccs %>%
   filter(mu %in% c("mu.diagnosisnonIBD", "mu.diagnosisUC")) %>%
   group_by(mu) %>%
-  mutate(bonferroni = p.adjust(p_vale, method = "bonferroni")) %>%
+  mutate(bonferroni = p.adjust(p_value, method = "bonferroni")) %>%
   filter(bonferroni < .05)
 write_tsv(sig_ccs, path = snakemake@output[["sig_ccs"]])
 
