@@ -8,11 +8,11 @@ author:
     - Alicia Gingrich
     - C. Titus Brown
 date: \today{}
-geometry: "left=1in,right=1in,top=1in,bottom=1in"
+geometry: "left=2.5in,right=.2in,top=1in,bottom=1in"
 bibliography: bibliography.bib
 header-includes:
     - \usepackage{setspace}
-    - \doublespacing
+    - \singlespacing
     - \usepackage{lineno}
     - \linenumbers
 fontfamily: helvet
@@ -34,22 +34,19 @@ Statements about biology, determined once computation is all done
 
 [//]: # Both reactive oxygen species and reactive nitrogen species are likely important in IBD [@keshavarzian2003; @winter2014]. 
 
-Although there is no consistent taxonomic or functional trend in the gut microbiome associated with IBD diagnosis, metagenomic studies conducted unto this point have left substantial portions of reads unanalyzed. 
-Reference-based pipelines commonly used to analyze metagenomic data from IBD cohorts such as HUMANn2 characterize on average 31%-60% of reads from the human gut microbiome [@franzosa2014; @lloyd2019]. 
-Reads fail to map when there is no closely related organism or sequence in the reference database. 
-Reads that do not map to references are typically ignored in downstream analysis. 
-To combat these issues, reference-free approaches like *de novo* assembly and binning are used to generate metagenome-assembled genome bins (MAGs). 
-MAGs represent species-level composites of closely related organisms in a sample, and thus often more closely recapitulate genomes found in a sample. 
+Although there is no consistent taxonomic or functional trend in the gut microbiome associated with IBD diagnosis, metagenomic studies conducted unto this point have left substantial portions of data unanalyzed. 
+Reference-based pipelines commonly used to analyze metagenomic data from IBD cohorts such as HUMANn2 characterize on average 31%-60% of reads from the human gut microbiome metagenome, as many reads do not closely match sequences in reference databases [@franzosa2014; @lloyd2019]. 
+To combat this issue, reference-free approaches like *de novo* assembly and binning are used to generate metagenome-assembled genome bins (MAGs) that represent species-level composites of closely related organisms in a sample.
 However, *de novo* approaches fail when there is low-coverage of or high strain variation in gut microbes, or with sequencing error [@olson2017]. 
-Even when performed on a massive scale, an average of 12.5% of reads fail to map to all *de novo* assembled organisms from human microbiomes [@pasolli2019], meaning some sequences are not assembled or binned.
-As with reference-based approaches, these reads are typically left unanalyzed.
+Even when performed on a massive scale, an average of 12.5% of reads fail to map to all *de novo* assembled organisms from human microbiomes [@pasolli2019].
 
 Here we perform a meta-analysis of six studies of IBD gut metagenome cohorts comprising 260 CD, 132 UC and 213 healthy controls (see **Table {@tbl:cohorts}**) [@lloyd2019; @lewis2015; @hall2017; @franzosa2019; @gevers2014; @qin2010]. 
 First, we re-analyzed each study using a consistent k-mer-based, reference-free approach. 
 We demonstrate that diagnosis accounts for a small but significant amount of variation between samples. 
 Next, we used random forests to predict IBD diagnosis and to determine the k-mers that are predictive of UC and CD. 
 Then, we use compact de Bruijn graph queries to reassociate k-mers with sequence context and perform taxonomic and functional characterization of these sequence neighborhoods. 
-Our analysis pipeline is lightweight and relies on well-documented and maintained software, making it extensible to other large cohorts of metagenomic sequencing data.
+We find that strain variation is important (ADD MORE HERE AFTER CORNCOB).
+Our analysis pipeline is lightweight and is extensible to other association studies in large metagenome sequencing cohorts.
 
 ## Results
 
@@ -66,28 +63,23 @@ Table: Six IBD cohorts used in this meta-analysis. {#tbl:cohorts}
 
 ### Annotation-free approach for meta-analysis of IBD metagenomes.
 
-Given that both reference-based and *de novo* methods suffer from substantial and biased loss of information in the analysis of metagenomes, we sought a reference- and assembly-free pipeline to fully characterize each sample (**Figure {@fig:pipeline}**).
-K-mers, words of length *k* in nucleotide sequences, have previously been exploited for annotation-free characterization of sequencing data (CITATION).
-K-mers are superior to alignment and assembly in metagenome analysis because: 
-1) k-mers enable exact matching, which is fast and requires little computational resources; 
-2) k-mers do not need to be present in reference databases to be included in analysis; and 
-3) k-mers capture information from reads even when there is low coverage or high strain variation, both of which preclude assembly. 
-However, k-mers are complex sets given that there are approximately n^k k-mers in a nucleotide sequence (e.g. 4.7 Mbp genome such as *Escherichia coli* K-12 (substrain MGI655) contains approximately 4.6 million k-mers).  
-However, only a fraction of these are needed to recapitulate similarity measurements using other metrics [@pierce2019]. 
-Thus we used scaled MinHash sketching as implemented in sourmash to produce a compressed representation of the k-mers contained in each sample [@pierce2019]. 
-At a scaled value of 2000, an average of one k-mer will be detected in each 2000 base pair window, and 99.8% of 10,000 base pair windows will have at least one k-mer representative. 
-We refer to the subsampled representative set of k-mers as a *signature*, and to each subsampled k-mer in a signature as a *hash*. 
+Given that both reference-based and *de novo* methods suffer from substantial and biased loss of information in the analysis of metagenomes [@thomas2019multiple; @breitwieser2019review], we sought a reference- and assembly-free pipeline to fully characterize each sample (**Figure {@fig:pipeline}**). 
+K-mers, words of length *k* in nucleotide sequences, have previously been exploited for annotation-free characterization of sequencing data (reviewed by @rowe2019levee).
+K-mers are suitable for metagenome analysis because they do not need to be present in reference databases to be included in analysis and 
+because they capture information from reads even when there is low coverage or high strain variation that preclude assembly. 
+In particular, scaled MinHash sketching produces compressed representations of k-mers in a metagenome while retaining the sequence diversity in a sample [@pierce2019].
 Importantly, this approach creates a consistent set of hashes across samples by retaining the same hashes when the same k-mers are observed. 
 This enables comparisons between metagenomes.
+Given these attributes, we use scaled MinHash sketches to perform metagenome-wide k-mer association with IBD-subtype. 
+We refer to the scale MinHash sketches as *signature*, and to each subsampled k-mer in a signature as a *hash*. 
 
-Using this method, adapter sequences, human DNA, and sequencing errors can falsely inflate or deflate similarity measurements. 
-As such, we also used a consistent preprocessing pipeline to adapter trim, remove human DNA, and k-mer trim (e.g. remove erroneous k-mers). 
-Because k-mer trimming retains some erroneous k-mers, we further filtered signatures to retain hashes that were present in multiple signatures. 
-This removed hashes that were likely to be errors while keeping hashes that were real but of low abundance in some signatures. 
-There were 46,267,678 distinct hashes across all samples, of which 7,376,151 remained after filtering. 
+We also implemented a consistent preprocessing pipeline to remove erroneous sequences that could falsely deflate similarity between samples. 
+We removed adapters, human DNA, and erroneous k-mers, and filtered signatures to retain hashes that were present in multiple signatures. 
+These preprocessing steps removed hashes that were likely to be errors while keeping hashes that were real but of low abundance in some signatures. 
+7,376,151 hashes remained after preprocessing and filtering. 
 
 
-![Overview of pipeline used in this paper.](figures/fig1.pdf){#fig:pipeline}
+![Comparison of common metagenome analysis techniques with the method used in this paper. Metagenomes consist of short (\~50-300 bp) reads derived from sequencing DNA from environmental samples. **A** Reference-based metagenomic analysis. Reads are compared to genomes, genes, or proteins in reference databases to determine the presence and abundance of organisms and proteins in a sample. Unmapped reads are typically discarded from downstream analysis. **B** *De novo* metagenome analysis. Overlapping reads are assembled into longer contiguous seqeunces (\~500bp-150kbp, [@vollmers2017comparing]) and binned into metagenome-assembled genome bins. Bins are analyzed for taxonomy, abundance, and gene content. Reads that fail to assemble and contigs that fail to bin are usually discarded from downstream analysis. **C** Annotation-free approach for meta-analysis of metagenomes. We decompose reads into k-mers and subsample these k-mers, selecting k-mers that evenly represent the sequence diversity within a sample. We then identify interesting k-mers using random forests, and associate these k-mers with genomes in reference databases. Meanwhile, we construct a compact de Bruijn graph (cDBG) that contains all k-mers from a metagenome. We query this graph with known genomes that contain our interesting k-mers to recover sequence diversity nearby our query sequences in the cDBG. In the colored cDBG, light grey nodes indicate nodes that contain at least one identical k-mer to the query, while nodes outlined in orange indicate the nearby sequences recovered via cDBG queries. The combination of all orange nodes produces a sample-specific pangenome that represents the strain variation of closely-related organisms within a single metagenome. We repeat this process for all metagenomes and generate a single pangenome depicted in orange, blue, and pink.](figures/fig1.pdf){#fig:pipeline}
 
 ### K-mers capture variation due to disease subtype
 
@@ -95,9 +87,9 @@ In this study, we aimed to identify microbial signatures associated with IBD.
 However, given that biological and technical artifacts can differ greatly between metagenome studies [@wirbel2019], we first quantified these sources of variation. 
 We calculated pairwise distance matrices using jaccard distance and cosine distance between filtered signatures, where jaccard distance captured sample richness and cosine distance captured sample diversity. 
 We performed principle coordinate analysis and PERMANOVA with these distance matrices (**Figure {@fig:comp-plts}**), using the variables study accession, diagnosis, library size, and number of hashes in a filtered signature (**Table {@tbl:permanova}**). 
-Number of hashes in a filtered signature accounts for the highest variation, possibly reflecting reduced diversity in stool metagenomes of CD and UC patients (CITATIONS). 
+Number of hashes in a filtered signature accounts for the highest variation, possibly reflecting reduced diversity in stool metagenomes of CD and UC patients (reviewed in [@schirmer2019microbial]). 
 Study accounts for the second highest variation, emphasizing that technical artifacts can introduce biases with strong signals.
-Diagnosis accounts similar amount of variation as study, demonstrating that there is a small but detectable signal of IBD subtype in stool metagenomes.   
+Diagnosis accounts for a similar amount of variation as study, demonstrating that there is a small but detectable signal of IBD subtype in stool metagenomes.   
 
 ![Principle coordinate analysis of metagenomes from IBD cohorts performed on filtered signatures. **A** Jaccard distance. **B** Angular distance.](figures/fig2.pdf){#fig:comp-plts}
   
@@ -114,14 +106,15 @@ Table: Results from PERMANOVA performed on Jaccard and Angular distance matrices
 ### Hashes are weakly predictive of IBD subtype
 
 To evaluate whether the variation captured by diagnosis is predictive of IBD disease subtype, we built random forests classifiers to predict CD, UC, or non-IBD.
+We selected random forests because of the interpretability of feature importance via variable importance measurments.
 We used a leave-one-study-out cross-validation approach where we built and optimized a classifier using five cohorts and validated on the sixth.  
 Given the high-dimensional structure of this dataset (e.g. many more hashes than samples), we first used the vita method to select predictive hashes in the training set [@janitza2018; @degenhardt2017]. 
 Vita variable selection is based on permuation of variable importance, where p-values for variable importance are calculated against a null distribution that is built from variables that are estimated as non-important [@janitza2018].
-This approach retains important variables that are correlated [@janitza2018; @seifert2019], which is desirable in omics-settings where correlated features are often involved in a coordinated biological response, e.g. part of the same operon, pathways, or genome (CITATIONS). 
+This approach retains important variables that are correlated [@janitza2018; @seifert2019], which is desirable in omics-settings where correlated features are often involved in a coordinated biological response, e.g. part of the same operon, pathways, or genome [@stuart2003gene; @sabatti2002co]. 
 Variable selection reduced the number of hashes used in each model to 29,264-41,701 (**Table {@tbl:varselhashes}**). 
 Using this reduced set of hashes, we then optimized each random forests classifier on the training set, producing six optimized models.
 We validated each model on the left-out study.
-The accuracy on the validation studies ranged from 49.1%-75.9% (**Figure {@fig:acc-plts}**), outperforming previously published models built on metagenomic data alone (CITATIONS).
+The accuracy on the validation studies ranged from 49.1%-75.9% (**Figure {@fig:acc-plts}**), outperforming a previously published model built on metagenomic data alone [@franzosa2019].
 
 |**Validation study**|**Selected hashes** |
 |--------------------|--------------------|
@@ -145,28 +138,32 @@ We then normalized the variable importance across all classifiers by dividing by
 40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with 21.5% attributable to the 932 hashes shared between all six classifiers. 
 This indicates that shared hashes contribute a large fraction of predictive power for classification of IBD subtype. 
 
-![Random forest classifiers weakly predict IBD subtype. **A** Accuracy of leave-one-study-out random forest classifiers on training and validation sets. The validation study is on the x axis. **B** Confusion matrices depicting performance of each leave-one-study-out random forest classifier on the validation set. **C** Upset plot depicting intersections of sets of hashes with variable importance in each random forests classifier.](./figures/fig3.pdf){#fig:acc-plts}
+![Random forest classifiers weakly predict IBD subtype. **A** Accuracy of leave-one-study-out random forest classifiers on training and validation sets. The validation study is on the x axis. **B** Confusion matrices depicting performance of each leave-one-study-out random forest classifier on the validation set. **C** Upset plot depicting intersections of sets of hashes as well as the cumulative normalized variable importance of those hashes in the optimized random forest classifiers. Each classifier is labelled by the left-out validation study.](./figures/fig3.pdf){#fig:acc-plts}
 
 ### Some predictive hashes anchor to known genomes
 
 We next evaluated the identity of the predictive hashes in each classifier. 
 We first compared the predictive hashes against sequences in reference databases. 
-We used sourmash gather to anchor predictive hashes to known genomes [@pierce2019]. 
-We compared our predictive hashes against all microbial genomes in GenBank, as well as metagenome-assembled genomes from three recent reassembly efforts from human microbiome metagenomes [@pasolli2019; @nayfach2019; @almeida2019]. 
-Between 75.1-80.3% of of hashes anchored to 1,161 genomes (**Figure {@fig:genomes-plt}**). 
-However, the 3,859 hashes shared between at least five classifiers anchored to only 41 genomes (**Figure {@fig:genomes-plt}**).
+We used sourmash `gather` to anchor predictive hashes to known genomes [@pierce2019]. 
+We compared our predictive hashes against all microbial genomes in GenBank, as well as metagenome-assembled genomes from three recent *de novo* assembly efforts from human microbiome metagenomes [@pasolli2019; @nayfach2019; @almeida2019]. 
+Between 75.1-80.3% of hashes anchored to 1,161 genomes (**Figure {@fig:genomes-plt}**). 
+This indicates that 19.7-24.9% of hashes that are predictive of IBD subtype represent sequences not in reference databases.
+
+The 3,859 hashes shared between at least five classifiers anchored to only 41 genomes (**Figure {@fig:genomes-plt}**).
 Futher, these 41 genomes accounted for 50.5% of the total variable importance, a 10.3% increase over the hashes alone.
-In contrast to all hashes, only 69.4% of these hashes were identifiable, a decrease of 5.7-10.9%. 
+This means that tehse genomes contain additional predictive hashes not shared between at least five classifiers.
+
+In contrast to all hashes, only 69.4% of these hashes were identifiable among the 3,859 shared hashes, a decrease of 5.7-10.9%. 
 This indicates that hashes that are more likely to be important for IBD subtype classification are less likely to be anchored to genomes in reference databases.
 
 Using sourmash lca classify to assign GTDB taxonomy, we find 38 species represented among the 41 genomes. 
 The genome that anchors the most variable importance is **Acetatifactor sp900066565**. 
 (Add %phyla/etc? Is it even worth analyzing these that much when everything changes after spacegraphcats?)
-However, we observe that while most genomes assign to one species, 19 assign to one or more distantly related genomes. 
+However, we observe that while most genomes assign to one species, 19 assign to an additional one or more distantly related genomes that likely represent contamination from the assembly and binning process. 
 When we take the Jaccard index of these 41 genomes, we observe little similarity despite contamination (**Figure {@fig:genomes-plt}**). 
 Therefore, we proceeded with analysis with the idea that each of the 41 genomes is a self-contained entity that captures distinct biology.
 
-![Some predictive hashes from random forest classifiers anchor to known genomes. **A** 75.1-80.3% of all hashes used to train classifiers anchor to known genomes in RefSeq, GenBank, or human microbiome metagenome-assembled genome databases. A further 4.2-5.6% of hashes anchor to pangenomes of a subset of these genomes. **B** The 3,859 hashes shared between at least five classifiers anchor to 41 genomes. Genomes account for different amounts of variable importance in each model. Genomes are labelled by 38 GTDB taxonomy assignments. Genomes labelled in red were classified as multiple distantly related species, likely indicating contamination. **C** Jaccard similarity between 41 genomes. The highest similarity between genomes is .37, while most genomes have no similarity. This indicates that each genome represents distinct nucleotide sequence.](./figures/fig4.pdf){#fig:genomes-plt}
+![Some predictive hashes from random forest classifiers anchor to known genomes. **A** 75.1-80.3% of all hashes used to train classifiers anchor to known genomes in RefSeq, GenBank, or human microbiome metagenome-assembled genome databases. A further 4.2-5.6% of hashes anchor to pangenomes of a subset of these genomes. **B** The 3,859 hashes shared between at least five classifiers anchor to 41 genomes. Genomes account for different amounts of variable importance in each model. Genomes are labelled by 38 GTDB taxonomy assignments. Genomes labelled in red were classified as multiple distantly related species, likely indicating contamination. **C** Jaccard similarity between 41 genomes. The highest similarity between genomes is 0.37 and is shared by genomes of the same species, while most genomes have no similarity. This indicates that each genome represents distinct nucleotide sequence.](./figures/fig4.pdf){#fig:genomes-plt}
 
 ### Unknown but predictive hashes represent novel pangenomic elements
 
@@ -174,22 +171,20 @@ Given that 30.6% of hashes shared between at least five classifiers did not anch
 We reasoned that many unknown but predictive hashes likely originate from closely related strain variants of identified genomes and sought to recover these variants. 
 We performed compact de Bruijn graph queries into each metagenome sample with the 41 genomes that contained predictive hashes (CITATION: SPACEGRAPHCATS).
 This produced pangenome neighborhoods for each of the 41 genomes.
-86.1% of unknown hashes shared between at least five classifiers were in the pangenomes of the 41 genomes, a 16.7% increase over the 41 genomes alone. 
+86.1% of hashes shared between at least five classifiers were in the pangenomes of the 41 genomes, a 16.7% increase over the 41 genomes alone. 
 This suggests that at least 16.7% of shared hashes originate from novel strain-variable or accessory elements in pangenomes. 
-These components are not recoverable by reference-based or *de novo* approaches, but are important for disease classification.
+
 Further, these pangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier, indicating that pangenomes contain novel sequences not captured in any database (**Figure {@fig:genomes-plt}**).
 The pangenomes also captured 74.5% of all variable importance, a 24% increase over the 41 genomes alone. 
 This indicates that pangenomic variation contributes substantial predictive power toward IBD subtype classification.
 
-Pangenomic neighborhood queries disproportionately impact the variable importance anchored by specific genomes (**Figure {@fig:sgc-plt}**).
+Pangenomic neighborhood queries disproportionately impact the variable importance attributable to specific genomes (**Figure {@fig:sgc-plt}**).
 While most genomes maintained a similar proportion of importance with or without pangenome queries, three pangenomes shifted dramatically.
 While an *Acetatifactor* species anchored the most importance prior to pangenome construction, the specific species of *Acetatifactor* switched from *sp900066565*, to *sp900066365*. 
-This suggests that pangenome queries might give a more complete picture of the strains involved in IBD (DOES THIS SUGGEST SOMETHING DIFFERENT/BETTER?).   
+Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance. 
+These results indicate that strain variation is more important and less characterizable for prediction of IBD subtype in some species that in others.
 
-Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance, indicating that substantial pangenomic elements were hidden for this organism in particular. 
-Or something. 
-
-![Pangenome neighborhoods reassign variable importance for some genomes.](./figures/fig5.png){#fig:sgc-plt}
+![Pangenome neighborhoods generated with cDBG queries recover strain variation that is important for predicting IBD subtype. While the variable importance attributable to some genomes does not change with cDBG queries, other genomes increase by more than 7%.](./figures/fig5.png){#fig:sgc-plt}
 
 ### Differential Abundance of Pangenomes
 
@@ -208,18 +203,16 @@ We included studies sequenced on Illumina platforms with paired-end chemistries 
 For time series intervention cohorts, we selected the first time point to ensure all metagenomes came from treatment-naive subjects. 
 
 We downloaded metagenomic fastq files from the European Nucleotide Archive using the "fastq_ftp" link and concatenated fastq files annotated as the same library into single files. 
-We also downloaded iHMP samples from idbudb.org.
+We also downloaded iHMP samples from idbmdb.org.
 We used Trimmomatic (version 0.39) to adapter trim reads using all default Trimmomatic paired-end adapter sequences (`ILLUMINACLIP:{inputs/adapters.fa}:2:0:15`) and lightly quality-trimmed the reads (`MINLEN:31 LEADING:2 TRAILING:2 SLIDINGWINDOW:4:2`) [@bolger2014]. 
 We then removed human DNA using BBMap and a masked version of hg19 [@bushnell2014]. 
-Next, we trimmed low-abundance k-mers from sequences that have high coverage using khmer's `trim-low-abund.py` [@crusoe2015].  
+Next, we trimmed low-abundance k-mers from sequences with high coverage using khmer's `trim-low-abund.py` [@crusoe2015].  
 
 Using these trimmed reads, we generated scaled MinHash signatures for each library using sourmash (k-size 31, scaled 2000, abundance tracking on) [@brown2016]. 
+At a scaled value of 2000, an average of one k-mer will be detected in each 2000 base pair window, and 99.8% of 10,000 base pair windows will have at least one k-mer representative. 
 We selected a k-mer size of 31 because of its species-level specificity [@koslicki2016].
-A signature is composed of hashes, where each hash represents a k-mer contained in the original sequence; hashing k-mers to integers reduces storage space and improves computational run times when performing comparisons.
-
-Although we adapter, quality, and k-mer trimmed our reads, some erroneous k-mers were likely included in the MinHash sequences, especially for low-coverage sequences. 
-Therefore, we retained all hashes that were present in multiple samples.
-We refer to these as filtered signatures. 
+A signature is composed of hashes, where each hash represents a k-mer contained in the original sequence.
+We retained all hashes that were present in multiple samples, and refer to these as filtered signatures. 
 
 ### Principle Coordinates Analysis
 
@@ -237,9 +230,10 @@ First, we transformed sourmash signatures into a hash abundance table where each
 We normalized abundances by dividing by the total number of hashes in each filtered signature. 
 We then used a leave-one-study-out validation approach where we trained six models, each of which was trained on five studies and validated on the sixth. 
 To build each model, we first performed vita variable selection on the training set as implemented in the Pomona and ranger packages [@degenhardt2017; @wright2015]. 
-Vita variable selection reduces the number of variables (e.g. hashes) a smaller set of predictive variables through selection of variables with high cross-validated permutation variable importace [@janitza2018].
+Vita variable selection reduces the number of variables (e.g. hashes) to a smaller set of predictive variables through selection of variables with high cross-validated permutation variable importace [@janitza2018].
 Using this smaller set of hashes, we then built an optimized random forest model using tuneRanger [@probst2019]. 
 We evaluated each validation set using the optimal model, and extracted variable importance measures for each hash for subsequent analysis. 
+To make variable importance measures comparable across models, we normalized importance to 1 by dividing variable importance by the total number of hashes in a model and the total number of models.  
 
 ### Characterization of predictive k-mers
 
@@ -270,17 +264,14 @@ To estimate how query neighborhoods increased the identifiable fraction of predi
 To estimate how query neighborhoods increased the identifiable fraction of shared predictive hashes, we ran sourmash `gather` with the pangenome database alone.
 We anchored variable importance of the shared predictive hashes to known genomes using sourmash `gather` results as above. 
 
-**Differential abundance**
+**Differential abundance** We used differential abundance analysis to determine which protein sequences in each pangenome were differentially abundant in IBD subtype.
+We used diginorm on each spacegraphcats query neighborhood implemented in khmer as `normalize-by-median.py` with parameters `-k 20 -C 20` [@crusoe2015]. 
+We then combined all query neighborhoods from a single query and used Plass `assemble` with parameter `--min-length 25` to assemble each pangenome in amino acid space [@steinegger2019protein].
+We used CD-HIT to cluster amino acid sequences within a pagenome at 90% identity and retained the representative sequence [@fu2012cd].
+To generate amino acid abundance for each metagenome sample for each pangenome, we used paladin to align query neighborhood reads to the pangenome amino acid representative sequences, and then used Salmon to quantify the number of reads aligned to each amino acid sequence [@westbrook2017paladin; @patro2020].
+Using these abundances, we used the R package corncob to perform differential abundance analysis between IBD subtype, using the likelihood ratio test with the formula `study_accession + diagnosis` and the null formula `study_accession` [@martin2020modeling]. 
+We considered amino acid sequences with p values < .05 after bonferonni correction as statistically significant. 
 
-We used differential abundance analysis to determine which genes in each pangenome were differentially abundant in IBD subtype.
-We used diginorm on each query neighborhood implemented in khmer as `normalize-by-median.py` with parameters `-k 20 -C 20` (CITE KHMER). 
-We then combined all query neighborhoods from a single query and used Plass `assemble` with parameter `--min-length 25` to assemble each pangenome in amino acid space (CITE PLASS).
-We used CD-HIT to cluster amino acid sequences within a pagenome at 90% identity and retained the representative sequence (CITE CDHIT).
-To generate amino acid abundance for each metagenome sample for each pangenome, we used paladin to align query neighborhood reads to the pangenome amino acid representative sequences, and then used Salmon to quantify the number of reads aligned to each amino acid sequence (CITE PALADIN, AA ABUND GITHUB ISSUE).
-Using these abundances, we used DESeq2 to perform differential abundance analysis between IBD subtype, using a model `~ diagnosis + study_accession` (CITE). 
-
-### Compact de Bruijn graph queries for unknown predictive k-mers
-
-We used the spacegraphcats `query_by_hashval` with a radius of 5 to retreive the compact de Bruijn graph neighborhood of unknown predictive k-mers.
+**Annotation of differentially abundant proteins** We used KofamScan to assign KEGG ortholog identifiers to each differentially abundant protein, and performed enrichment analysis using the R package clusterProfiler [@aramaki2020kofamkoala; @yu2012clusterprofiler]. 
 
 ## References
