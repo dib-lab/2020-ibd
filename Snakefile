@@ -1030,6 +1030,63 @@ rule corncob_salmon:
     conda: 'envs/corncob.yml'
     script: "scripts/run_corncob.R"
 
+rule get_corncob_significant_aaseq_names:
+    input: "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
+    output: "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt"
+    conda: 'envs/corncob.yml'
+    script: "scripts/get_corncob_names.R"
+
+rule grab_corncob_significant_aa_seqs:
+    output: sig_faa = "outputs/nbud_reads_corncob/{gather_genome}_sig_ccs.faa" 
+    input:
+        fasta = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+        names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt",
+    conda: "envs/sourmash.yml"
+    shell: '''
+    scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
+    '''
+
+rule download_kofamscan_list:
+    output: "inputs/kofamscan/ko_list.gz"
+    shell:'''
+    wget -O {output} ftp://ftp.genome.jp/pub/db/kofam/ko_list.gz
+    '''
+
+rule gunzip_kofamscan_list:
+    input: "inputs/kofamscan/ko_list.gz"
+    output: "inputs/kofamscan/ko_list"
+    shell:'''
+    gunzip {input} 
+    '''
+
+rule download_kofamscan_profiles:
+    output: "inputs/kofamscan/profiles.tar.gz"
+    shell:'''
+    wget -O {output} ftp://ftp.genome.jp/pub/db/kofam/profiles.tar.gz
+    '''
+
+rule decompress_kofamscan_profiles:
+    output: "inputs/kofamscan/profiles"
+    input: "inputs/kofamscan/profiles.tar.gz"
+    params: outdir = "inputs/kofamscan"
+    shell:'''
+    tar xf {input} -C {params.outdir}
+    '''
+
+rule kofamscan_corncob_significant_aaseqs:
+    input:
+        kolist = "inputs/kofamscan/ko_list",
+        koprofiles = "inputs/kofamscan/profiles",
+        config = "inputs/kofamscan/config",
+        aaseqs = "outputs/nbud_reads_corncob/{gather_genome}_sig_ccs.faa" 
+    output: "outputs/nbhd_reads_kegg/{gather_genome}_ko.txt"
+    params: cpu = 8
+    conda: "envs/kofamscan.yml"
+    shell:'''
+    exec_annotation -c {input.config} -f mapper --cpu {params.cpu} -o {output} {input.aaseqs} 
+    '''
+
+
 ########################################
 ## PCoA
 ########################################
