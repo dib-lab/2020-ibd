@@ -31,8 +31,9 @@ info <- left_join(info, libsizes, by = "library_name")
 # import counts -----------------------------------------------------------
 
 count_info <- read_tsv(snakemake@input[['filt']])
+count_info <- as.data.frame(count_info)
 rownames(count_info) <- count_info$protein
-count_info <- as.data.frame(count_info[ , -1])
+count_info <- count_info[ , -1]
 
 # format counts for bdml ----------------------------------------------------
 
@@ -60,7 +61,7 @@ df <- as.data.frame(cbind(info, count_info_t[ , -1]))
 fit_corncob <- function(col_num) {
   # record protein being queried
   aa_name <- df %>%
-    select(col_num) %>%
+    select(all_of(col_num)) %>%
     colnames()
   # capture the warning message output by corncob when a group contains zero counts
   tc <- textConnection("messages","w")
@@ -101,5 +102,5 @@ sig <- all_ccs %>%
   group_by(mu) %>%
   mutate(bonferroni = p.adjust(p_value, method = "bonferroni")) %>%
   filter(bonferroni < .05)
-write_tsv(sig_ccs, path = snakemake@output[["sig_ccs"]])
+write_tsv(sig, path = snakemake@output[["sig_ccs"]])
 
