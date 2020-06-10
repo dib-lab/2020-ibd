@@ -102,7 +102,10 @@ Diagnosis accounts for a similar amount of variation as study, demonstrating tha
 | Library size     | 0.009%\*         | 0.01%\*|
 Table: Results from PERMANOVA performed on Jaccard and Angular distance matrices. Number of hashes refers to the number of hashes in the filtered signature, while library size refers to the number of raw reads per sample. \* denotes p < .001. {#tbl:permanova}
 
- 
+Given that number of hashes in a filtered signature accounted for the highest source of variation, we sought to understand whether this reflected reduced diversity in stool metagenome of CD and UC patients. 
+We created a diversity metric by dividing the number of hashes in a filtered signature by the total number of observed hashes across all samples. 
+We observed that k-mer diversity in CD and UC is lower than in non-IBD, in concordance with similar findings from many sequencing studies (CITATIONS). 
+
 ### Hashes are weakly predictive of IBD subtype
 
 To evaluate whether the variation captured by diagnosis is predictive of IBD disease subtype, we built random forests classifiers to predict CD, UC, or non-IBD.
