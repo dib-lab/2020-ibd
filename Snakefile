@@ -1047,54 +1047,6 @@ rule grab_corncob_significant_aa_seqs:
     scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
     '''
 
-rule remove_stop_corncob_significant_aa_seqs:
-    input: "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa" 
-    output: "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa.nostop.faa"
-    conda: "envs/sourmash.yml"
-    shell: '''
-    scripts/remove-stop-plass.py {input}
-    '''
-
-#rule download_kofamscan_list:
-#    output: "inputs/kofamscan/ko_list.gz"
-#    shell:'''
-#    wget -O {output} ftp://ftp.genome.jp/pub/db/kofam/ko_list.gz
-#    '''
-
-#rule gunzip_kofamscan_list:
-#    input: "inputs/kofamscan/ko_list.gz"
-#    output: "inputs/kofamscan/ko_list"
-#    shell:'''
-#    gunzip {input} 
-#    '''
-
-#rule download_kofamscan_profiles:
-#    output: "inputs/kofamscan/profiles.tar.gz"
-#    shell:'''
-#    wget -O {output} ftp://ftp.genome.jp/pub/db/kofam/profiles.tar.gz
-#    '''
-
-#rule decompress_kofamscan_profiles:
-#    output: "inputs/kofamscan/profiles/K24165.hmm"
-#    input: "inputs/kofamscan/profiles.tar.gz"
-#    params: outdir = "inputs/kofamscan"
-#    shell:'''
-#    tar xf {input} -C {params.outdir}
-#    '''
-
-#rule kofamscan_corncob_significant_aaseqs:
-#    input:
-#        kolist = "inputs/kofamscan/ko_list",
-#        koprofiles = "inputs/kofamscan/profiles/K24165.hmm",
-#        config = "inputs/kofamscan/config",
-#        aaseqs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa.nostop.faa" 
-#    output: "outputs/nbhd_reads_kegg/{gather_genome}_ko.txt"
-#    params: cpu = 8
-#    conda: "envs/kofamscan.yml"
-#    shell:'''
-#    exec_annotation -c {input.config} -f mapper --cpu {params.cpu} -o {output} {input.aaseqs} 
-#    '''
-
 ########################################
 ## PCoA
 ########################################
