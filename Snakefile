@@ -63,6 +63,7 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES)
+        #expand("outputs/nbhd_reads_kegg/{gather_genome}_ko.txt", gather_genome = GATHER_GENOMES)
 
 ########################################
 ## PREPROCESSING
@@ -1029,6 +1030,70 @@ rule corncob_salmon:
         sig_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
     conda: 'envs/corncob.yml'
     script: "scripts/run_corncob.R"
+
+rule get_corncob_significant_aaseq_names:
+    input: sig = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
+    output: names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt"
+    conda: 'envs/corncob.yml'
+    script: "scripts/get_corncob_names.R"
+
+rule grab_corncob_significant_aa_seqs:
+    output: sig_faa = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa" 
+    input:
+        names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt",
+        fasta = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+    conda: "envs/sourmash.yml"
+    shell: '''
+    scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
+    '''
+
+rule remove_stop_corncob_significant_aa_seqs:
+    input: "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa" 
+    output: "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa.nostop.faa"
+    conda: "envs/sourmash.yml"
+    shell: '''
+    scripts/remove-stop-plass.py {input}
+    '''
+
+#rule download_kofamscan_list:
+#    output: "inputs/kofamscan/ko_list.gz"
+#    shell:'''
+#    wget -O {output} ftp://ftp.genome.jp/pub/db/kofam/ko_list.gz
+#    '''
+
+#rule gunzip_kofamscan_list:
+#    input: "inputs/kofamscan/ko_list.gz"
+#    output: "inputs/kofamscan/ko_list"
+#    shell:'''
+#    gunzip {input} 
+#    '''
+
+#rule download_kofamscan_profiles:
+#    output: "inputs/kofamscan/profiles.tar.gz"
+#    shell:'''
+#    wget -O {output} ftp://ftp.genome.jp/pub/db/kofam/profiles.tar.gz
+#    '''
+
+#rule decompress_kofamscan_profiles:
+#    output: "inputs/kofamscan/profiles/K24165.hmm"
+#    input: "inputs/kofamscan/profiles.tar.gz"
+#    params: outdir = "inputs/kofamscan"
+#    shell:'''
+#    tar xf {input} -C {params.outdir}
+#    '''
+
+#rule kofamscan_corncob_significant_aaseqs:
+#    input:
+#        kolist = "inputs/kofamscan/ko_list",
+#        koprofiles = "inputs/kofamscan/profiles/K24165.hmm",
+#        config = "inputs/kofamscan/config",
+#        aaseqs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa.nostop.faa" 
+#    output: "outputs/nbhd_reads_kegg/{gather_genome}_ko.txt"
+#    params: cpu = 8
+#    conda: "envs/kofamscan.yml"
+#    shell:'''
+#    exec_annotation -c {input.config} -f mapper --cpu {params.cpu} -o {output} {input.aaseqs} 
+#    '''
 
 ########################################
 ## PCoA

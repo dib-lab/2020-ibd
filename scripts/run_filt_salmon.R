@@ -34,8 +34,7 @@ info_salmon <- info_salmon[order(match(info_salmon$library_name, colnames(count_
 stopifnot(all.equal(info_salmon$library_name, colnames(count_info)))
 keep <- filterByExpr(y = as.matrix(count_info), 
                      group = paste0(info_salmon$study_accession, "_", info_salmon$diagnosis),
-                     lib.size = info_salmon$libsize,
-                     min.count = 1, min.total.count = 2)
+                     lib.size = info_salmon$libsize)
 count_info <- count_info[keep, ]
 write_tsv(as.data.frame(dim(count_info)), path = snakemake@output[["dim"]])
 
