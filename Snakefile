@@ -62,8 +62,13 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
         #expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES)
-        #expand("outputs/nbhd_reads_kegg/{gather_genome}_ko.txt", gather_genome = GATHER_GENOMES)
+        #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
+        # PANGENOME SIGS
+        "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv",
+        "outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_all.csv",
+        expand("outputs/gather_sgc_pangenome/{study}_vita_vars_all.csv", study = STUDY),
+        expand("outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv", study = STUDY)
+
 
 ########################################
 ## PREPROCESSING
@@ -876,8 +881,38 @@ rule download_gather_match_genomes:
     wget -O {output} https://osf.io/tsu9c/download
     '''
 
-checkpoint untar_gather_match_genomes:
-    output:  directory("outputs/gather_matches_loso")
+#checkpoint untar_gather_match_genomes:
+#    output:  directory("outputs/gather_matches_loso")
+#    input:"outputs/gather/gather_genomes_loso.tar.gz"
+#    params: outdir = "outputs/"
+#    shell:'''
+#    mkdir -p {params.outdir}
+#    tar xf {input} -C {params.outdir}
+#    '''
+
+#def aggregate_untar_gather_match_genomes(wildcards):
+#    # checkpoint_output produces the output dir from the checkpoint rule.
+#    checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
+#    file_names = expand("outputs/gather_matches_loso/{gather_genome}.gz",
+#                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
+#    return file_names
+
+#rule spacegraphcats_gather_matches:
+#    input: 
+#        query = aggregate_untar_gather_match_genomes,
+#        conf = "inputs/sgc_conf/{library}_r1_conf.yml",
+#        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
+#    output:
+#        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz",
+#        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
+#    params: outdir = "outputs/sgc_genome_queries"
+#    conda: "envs/spacegraphcats.yml"
+#    shell:'''
+#    spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+#    '''
+
+rule untar_gather_match_genomes:
+    output:  expand("outputs/gather_matches_loso/{gather_genome}.gz", gather_genome = GATHER_GENOMES)
     input:"outputs/gather/gather_genomes_loso.tar.gz"
     params: outdir = "outputs/"
     shell:'''
@@ -885,33 +920,206 @@ checkpoint untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
-def aggregate_untar_gather_match_genomes(wildcards):
-    # checkpoint_output produces the output dir from the checkpoint rule.
-    checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
-    file_names = expand("outputs/gather_matches_loso/{gather_genome_tar}.gz",
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_tar}.gz")).gather_genome)
-    return file_names
-
 rule spacegraphcats_gather_matches:
     input: 
-        query = aggregate_untar_gather_match_genomes,
+        query = "outputs/gather_matches_loso/{gather_genome}.gz", 
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
-    output: 
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.cdbg_ids.reads.sig"
+    output:
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz",
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     shell:'''
     spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
+##############################################
+## Pangenome signature/variable importance
+##############################################
 
-rule calc_sig_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+# use default contig sigs output by sgc to start. 
+
+#rule calc_sig_nbhd_reads:
+#    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+#    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+#    conda: "envs/sourmash.yml"
+#    shell:'''
+#    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
+#    '''
+
+rule merge_sgc_sigs_to_pangenome:
+    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{gather_genome}}.gz.contigs.sig", library = LIBRARIES)
+    output: "outputs/sgc_pangenome_sigs/{gather_genome}.sig"
     conda: "envs/sourmash.yml"
     shell:'''
-    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
+    sourmash signature merge -o {output} -k 31 {input}
     '''
+
+rule rename_sgc_pangenome_sigs:
+    input: "outputs/sgc_pangenome_sigs/{gather_genome}.sig"
+    output: "outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash sig rename -o {output} {input} {wildcards.gather_genome}_pangenome
+    '''
+
+rule compare_sgc_pangenome_sigs:
+    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash compare -o {output} --ignore-abundance {input}
+    '''
+
+rule plot_sgc_pangenome_sigs:
+    input: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
+    output: "outputs/sgc_pangenome_compare/pangenome_compare.comp.matrix.pdf"
+    conda:"envs/sourmash.yml"
+    shell:'''
+    sourmash plot --labels {input}
+    '''
+
+rule compare_sgc_pangenome_sigs_csv:
+    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_pangenome_compare/pangenome_compare.csv"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash compare --csv {output} --ignore-abundance {input}
+    '''
+
+rule index_sgc_pangenome_sigs:
+    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash index -k 31 {output} {input}
+    '''
+
+rule gather_vita_vars_study_against_sgc_pangenome_sigs:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+    output: 
+        csv="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv",
+        un="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.un"
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    '''
+
+rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
+    input:
+        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
+        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db3="inputs/gather_databases/nayfach-k31.sbt.json",
+        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
+    output: 
+        csv="outputs/gather_sgc_pangenome/{study}_vita_vars_all.csv",
+        un="outputs/gather_sgc_pangenome/{study}_vita_vars_all.un"
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db} {input.db1} {input.db2} {input.db3} {input.db4} 
+    '''
+
+rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
+    """
+    run gather on the signature that contains hashes from
+    at least 5 of 6 models
+    """
+    input:
+        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
+        db1="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db2="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
+        db4="inputs/gather_databases/nayfach-k31.sbt.json",
+    output: 
+        csv="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_all.csv",
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db} {input.db1} {input.db2} {input.db3} {input.db4}
+    '''
+
+rule at_least_5_of_6_gather_pangenome_sigs:
+    """
+    run gather on the signature that contains hashes from
+    at least 5 of 6 models
+    """
+    input:
+        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+    output: 
+        csv="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db} 
+    '''
+
+rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
+    input:
+        sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
+        gather="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
+    output: "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv"
+    run:
+        files = input.sigs
+         # load in all signatures that had gather matches and generate a list of all hashes 
+        all_mins = []
+        for file in files:
+            sigfp = open(file, 'rt')
+            siglist = list(signature.load_signatures(sigfp))
+            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
+            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+            all_mins += mins # load all minhashes into a list
+
+        # make all_mins a set
+        all_mins = set(all_mins)
+
+        # read in the gather matches as a dataframe
+        gather_matches = pd.read_csv(input.gather)
+
+        # loop through pangenome sigs in the order that they occurred as
+        # gather matches. For each match, read in it's
+        # signature and generate an intersection of its hashes and all of 
+        # the hashes that matched to gather. 
+        # Then, remove those hashes from the all_mins list, and repeat
+        sig_dict = {}
+        all_sig_df = pd.DataFrame(columns=['level_0', '0'])
+        for index, row in gather_matches.iterrows():
+            sig = row["name"]
+            # edit the name to match the signature names
+            sig = str(sig)
+            sig = sig.split('/')[-1]
+            sig = sig.split(" ")[0]
+            sig = sig + ".sig"
+            sig = "outputs/gather_sgc_pangenome/" + sig
+            # load in signature
+            sigfp = open(sig, 'rt')
+            siglist = list(signature.load_signatures(sigfp))
+            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
+            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
+            mins = set(mins)
+            # intersect all_mins list with mins from current signature
+            intersect_mins = mins.intersection(all_mins)
+            # add hashes owned by the signature to a dictionary 
+            sig_dict[sig] = intersect_mins
+            # convert into a dataframe
+            sig_df = pd.DataFrame.from_dict(sig_dict,'index').stack().reset_index(level=0)
+            # combine dfs
+            all_sig_df = pd.concat([all_sig_df, sig_df], sort = False)
+            # subtract intersect_mins from all_mins
+            all_mins = all_mins - mins
+
+        all_sig_df.columns = ['sig', 'tmp', 'hash']
+        all_sig_df = all_sig_df.drop(['tmp'], axis = 1)
+        all_sig_df = all_sig_df.drop_duplicates(keep = "first")
+        all_sig_df.to_csv(str(output))
+
+
+##############################################
+## Pangenome differential abundance analysis
+##############################################
 
 rule diginorm_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
