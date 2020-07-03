@@ -69,6 +69,7 @@ rule all:
         expand("outputs/gather_sgc_pangenome/{study}_vita_vars_all.csv", study = STUDY),
         expand("outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv", study = STUDY)
 
+
 ########################################
 ## PREPROCESSING
 ########################################
@@ -1237,6 +1238,22 @@ rule corncob_salmon:
         sig_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
     conda: 'envs/corncob.yml'
     script: "scripts/run_corncob.R"
+
+rule get_corncob_significant_aaseq_names:
+    input: sig = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
+    output: names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt"
+    conda: 'envs/corncob.yml'
+    script: "scripts/get_corncob_names.R"
+
+rule grab_corncob_significant_aa_seqs:
+    output: sig_faa = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa" 
+    input:
+        names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt",
+        fasta = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
+    conda: "envs/sourmash.yml"
+    shell: '''
+    scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
+    '''
 
 ########################################
 ## PCoA

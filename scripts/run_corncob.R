@@ -35,6 +35,7 @@ count_info <- as.data.frame(count_info)
 rownames(count_info) <- count_info$protein
 count_info <- as.data.frame(count_info[ , -1])
 count_info <- apply(count_info, 1:2, round)
+
 # format counts for bdml ----------------------------------------------------
 
 # transpose counts
