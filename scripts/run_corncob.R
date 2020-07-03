@@ -31,9 +31,10 @@ info <- left_join(info, libsizes, by = "library_name")
 # import counts -----------------------------------------------------------
 
 count_info <- read_tsv(snakemake@input[['filt']])
+count_info <- as.data.frame(count_info)
 rownames(count_info) <- count_info$protein
 count_info <- as.data.frame(count_info[ , -1])
-
+count_info <- apply(count_info, 1:2, round)
 # format counts for bdml ----------------------------------------------------
 
 # transpose counts
@@ -52,6 +53,8 @@ info <- info[order(match(info$library_name, count_info_t$sample)), ]
 # check that order matches; fail if not
 stopifnot(all.equal(info$library_name, count_info_t$sample))
 df <- as.data.frame(cbind(info, count_info_t[ , -1])) 
+# change levels of diagnosis so nonIBD is default
+df$diagnosis <- factor(df$diagnosis, levels = c("nonIBD", "CD", "UC"))
 
 # Run corncob -------------------------------------------------------------
 
@@ -60,7 +63,7 @@ df <- as.data.frame(cbind(info, count_info_t[ , -1]))
 fit_corncob <- function(col_num) {
   # record protein being queried
   aa_name <- df %>%
-    select(col_num) %>%
+    select(all_of(col_num)) %>%
     colnames()
   # capture the warning message output by corncob when a group contains zero counts
   tc <- textConnection("messages","w")
@@ -88,6 +91,7 @@ fit_corncob <- function(col_num) {
                               p_value = corncob_out$coefficients[ , "Pr(>|t|)"],
                               aa_seq = aa_name,
                               separation_in_abund_model = ifelse(length(messages) == 0, "none", "separation"))
+  return(corncob_coeff)
 }
 
 # run function on all AAs
@@ -97,9 +101,9 @@ write_tsv(all_ccs, path = snakemake@output[["all_ccs"]])
 
 # perfom pvalue adustment
 sig <- all_ccs %>%
-  filter(mu %in% c("mu.diagnosisnonIBD", "mu.diagnosisUC")) %>%
+  filter(mu %in% c("mu.diagnosisCD", "mu.diagnosisUC")) %>%
   group_by(mu) %>%
-  mutate(bonferroni = p.adjust(p_vale, method = "bonferroni")) %>%
+  mutate(bonferroni = p.adjust(p_value, method = "bonferroni")) %>%
   filter(bonferroni < .05)
-write_tsv(sig_ccs, path = snakemake@output[["sig_ccs"]])
+write_tsv(sig, path = snakemake@output[["sig_ccs"]])
 

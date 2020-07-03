@@ -62,7 +62,12 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
         #expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES)
+        #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
+        # PANGENOME SIGS
+        "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv",
+        "outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_all.csv",
+        expand("outputs/gather_sgc_pangenome/{study}_vita_vars_all.csv", study = STUDY),
+        expand("outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv", study = STUDY)
 
 ########################################
 ## PREPROCESSING
@@ -875,8 +880,38 @@ rule download_gather_match_genomes:
     wget -O {output} https://osf.io/tsu9c/download
     '''
 
-checkpoint untar_gather_match_genomes:
-    output:  directory("outputs/gather_matches_loso")
+#checkpoint untar_gather_match_genomes:
+#    output:  directory("outputs/gather_matches_loso")
+#    input:"outputs/gather/gather_genomes_loso.tar.gz"
+#    params: outdir = "outputs/"
+#    shell:'''
+#    mkdir -p {params.outdir}
+#    tar xf {input} -C {params.outdir}
+#    '''
+
+#def aggregate_untar_gather_match_genomes(wildcards):
+#    # checkpoint_output produces the output dir from the checkpoint rule.
+#    checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
+#    file_names = expand("outputs/gather_matches_loso/{gather_genome}.gz",
+#                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
+#    return file_names
+
+#rule spacegraphcats_gather_matches:
+#    input: 
+#        query = aggregate_untar_gather_match_genomes,
+#        conf = "inputs/sgc_conf/{library}_r1_conf.yml",
+#        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
+#    output:
+#        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz",
+#        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
+#    params: outdir = "outputs/sgc_genome_queries"
+#    conda: "envs/spacegraphcats.yml"
+#    shell:'''
+#    spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+#    '''
+
+rule untar_gather_match_genomes:
+    output:  expand("outputs/gather_matches_loso/{gather_genome}.gz", gather_genome = GATHER_GENOMES)
     input:"outputs/gather/gather_genomes_loso.tar.gz"
     params: outdir = "outputs/"
     shell:'''
@@ -884,16 +919,9 @@ checkpoint untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
-def aggregate_untar_gather_match_genomes(wildcards):
-    # checkpoint_output produces the output dir from the checkpoint rule.
-    checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
-    file_names = expand("outputs/gather_matches_loso/{gather_genome_tar}.gz",
-                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome_tar}.gz")).gather_genome)
-    return file_names
-
 rule spacegraphcats_gather_matches:
     input: 
-        query = aggregate_untar_gather_match_genomes,
+        query = "outputs/gather_matches_loso/{gather_genome}.gz", 
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
@@ -904,7 +932,6 @@ rule spacegraphcats_gather_matches:
     shell:'''
     spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
-
 ##############################################
 ## Pangenome signature/variable importance
 ##############################################
@@ -982,7 +1009,7 @@ rule gather_vita_vars_study_against_sgc_pangenome_sigs:
 rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
     input:
         sig="outputs/vita_rf/{study}_vita_vars.sig",
-        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
         db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
         db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
         db3="inputs/gather_databases/nayfach-k31.sbt.json",
@@ -1002,7 +1029,7 @@ rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
     """
     input:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
-        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
+        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
         db1="inputs/gather_databases/genbank-d2-k31.sbt.json",
         db2="inputs/gather_databases/almeida-mags-k31.sbt.json",
         db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
@@ -1031,7 +1058,7 @@ rule at_least_5_of_6_gather_pangenome_sigs:
 
 rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
     input:
-        sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
+        sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
         gather="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
     output: "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv"
     run:
@@ -1089,7 +1116,6 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
         all_sig_df.to_csv(str(output))
 
 
-#############################################
 ##############################################
 ## Pangenome differential abundance analysis
 ##############################################
