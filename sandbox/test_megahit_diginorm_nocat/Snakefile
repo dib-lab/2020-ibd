@@ -1,0 +1,254 @@
+import pandas as pd
+
+m = pd.read_csv("../../inputs/working_metadata.tsv", sep = "\t", header = 0)
+SAMPLES = m.sort_values(by='read_count')['run_accession']
+LIBRARIES = m['library_name'].unique().tolist()
+STUDY = m['study_accession'].unique().tolist()
+
+GATHER_GENOMES = ["ERS235530_10.fna", "ERS235531_43.fna", "ERS235603_16.fna", 
+           "ERS396297_11.fna", "ERS396519_11.fna", "ERS473255_26.fna", 
+           "ERS537218_9.fna", "ERS537235_19.fna", "ERS537328_30.fna", 
+           "ERS537353_12.fna", "ERS608524_37.fna", "ERS608576_22.fna", 
+           "GCF_000371685.1_Clos_bolt_90B3_V1_genomic.fna", 
+           "GCF_000508885.1_ASM50888v1_genomic.fna", 
+           "GCF_001405615.1_13414_6_47_genomic.fna", 
+           "GCF_900036035.1_RGNV35913_genomic.fna", 
+           "LeChatelierE_2013__MH0074__bin.19.fa", "LiJ_2014__O2.UC28-1__bin.61.fa",
+           "LiSS_2016__FAT_DON_8-22-0-0__bin.28.fa", "LoombaR_2017__SID1050_bax__bin.11.fa",
+           "NielsenHB_2014__MH0094__bin.44.fa", "QinJ_2012__CON-091__bin.20.fa",
+           "SRR4305229_bin.5.fa", "SRR5127401_bin.3.fa", "SRR5558047_bin.10.fa",
+           "SRR6028281_bin.3.fa", "SRS075078_49.fna", "SRS103987_37.fna", 
+           "SRS104400_110.fna", "SRS143598_15.fna", "SRS1719112_8.fna", 
+           "SRS1719498_9.fna", "SRS1719577_6.fna", "SRS1735506_4.fna", 
+           "SRS1735645_19.fna", "SRS294916_20.fna", "SRS476209_42.fna", 
+           "VatanenT_2016__G80445__bin.9.fa", "VogtmannE_2016__MMRS43563715ST-27-0-0__bin.70.fa",
+           "XieH_2016__YSZC12003_37172__bin.63.fa", "ZeeviD_2015__PNP_Main_232__bin.27.fa"]
+
+rule all:
+    input: 
+        #expand("bwa/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        #expand("bwa_cdhit/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        #expand("corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
+        expand("cdhit/{gather_genome}.cdhit.faa", gather_genome = GATHER_GENOMES),
+        expand("corncob/{gather_genome}_sig_ccs.ffn", gather_genome = GATHER_GENOMES), 
+        expand("corncob/{gather_genome}_sig_ccs.faa", gather_genome = GATHER_GENOMES) 
+
+
+rule megahit:
+    input: "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+    output: "megahit/{library}/{gather_genome}.contigs.fa"
+    conda: 'env.yml'
+    shell:'''
+    megahit -r {input} -t 2 --min-contig-len 500 \
+        --out-dir {wildcards.library}_{wildcards.gather_genome}_megahit \
+        --out-prefix {wildcards.library}_{wildcards.gather_genome}
+    mv  {wildcards.library}_{wildcards.gather_genome}_megahit/{wildcards.library}_{wildcards.gather_genome}.contigs.fa {output}
+    rm -rf {wildcards.library}_{wildcards.gather_genome}_megahit
+    '''
+
+rule index:
+    input: genome = "megahit/{library}/{gather_genome}.contigs.fa"
+    output:  "megahit/{library}/{gather_genome}.contigs.fa.bwt"
+    conda: "env.yml"
+    shell:'''
+    bwa index {input}
+    '''
+
+rule bwa:
+    input: 
+        indx =  "megahit/{library}/{gather_genome}.contigs.fa.bwt",
+        genome = "megahit/{library}/{gather_genome}.contigs.fa",
+        reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+    output: "bwa/{library}/{gather_genome}.bam"
+    conda: "env.yml"
+    shell:'''
+    bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} - || touch {output}
+    ''' 
+
+
+rule samtools_flagstat:
+    input: "bwa/{library}/{gather_genome}.bam"
+    output: "bwa/{library}/{gather_genome}.flagstat"
+    conda: "env.yml"
+    shell:'''
+    samtools flagstat {input} > {output} - || touch {output}
+    '''
+
+
+# check alignment to single assembly first; 
+# then use prokka to predict ORFs, 
+# cdhit ORF sequences,
+# and align all reads to pangenome sequence. 
+rule prokka_megahit:
+    output: 
+        ffn = 'prokka/{library}/{gather_genome}.ffn',
+        faa = 'prokka/{library}/{gather_genome}.faa'
+    input: 'megahit/{library}/{gather_genome}.contigs.fa'
+    conda: 'env.yml'
+    params: 
+        output_folder = lambda wildcards: 'prokka/' + wildcards.library
+    shell:'''
+    prokka {input} --outdir {params.output_folder} --prefix {wildcards.gather_genome} --metagenome --force --locustag {wildcards.library} --cpus 2 || touch {output.ffn}
+    touch {output.faa}
+    '''
+
+rule cat_prokka:
+    input: expand('prokka/{library}/{{gather_genome}}.ffn', library = LIBRARIES)
+    output: 'cat_prokka/{gather_genome}.ffn'
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule cdhit:
+    input: 'cat_prokka/{gather_genome}.ffn'
+    output: 'cdhit/{gather_genome}.cdhit.ffn'
+    conda: 'env.yml'
+    shell:'''
+    cd-hit-est -i {input} -o {output} -c 0.9 -n 8 -d 200 -M 15500 -T 2
+    '''
+
+rule index_cdhit:
+    input: genome = "cdhit/{gather_genome}.cdhit.ffn"
+    output:  "cdhit/{gather_genome}.cdhit.ffn.bwt"
+    conda: "env.yml"
+    shell:'''
+    bwa index {input}
+    '''
+
+rule bwa_cdhit:
+    input: 
+        indx =  "cdhit/{gather_genome}.cdhit.ffn.bwt",
+        genome = "cdhit/{gather_genome}.cdhit.ffn",
+        reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+    output: "bwa_cdhit/{library}/{gather_genome}.bam"
+    conda: "env.yml"
+    shell:'''
+    bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} -
+    ''' 
+
+rule flagstat_cdhit:
+    input: "bwa_cdhit/{library}/{gather_genome}.bam"
+    output: "bwa_cdhit/{library}/{gather_genome}.flagstat"
+    conda: "env.yml"
+    shell:'''
+    samtools flagstat {input} > {output}
+    '''
+##############################################################
+
+rule salmon_index:
+    input: "cdhit/{gather_genome}.cdhit.ffn"
+    output: idx = directory("salmon_index/{gather_genome}_index")
+    conda: "../../envs/plass.yml"
+    shell:'''
+    salmon index -t {input} -i {output} 
+    '''
+
+rule salmon_cdhit:
+    output: "salmon_cdhit/{library}/{gather_genome}_quant/quant.sf"
+    input:
+        idx= directory("salmon_index/{gather_genome}_index"),
+        reads= "../../outputs/abundtrim/{library}.abundtrim.fq.gz"
+    params:
+        out= "salmon_cdhit/{library}/{gather_genome}_quant"
+    conda: "../../envs/plass.yml"
+    shell:'''
+    salmon quant -i {input.idx} -l A -r {input.reads} --validateMappings -o {params.out} --minAssignedFrags 1
+    '''
+
+rule install_corncob:
+    output:
+        corncob = "corncob/corncob_install.txt"
+    conda: '../../envs/corncob_ver.yml'
+    script: "../../scripts/install_corncob.R"
+
+rule make_salmon_counts:
+    input:
+        quant= expand("salmon_cdhit/{library}/{{gather_genome}}_quant/quant.sf", library = LIBRARIES),
+        info = "../../inputs/working_metadata.tsv",
+        mqc_fastp = "../../outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+    output:
+        counts = "tximport/{gather_genome}_counts_raw.tsv",
+    params: gather_genome = lambda wildcards: wildcards.gather_genome
+    conda: '../../envs/corncob_ver.yml'
+    script: "scripts/run_tximport.R"
+
+#rule filt_salmon_counts:
+#    input:
+#        counts = "tximport/{gather_genome}_counts_raw.tsv",
+#        info = "../../inputs/working_metadata.tsv",
+#        mqc_fastp = "../../outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+#    output: 
+#        dim = "corncob/{gather_genome}_dim.tsv",
+#        filt = "tximport/{gather_genome}_counts.tsv"
+#    conda: '../../envs/corncob.yml'
+#    script: "../../scripts/run_filt_salmon.R"
+
+rule corncob_salmon:
+    input:
+        filt = "tximport/{gather_genome}_counts_raw.tsv",
+        info = "../../inputs/working_metadata.tsv",
+        mqc_fastp = "../../outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
+        corncob = "corncob/corncob_install.txt"
+    output:
+        all_ccs = "corncob/{gather_genome}_all_ccs.tsv",
+        sig_ccs = "corncob/{gather_genome}_sig_ccs.tsv"
+    conda: '../../envs/corncob_ver.yml'
+    script: "../../scripts/run_corncob.R"
+
+rule get_corncob_significant_aaseq_names:
+    input: sig = "corncob/{gather_genome}_sig_ccs.tsv"
+    output: names = "corncob/{gather_genome}_sig_ccs_names.txt"
+    conda: '../../envs/corncob_ver.yml'
+    script: "scripts/get_corncob_names.R"
+
+rule grab_corncob_significant_nuc_seqs:
+    output: sig_ffn = "corncob/{gather_genome}_sig_ccs.ffn" 
+    input:
+        names = "corncob/{gather_genome}_sig_ccs_names.txt",
+        fasta = "cdhit/{gather_genome}.cdhit.ffn"
+    conda: "../../envs/sourmash.yml"
+    shell: '''
+    scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
+    '''
+
+rule grab_corncob_significant_aa_seqs:
+    output: sig_faa = "corncob/{gather_genome}_sig_ccs.faa" 
+    input:
+        names = "corncob/{gather_genome}_sig_ccs_names.txt",
+        fasta = "cdhit/{gather_genome}.cdhit.faa"
+    conda: "../../envs/sourmash.yml"
+    shell: '''
+    scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
+    '''
+#########################################
+
+rule cat_prokka_faa:
+    input: expand('prokka/{library}/{{gather_genome}}.faa', library = LIBRARIES)
+    output: 'cat_prokka/{gather_genome}.faa'
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule extract_cdhit_names:
+    input: 'cdhit/{gather_genome}.cdhit.ffn'
+    output: 'cdhit/{gather_genome}.cdhit-names.txt'
+    shell:'''
+    grep -e ">" {input} | awk 'sub(/^>/, "")' > {output}
+    '''
+
+rule edit_cdhit_names:
+    input: 'cdhit/{gather_genome}.cdhit-names.txt'
+    output: 'cdhit/{gather_genome}.cdhit-names-clean.txt'
+    shell:'''
+    awk '{{print $1;next}}1' {input} > {output}
+    '''
+
+rule extract_cdhit_ffn_from_faa:
+    input: 
+        names = 'cdhit/{gather_genome}.cdhit-names-clean.txt',
+        faa = 'cat_prokka/{gather_genome}.faa'
+    output: "cdhit/{gather_genome}.cdhit.faa"
+    shell:'''
+    ./extract-aaseq-matches.py {input.names} {input.faa} > {output}
+    '''
+
