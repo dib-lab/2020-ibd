@@ -31,9 +31,13 @@ rule all:
         #expand("corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
         expand("cdhit/{gather_genome}.cdhit.faa", gather_genome = GATHER_GENOMES),
         expand("corncob/{gather_genome}_sig_ccs.ffn", gather_genome = GATHER_GENOMES), 
-        expand("corncob/{gather_genome}_sig_ccs.faa", gather_genome = GATHER_GENOMES) 
-
-
+        expand("corncob/{gather_genome}_sig_ccs.faa", gather_genome = GATHER_GENOMES),
+        expand("species_plots/{gather_genome}_specaccum_plt.pdf", gather_genome = GATHER_GENOMES),
+        "checkm/cd/completeness.tsv",
+        "checkm/uc/completeness.tsv",
+        "checkm/pangenome/completeness.tsv",
+        expand("eggnog/{gather_genome}.emapper.annotations", gather_genome = GATHER_GENOMES) 
+ 
 rule megahit:
     input: "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
     output: "megahit/{library}/{gather_genome}.contigs.fa"
@@ -220,6 +224,113 @@ rule grab_corncob_significant_aa_seqs:
     shell: '''
     scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
     '''
+
+#########################################
+## Characterize sequences
+#########################################
+
+rule annotate_with_eggnog:
+    input: 
+        faa = "cdhit/{gather_genome}.cdhit.faa",
+        db = "eggnog_db/eggnog.db"
+    output: "eggnog/{gather_genome}.emapper.annotations"
+    params: 
+        outdir = "eggnog",
+        dbdir = "eggnog_db",
+        out_prefix = lambda wildcards: wildcards.gather_genome
+    conda: '../../envs/eggnog.yml'
+    shell:'''
+    emapper.py --cpu 4 -i {input.faa} --output {params.out_prefix} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
+    '''
+
+rule accumulation_curves:
+    input:
+        info = "../../inputs/working_metadata.tsv",
+        counts = "tximport/{gather_genome}_counts_raw.tsv"
+    params: lambda wildcards: wildcards.gather_genome
+    output:
+        gene_abund_plt = "species_plots/{gather_genome}_gene_abund_plt.pdf",
+        gene_abund_tukey = "species_plots/{gather_genome}_gene_abund_tukey.tsv",
+        specaccum_plt = "species_plots/{gather_genome}_specaccum_plt.pdf"
+    conda: "../../envs/vegan.yml"
+    script: "scripts/specaccum_and_abund.R"
+
+rule checkm_pangenomes:
+    input: expand('cdhit/{gather_genome}.cdhit.ffn', gather_genome = GATHER_GENOMES)
+    output:
+        comp = "checkm/pangenome/completeness.tsv",
+        lin = "checkm/pangenome/lineage.ms"
+    params:
+        indir = "cdhit",
+        threads = "4",
+        outdir = "checkm/pangenome"
+    conda: "../../envs/checkm.yml"
+    shell:'''
+    checkm lineage_wf --file {output.comp} --tab_table -x .cdhit.ffn \
+        --threads {params.threads} {params.indir} {params.outdir}
+    '''
+
+rule grab_disease_sig_gene_names:
+    input: sig = "corncob/{gather_genome}_sig_ccs.tsv"
+    output: 
+        cd = "corncob/{gather_genome}_cd_sig_ccs_names.txt",
+        uc = "corncob/{gather_genome}_uc_sig_ccs_names.txt"
+    conda: "../../envs/vegan.yml"
+    script: "scripts/get_corncob_names_by_disease.R" 
+ 
+rule extract_uc_sig_genes:
+    input: 
+        names="corncob/{gather_genome}_uc_sig_ccs_names.txt",
+        ffn="cdhit/{gather_genome}.cdhit.ffn"
+    output: "corncob/{gather_genome}_uc_sig_ccs.ffn"
+    conda: "../../envs/sourmash.yml"
+    shell:'''
+    scripts/extract-aaseq-matches.py {input.names} {input.ffn} > {output}
+    '''
+
+rule extract_cd_sig_genes:
+    input: 
+        names="corncob/{gather_genome}_cd_sig_ccs_names.txt",
+        ffn="cdhit/{gather_genome}.cdhit.ffn"
+    output: "corncob/{gather_genome}_cd_sig_ccs.ffn"
+    conda: "../../envs/sourmash.yml"
+    shell:'''
+    scripts/extract-aaseq-matches.py {input.names} {input.ffn} > {output}
+    '''
+
+rule checkm_pangenome_uc_sig_genes:
+    input: expand('corncob/{gather_genome}_uc_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
+    output:
+        comp = "checkm/uc/completeness.tsv",
+        lin = "checkm/uc/lineage.ms"
+    params:
+        indir = "corncob",
+        threads = "4",
+        outdir = "checkm/uc"
+    conda: "../../envs/checkm.yml"
+    shell:'''
+    checkm lineage_wf --file {output.comp} --tab_table -x uc_sig_ccs.ffn \
+        --threads {params.threads} {params.indir} {params.outdir}
+    '''
+
+
+rule checkm_pangenome_cd_sig_genes:
+    input: expand('corncob/{gather_genome}_cd_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
+    output:
+        comp = "checkm/cd/completeness.tsv",
+        lin = "checkm/cd/lineage.ms"
+    params:
+        indir = "corncob",
+        threads = "4",
+        outdir = "checkm/cd"
+    conda: "../../envs/checkm.yml"
+    shell:'''
+    checkm lineage_wf --file {output.comp} --tab_table -x cd_sig_ccs.ffn \
+        --threads {params.threads} {params.indir} {params.outdir}
+    '''
+
+
+
 #########################################
 
 rule cat_prokka_faa:

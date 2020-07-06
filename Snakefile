@@ -1063,6 +1063,7 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
         gather="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
     output: "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv"
     run:
+        import re
         files = input.sigs
          # load in all signatures that had gather matches and generate a list of all hashes 
         all_mins = []
@@ -1092,8 +1093,9 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
             sig = str(sig)
             sig = sig.split('/')[-1]
             sig = sig.split(" ")[0]
-            sig = sig + ".sig"
-            sig = "outputs/gather_sgc_pangenome/" + sig
+            sig = re.sub("pangenome", "", sig)
+            sig = sig + "renamed.sig"
+            sig = "outputs/sgc_pangenome_sigs/" + sig
             # load in signature
             sigfp = open(sig, 'rt')
             siglist = list(signature.load_signatures(sigfp))
