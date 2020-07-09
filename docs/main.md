@@ -189,11 +189,121 @@ These results indicate that strain variation is more important and less characte
 
 ![Pangenome neighborhoods generated with cDBG queries recover strain variation that is important for predicting IBD subtype. While the variable importance attributable to some genomes does not change with cDBG queries, other genomes increase by more than 7%.](./figures/fig5.png){#fig:sgc-plt}
 
-### Differential Abundance of Pangenomes
 
-TBD   
+### Per sample diversity is reduced in IBD
+
+We next sought to understand the functional potential of the recovered pangenomes.
+To build a composite pangenome for each of our 41 query genomes, we assembled each query neighborhood individually, extracted open reading frames using prokka, and then clustered genes and gene fragements at 90% identity. 
+Pangenomes ranged in size from 4,661-29,571 (mean = 15,897, sd = 6,991) representative gene sequences.
+The smallest pangenome belonged to *Romboutsia timonensis*, for which isolates from the same genus have 2,852-3,662 coding domain sequences [@gerritsen2019comparative].
+The largest pangenome was *Faecalibacterium prausnitzii*, a ubiquitous member of the human gut microbiome with high genome plasticity [@fitzgerald2018comparative].
+
+We next investigated the number of ORFs observed in each pangenome within each sample. 
+The mean number of ORFs observed in the pangenome from a single sample was lower than nonIBD for thirty-nine of 41 pangenomes for CD and 37 of 41 pangenomes for UC (ANOVA p < .05, Tukey's HSD p < .05). 
+
+Only the pangenome of *Clostridium bolteae* had a higher mean number of observed ORFs per sample in CD than nonIBD. 
+*C. bolteae* is a virulent and opportunistic bacteria detected in the human gut microbiome that is more abundant in diseased than healthy guts [@finegold2005clostridium; @lozupone2012identifying].
+*C. bolteae* is associated with disturbance succession in which the stable gut consortia is compromised [@lozupone2012identifying], and has increased gene expression during gut dysbiosis [@lloyd2019].
+
+Given these associations, we performed differential abundance analysis on the *C. bolteae* pangenome between CD and nonIBD.
+We compared our results against study of virulence-causing gene in *C. bolteae* [@lozupone2012identifying], and find that 24 of 41 previously identified orthologs are significantly induced in CD. 
+Seven of these orthologs are associated with response to oxidative stress. 
+(OXIDATIVE STRESS IBD BIO TIE IN). 
+
+We then performed gene enrichment analysis on the differentially abundant genes with KEGG ortholog annotations in *C. bolteae*. 
+While many KEGG pathways are significant, flagellar assembly had the second lowest p value (17 genes).
+Bacterial flagellin is a dominant antigen in Crohn's disease but not ulcerative colitis [@lodes2004bacterial; @duck2007isolation]. 
+
+Only *Faecalicatena gnavus* (*Ruminococcus gnavus* in NCBI taxonomy) showed no difference in the mean number of genes per sample between CD and nonIBD and UC and nonIBD. 
+*F. gnavus* is an aerotolerant anaerobe, one clade of which has only been found in the guts of IBD patients [@hall2017].
+*F. gnavus* also produces an inflammatory polysaccharide that induces TNFa secretion in a response mediated by toll-like receptor 4 [
+@henke2019ruminococcus].
+We performed differential abundance analysis between CD and nonIBD as well as UC and non IBD to understand whether the pangenome, but not pangenome diversity, varied between disease states. 
+While 5,984 genes were differentially abundant in CD, only 197 were less abundant in UC.
+This suggests that *F. gnavus* is different from nonIBD in CD alone. 
+
+We next investigated whether the gene cluster thought to be involved in biosynthesis of the inflammatory polysaccharide was significantly induced in CD. 
+We identified 19 of 23 ORFs in the *F. gnavus* pangenome that matched the putative genes in the cluster, all of which were more abundant in CD. 
+Further, two subsets, one containing 5 ORFs and one contain 7, were co-located on two contiguous sequences, indicating these genes do form a cluster. 
+We then investigated whether this gene cluster was present in non-IBD samples, and found an average of more than 100 reads that mapped per gene in the cluster in 10 of 213 nonIBD metagenomes. 
+This indicates that while more abundant in CD, it is also identifiable within healthy human gut microbiomes.    
+     
+We also genes involved in oxidative stress resistance that are more abundant in CD. 
+This includes one super oxide dismutase and five NADH oxidases.
+
+While this evidence supports the idea that *F. gnavus* is harmful in CD, we see some genes that are more abundant in CD that are beneficial for gut health. 
+For example, we find 10 a-L-fucosidases. Tryptophan metabolism. ?
+
+In three pangenomes, we see a higher mean number of genes observed per sample for UC than CD or nonIBD. 
+These include *R. timonensis*, *Anaeromassilibacillus*, and *Actulibacter*. 
+?
+
+### No evidence of disease-specific pangenome
+
+Given that the mean number of proteins observed for most pangenomes in each sample was overwhelming lower for CD and UC, we wanted to know whther there was a disease-specific pangenome for each organism. 
+Using count matrices detailing the number of reads that mapped to each gene from each sample, we generated gene accumulation curves. 
+We find for most genomes, the majority of genes are observed in CD, UC, and nonIBD, suggesting there is no disease-specific pangenome. 
+This in part explains heterogenous study findings in IBD gut microbiome investigations (CITATIONS) and underscores that IBD is a spectrum of diseases characterized by intermittent health and dysbiosis.
+
+There are notable excpetions to this trend. 
+One of 41 pangenome accumulation curves did not saturate for UC, while 10 did not saturate for CD. 
+*C. bolteae* does not saturate in UC. 
+One hundred seventy-one of 16,822 genes were not observed in UC, many of which had no annotated function. 
+
+Ten of 41 pangenome accumulation curves did not saturate for CD samples. 
+On average, 366 genes were unobserved in CD. 
+The largest number of unobserved genes was 2,089 in CAG-1024 pangenome. 
+
+### Accessory elements, species abundance, and different strains contribute to disease-specific microbiome
+
+The lower number of genes observed in individual samples could be driven by lower abundance of the organism in the sample, by fewer strains present in the sample, or fewer accessory elements in the pangenomes of strains that are present. 
+Given this, we next sought to understand the source of differences in teh gene content of the gut microbiomes in CD and UC. 
+We performed differential abundance analysis between CD and nonIBD and UC and nonIBD for all pangenomes. 
+We then searched for the presence of marker genes. 
+We reasoned that if we identified no marker genes among differentially abundant genes, accessory elements were responsible for disease-specific signatures.
+Conversely, if we identified marker genes among significantly different genes, then the abudnance of an organism likely differed. 
+Lastly, if marker genes were both more and less abundant, different strains were likely present in CD or UC. 
+
+We find almost no marker genes in any pangenome among genes that are more abundant in UC. 
+However, we see the presence of marker genes in less abundant genes for three organisms, including *Gemminger formicilis*. 
+This indicates that while some organisms are less abundant in UC, differences in non-marker genes, e.g. accessory elements, are a greater source of differentiation.
+
+Conversely, two pangeomes contained marker genes that were more abundant in CD: *C. bolteae* and *F. gnavus*. 
+For *C. bolteae*, 95% of marker genes were detected among more abundant genes, while 23% of marker genes were detected among less abundant genes. 
+This suggests that *C. bolteae* is more abundant in CD. 
+For *F. gnavus*, 60% of marker genes were detected among more abundant genes, while 68% were detected in less abundant genes. 
+This suggests that a different strain of *F. gnavus* is more abundant in CD, which matches previous findings from gut microbiome metagenome investigations [@hall2017]. 
+
+For thirty-one of 41 pangenomes, the majority of marker genes were significantly less abundant in CD, indicating that these organisms are less abundant in CD. 
+However, for 10 pangenomes, we detect few marker genes in significantly less abundant genes. 
+This includes *Prevotella copri*, *Bacteroidees massilensis*, *Bacteroides ovatus*, and two organisms from the genus *Flavonifractor*. 
+Differences in these pangenomes are likely attributable to accessory elements. 
+**ARE THERE CONFLICTING REPORTS ON THE GOOD/BAD OF THESE ORGS? COULD MAKE SENSE IF DRIVEN BY STRAIN VARIATION**
+
+### Operons in differentially abundant genes (tmp title)
+
+Given that all genes detected from the *F. gnavus* inflammatory polysaccharide biosynthetic gene cluster were significantly induced in CD, and that subsets of these sequences were colocated on single contiguous sequences, we reasoned that other biologically meaningful genes were likely to occur in clusters. 
+Using results from differential abundance analysis, we searched for gene clusters of five or more genes. 
+We selected five as a signal:noise compromise, as five was the smallest consecutive stretch detected in the *F. gnavus* cluster. 
+
+We find no evidence of gene clusters that are more abundant in UC. 
+Conversely, we find many gene clusters in XX pangenomes that are more abundant in CD. 
+XXX
+
+### Random forests on genes (tmp title)
+
+While our k-mer based random forest models were weakly predictive of diagnosis, the contents of the pangenomes of the 41 most predictive organisms uncovered interesting associations that were not apparent from k-mers alone. 
+While k-mers allow us to look at all of the data and compare against tall known genome, they are brittle to evolutionary distance and don't recapitulate function. 
+Given this, we built new random forest classifiers using the same leave-one-study-out design and using gene counts from the 41 pangenomes as predictive variables.   
 
 ## Discussion
+
+We present XXX.
+
+In this investigation, we find that gut microbiomes from both UC and CD suffer from stochastic loss of diversity. 
+
+While *C. bolteae* and *R. gnavus* emerge as bad actors in the pathophysiology of CD, no similar signal is detected for UC.
+This suggests that while both diseases are associated with lower diversity, CD is uniquely exacerbated by microbes that become more abundant during disease. 
 
 ## Methods
 
@@ -269,12 +379,13 @@ We anchored variable importance of the shared predictive hashes to known genomes
 
 **Differential abundance** We used differential abundance analysis to determine which protein sequences in each pangenome were differentially abundant in IBD subtype.
 We used diginorm on each spacegraphcats query neighborhood implemented in khmer as `normalize-by-median.py` with parameters `-k 20 -C 20` [@crusoe2015]. 
-We then combined all query neighborhoods from a single query and used Plass `assemble` with parameter `--min-length 25` to assemble each pangenome in amino acid space [@steinegger2019protein].
-We used CD-HIT to cluster amino acid sequences within a pagenome at 90% identity and retained the representative sequence [@fu2012cd].
-To generate amino acid abundance for each metagenome sample for each pangenome, we used paladin to align query neighborhood reads to the pangenome amino acid representative sequences, and then used Salmon to quantify the number of reads aligned to each amino acid sequence [@westbrook2017paladin; @patro2020].
+We then assembled each neighborhood from a single query with `megahit` using default parameters [CITATION:megahit], and annotated each assembly using prokka [CITATION: prokka].
+We used CD-HIT to cluster nucleotide sequences within a pangenome at 90% identity and retained the representative sequence [@fu2012cd].
+We used Salmon to quantify the number of reads aligned to each representative gene sequence [CITATION:salmon].
 Using these abundances, we used the R package corncob to perform differential abundance analysis between IBD subtype, using the likelihood ratio test with the formula `study_accession + diagnosis` and the null formula `study_accession` [@martin2020modeling]. 
-We considered amino acid sequences with p values < .05 after bonferonni correction as statistically significant. 
+We considered genes with p values < .05 after bonferonni correction as statistically significant. 
 
-**Annotation of differentially abundant proteins** We used KofamScan to assign KEGG ortholog identifiers to each differentially abundant protein, and performed enrichment analysis using the R package clusterProfiler [@aramaki2020kofamkoala; @yu2012clusterprofiler]. 
+**Annotation of differentially abundant proteins** We used EggNog to annotate the representative sequences in each pangenome [CITATION:eggnog]. 
+We performed enrichment analysis using the R package clusterProfiler [@yu2012clusterprofiler]. 
 
 ## References
