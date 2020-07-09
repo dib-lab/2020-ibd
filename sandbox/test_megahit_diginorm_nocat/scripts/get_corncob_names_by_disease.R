@@ -1,14 +1,30 @@
 library(readr)
 library(dplyr)
 sig_ccs <- read_tsv(snakemake@input[['sig']])
-uc <- sig_ccs %>%
-  filter(mu == "mu.diagnosisUC")
+uc_up <- sig_ccs %>%
+  filter(mu == "mu.diagnosisUC") %>%
+  filter(estimate > 0)
 
-cd <- sig_ccs %>%
-  filter(mu == "mu.diagnosisCD")
+uc_down <- sig_ccs %>%
+  filter(mu == "mu.diagnosisUC") %>%
+  filter(estimate < 0)
 
-write.table(uc$aa_seq, snakemake@output[['uc']],
+cd_up <- sig_ccs %>%
+  filter(mu == "mu.diagnosisCD") %>%
+  filter(estimate > 0) 
+
+cd_down <- sig_ccs %>%
+  filter(mu == "mu.diagnosisCD") %>%
+  filter(estimate < 0)
+
+write.table(uc_up$aa_seq, snakemake@output[['uc_up']],
             quote = F, row.names = F, col.names = F)
 
-write.table(cd$aa_seq, snakemake@output[['cd']],
+write.table(uc_down$aa_seq, snakemake@output[['uc_down']],
+            quote = F, row.names = F, col.names = F)
+
+write.table(cd_up$aa_seq, snakemake@output[['cd_up']],
+            quote = F, row.names = F, col.names = F)
+
+write.table(cd_down$aa_seq, snakemake@output[['cd_down']],
             quote = F, row.names = F, col.names = F)

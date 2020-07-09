@@ -32,11 +32,14 @@ rule all:
         expand("cdhit/{gather_genome}.cdhit.faa", gather_genome = GATHER_GENOMES),
         expand("corncob/{gather_genome}_sig_ccs.ffn", gather_genome = GATHER_GENOMES), 
         expand("corncob/{gather_genome}_sig_ccs.faa", gather_genome = GATHER_GENOMES),
-        expand("species_plots/{gather_genome}_specaccum_plt.pdf", gather_genome = GATHER_GENOMES),
-        "checkm/cd/completeness.tsv",
-        "checkm/uc/completeness.tsv",
+        expand("species_plots/{gather_genome}_specaccum_plt_thresh3.pdf", gather_genome = GATHER_GENOMES),
+        "checkm/cd_up/completeness.tsv",
+        "checkm/uc_up/completeness.tsv",
+        "checkm/cd_down/completeness.tsv",
+        "checkm/uc_down/completeness.tsv",
         "checkm/pangenome/completeness.tsv",
-        expand("eggnog/{gather_genome}.emapper.annotations", gather_genome = GATHER_GENOMES) 
+        expand("eggnog/{gather_genome}.emapper.annotations", gather_genome = GATHER_GENOMES), 
+        expand('gene_rf/{study}_validation_acc.csv', study = STUDY)
  
 rule megahit:
     input: "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
@@ -249,9 +252,9 @@ rule accumulation_curves:
         counts = "tximport/{gather_genome}_counts_raw.tsv"
     params: lambda wildcards: wildcards.gather_genome
     output:
-        gene_abund_plt = "species_plots/{gather_genome}_gene_abund_plt.pdf",
-        gene_abund_tukey = "species_plots/{gather_genome}_gene_abund_tukey.tsv",
-        specaccum_plt = "species_plots/{gather_genome}_specaccum_plt.pdf"
+        gene_abund_plt = "species_plots/{gather_genome}_gene_abund_plt_thresh3.pdf",
+        gene_abund_tukey = "species_plots/{gather_genome}_gene_abund_tukey_thresh3.tsv",
+        specaccum_plt = "species_plots/{gather_genome}_specaccum_plt_thresh3.pdf"
     conda: "../../envs/vegan.yml"
     script: "scripts/specaccum_and_abund.R"
 
@@ -273,63 +276,113 @@ rule checkm_pangenomes:
 rule grab_disease_sig_gene_names:
     input: sig = "corncob/{gather_genome}_sig_ccs.tsv"
     output: 
-        cd = "corncob/{gather_genome}_cd_sig_ccs_names.txt",
-        uc = "corncob/{gather_genome}_uc_sig_ccs_names.txt"
+        cd_up = "corncob/{gather_genome}_cd_up_sig_ccs_names.txt",
+        uc_up = "corncob/{gather_genome}_uc_up_sig_ccs_names.txt",
+        cd_down = "corncob/{gather_genome}_cd_down_sig_ccs_names.txt",
+        uc_down = "corncob/{gather_genome}_uc_down_sig_ccs_names.txt"
     conda: "../../envs/vegan.yml"
     script: "scripts/get_corncob_names_by_disease.R" 
  
-rule extract_uc_sig_genes:
+rule extract_uc_up_sig_genes:
     input: 
-        names="corncob/{gather_genome}_uc_sig_ccs_names.txt",
+        names="corncob/{gather_genome}_uc_up_sig_ccs_names.txt",
         ffn="cdhit/{gather_genome}.cdhit.ffn"
-    output: "corncob/{gather_genome}_uc_sig_ccs.ffn"
+    output: "corncob/{gather_genome}_uc_up_sig_ccs.ffn"
     conda: "../../envs/sourmash.yml"
     shell:'''
     scripts/extract-aaseq-matches.py {input.names} {input.ffn} > {output}
     '''
 
-rule extract_cd_sig_genes:
+rule extract_uc_down_sig_genes:
     input: 
-        names="corncob/{gather_genome}_cd_sig_ccs_names.txt",
+        names="corncob/{gather_genome}_uc_down_sig_ccs_names.txt",
         ffn="cdhit/{gather_genome}.cdhit.ffn"
-    output: "corncob/{gather_genome}_cd_sig_ccs.ffn"
+    output: "corncob/{gather_genome}_uc_down_sig_ccs.ffn"
     conda: "../../envs/sourmash.yml"
     shell:'''
     scripts/extract-aaseq-matches.py {input.names} {input.ffn} > {output}
     '''
 
-rule checkm_pangenome_uc_sig_genes:
-    input: expand('corncob/{gather_genome}_uc_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
-    output:
-        comp = "checkm/uc/completeness.tsv",
-        lin = "checkm/uc/lineage.ms"
-    params:
-        indir = "corncob",
-        threads = "4",
-        outdir = "checkm/uc"
-    conda: "../../envs/checkm.yml"
+rule extract_cd_up_sig_genes:
+    input: 
+        names="corncob/{gather_genome}_cd_up_sig_ccs_names.txt",
+        ffn="cdhit/{gather_genome}.cdhit.ffn"
+    output: "corncob/{gather_genome}_cd_up_sig_ccs.ffn"
+    conda: "../../envs/sourmash.yml"
     shell:'''
-    checkm lineage_wf --file {output.comp} --tab_table -x uc_sig_ccs.ffn \
-        --threads {params.threads} {params.indir} {params.outdir}
+    scripts/extract-aaseq-matches.py {input.names} {input.ffn} > {output}
+    '''
+
+rule extract_cd_down_sig_genes:
+    input: 
+        names="corncob/{gather_genome}_cd_down_sig_ccs_names.txt",
+        ffn="cdhit/{gather_genome}.cdhit.ffn"
+    output: "corncob/{gather_genome}_cd_down_sig_ccs.ffn"
+    conda: "../../envs/sourmash.yml"
+    shell:'''
+    scripts/extract-aaseq-matches.py {input.names} {input.ffn} > {output}
     '''
 
 
-rule checkm_pangenome_cd_sig_genes:
-    input: expand('corncob/{gather_genome}_cd_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
+rule checkm_pangenome_uc_up_sig_genes:
+    input: expand('corncob/{gather_genome}_uc_up_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
     output:
-        comp = "checkm/cd/completeness.tsv",
-        lin = "checkm/cd/lineage.ms"
+        comp = "checkm/uc_up/completeness.tsv",
+        lin = "checkm/uc_up/lineage.ms"
     params:
         indir = "corncob",
-        threads = "4",
-        outdir = "checkm/cd"
+        threads = "8",
+        outdir = "checkm/uc_up"
     conda: "../../envs/checkm.yml"
     shell:'''
-    checkm lineage_wf --file {output.comp} --tab_table -x cd_sig_ccs.ffn \
+    checkm lineage_wf --file {output.comp} --tab_table -x uc_up_sig_ccs.ffn \
         --threads {params.threads} {params.indir} {params.outdir}
     '''
 
+rule checkm_pangenome_uc_down_sig_genes:
+    input: expand('corncob/{gather_genome}_uc_down_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
+    output:
+        comp = "checkm/uc_down/completeness.tsv",
+        lin = "checkm/uc_down/lineage.ms"
+    params:
+        indir = "corncob",
+        threads = "8",
+        outdir = "checkm/uc_down"
+    conda: "../../envs/checkm.yml"
+    shell:'''
+    checkm lineage_wf --file {output.comp} --tab_table -x uc_down_sig_ccs.ffn \
+        --threads {params.threads} {params.indir} {params.outdir}
+    '''
 
+rule checkm_pangenome_cd_up_sig_genes:
+    input: expand('corncob/{gather_genome}_cd_up_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
+    output:
+        comp = "checkm/cd_up/completeness.tsv",
+        lin = "checkm/cd_up/lineage.ms"
+    params:
+        indir = "corncob",
+        threads = "8",
+        outdir = "checkm/cd_up"
+    conda: "../../envs/checkm.yml"
+    shell:'''
+    checkm lineage_wf --file {output.comp} --tab_table -x cd_up_sig_ccs.ffn \
+        --threads {params.threads} {params.indir} {params.outdir}
+    '''
+
+rule checkm_pangenome_cd_down_sig_genes:
+    input: expand('corncob/{gather_genome}_cd_down_sig_ccs.ffn', gather_genome = GATHER_GENOMES)
+    output:
+        comp = "checkm/cd_down/completeness.tsv",
+        lin = "checkm/cd_down/lineage.ms"
+    params:
+        indir = "corncob",
+        threads = "8",
+        outdir = "checkm/cd_down"
+    conda: "../../envs/checkm.yml"
+    shell:'''
+    checkm lineage_wf --file {output.comp} --tab_table -x cd_down_sig_ccs.ffn \
+        --threads {params.threads} {params.indir} {params.outdir}
+    '''
 
 #########################################
 
@@ -362,4 +415,55 @@ rule extract_cdhit_ffn_from_faa:
     shell:'''
     ./extract-aaseq-matches.py {input.names} {input.faa} > {output}
     '''
+
+#########################################################
+## Random forests on pangenome gene abundances
+#########################################################
+
+rule make_gene_counts:
+    input: tximport = expand("tximport/{gather_genome}_counts_raw.tsv", gather_genome = GATHER_GENOMES),
+    output: vsd = "gene_rf/vsd_counts_all.tsv"
+    conda: "../../envs/deseq.yml"
+    script: "scripts/make_vsd_counts.R"
+
+rule install_pomona:
+    input: "gene_rf/vsd_counts_all.tsv"
+    output:
+        pomona = "gene_rf/pomona_install.txt"
+    conda: '../../envs/rf.yml'
+    script: "../../scripts/install_pomona.R"
+
+rule gene_vita_var_sel_rf:
+    input:
+        info = "../../inputs/working_metadata.tsv", 
+        vsd = "gene_rf/vsd_counts_all.tsv",
+        pomona = "gene_rf/pomona_install.txt"
+    output:
+        vita_rf = "gene_rf/{study}_vita_rf.RDS",
+        vita_vars = "gene_rf/{study}_vita_vars.txt",
+        vsd_filt = "gene_rf/{study}_filt.csv"
+    params: 
+        threads = 16,
+        validation_study = "{study}"
+    conda: '../../envs/rf.yml'
+    script: "scripts/gene_vita_rf.R"
+
+rule loo_validation:
+    input: 
+        vsd_filt = 'gene_rf/{study}_filt.csv',
+        info = '../../inputs/working_metadata.tsv',
+        eval_model = '../../scripts/function_evaluate_model.R',
+        ggconfusion = '../../scripts/ggplotConfusionMatrix.R'
+    output: 
+        recommended_pars = 'gene_rf/{study}_rec_pars.tsv',
+        optimal_rf = 'gene_rf/{study}_optimal_rf.RDS',
+        training_accuracy = 'gene_rf/{study}_training_acc.csv',
+        training_confusion = 'gene_rf/{study}_training_confusion.pdf',
+        validation_accuracy = 'gene_rf/{study}_validation_acc.csv',
+        validation_confusion = 'gene_rf/{study}_validation_confusion.pdf'
+    params:
+        threads = 16,
+        validation_study = "{study}"
+    conda: '../../envs/tuneranger.yml'
+    script: "../../scripts/tune_rf.R"
 

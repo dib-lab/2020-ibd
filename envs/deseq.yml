@@ -1,0 +1,10 @@
+channels:
+   - conda-forge
+   - bioconda
+   - defaults
+   - r
+dependencies:
+   - r-dplyr
+   - r-readr
+   - r-purrr
+   - bioconductor-deseq2=1.28.0 

@@ -15,7 +15,7 @@ generate_counts <- function(path){
   counts <- counts[ , -1]
 }
 
-generate_presence_absence <- function(path, threshold = 0){
+generate_presence_absence <- function(path, threshold = 3){
   counts <- generate_counts(path)
   # replace any count > 0 with 1
   counts_pa <- ifelse(counts > threshold, 1, 0)
@@ -38,10 +38,11 @@ plot_gene_abund <- function(counts_pa, pangenome_name){
   return(list(plt = plt, tukey = tukey))
 }
 
-plot_species_accumulation <- function(info, counts, pangenome_name){
+plot_species_accumulation <- function(info, counts, pangenome_name, threshold = 3){
   info <- info[order(match(info$library_name, colnames(counts))), ]
   stopifnot(all.equal(info$library_name, colnames(counts)))
   
+  counts[counts < threshold] <- 0
   uc <- filter(info, diagnosis == "UC")
   sp_uc <- specaccum(t(counts[ , colnames(counts) %in% uc$library_name]), "exact")
   sp_uc_df <- data.frame(num_samples = sp_uc$sites, proteins = sp_uc$richness, sd = sp_uc$sd) 
@@ -81,14 +82,14 @@ do_all <- function(path, pangenome_name, threshold, info = info,
   ggsave(out_gene_abund_plt, counts_plt$plt)
   write_tsv(as.data.frame(counts_plt$tukey$diagnosis), path = out_gene_abund_tukey)
   specaccum_plt <- plot_species_accumulation(info = info, counts = counts, 
-                                         pangenome_name = pangenome_name)
+                                         pangenome_name = pangenome_name, threshold = threshold)
   
   ggsave(out_specaccum_plt, specaccum_plt)
 }
 
 
 do_all(path = snakemake@input[['counts']], info = info,
-       pangenome_name = snakemake@params[['gather_genome']], threshold = 0,
+       pangenome_name = snakemake@params[['gather_genome']], threshold = 3,
        out_gene_abund_plt = snakemake@output[['gene_abund_plt']],
        out_gene_abund_tukey = snakemake@output[['gene_abund_tukey']],
        out_specaccum_plt = snakemake@output[['specaccum_plt']])
