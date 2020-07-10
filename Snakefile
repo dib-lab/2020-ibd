@@ -1016,8 +1016,8 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
         db3="inputs/gather_databases/nayfach-k31.sbt.json",
         db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
     output: 
-        csv="outputs/gather_sgc_pangenome/{study}_vita_vars_all.csv",
-        un="outputs/gather_sgc_pangenome/{study}_vita_vars_all.un"
+        csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv",
+        un="outputs/sgc_pangenome_gather/{study}_vita_vars_all.un"
     conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db} {input.db1} {input.db2} {input.db3} {input.db4} 
@@ -1036,7 +1036,7 @@ rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
         db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
         db4="inputs/gather_databases/nayfach-k31.sbt.json",
     output: 
-        csv="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_all.csv",
+        csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
     conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db} {input.db1} {input.db2} {input.db3} {input.db4}
@@ -1051,7 +1051,7 @@ rule at_least_5_of_6_gather_pangenome_sigs:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
         db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
     output: 
-        csv="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
+        csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv",
     conda: 'envs/sourmash.yml'
     shell:'''
     sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db} 
@@ -1061,7 +1061,7 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
     input:
         sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
         gather="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
-    output: "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv"
+    output: "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv"
     run:
         import re
         files = input.sigs
@@ -1318,3 +1318,41 @@ rule plot_comp_cosine:
         diagnosis = "outputs/comp/diagnosis_plt_all_filt_cosine.pdf"
     conda: "envs/ggplot.yml"
     script: "scripts/plot_comp.R"
+
+########################################################
+## Figures
+########################################################
+
+rule install_complexupset:
+    output: complexupset = "Rmd_figures/complexupset_installed.txt"
+    conda: "envs/rmd.yml"
+    script: "scripts/install_complexupset.R"
+
+rule make_figures:
+    input:
+        complexupset="Rmd_figures/complexupset_installed.txt",
+        acc = expand("outputs/optimal_rf/{study}_{tv}_acc.csv", study = STUDY, tv = ['training', 'validation']), 
+        optimal_rf = expand("outputs/optimal_rf/{study}_optimal_rf.RDS"),
+        vita_rf = expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
+        sgc_pangenome_gather_only = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
+        sgc_pangenome_gather_all_db = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
+        gather_all_db = expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
+        gather_genbank = expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
+        gather_refseq = expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
+        hash_to_gather_map_loso = "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv",
+        hash_to_gather_map_pangenome = "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
+        lca = "inputs/at_least_5_studies_vita_vars_gather_all_lca.csv",
+        gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
+    output:
+        "Rmd_figures/rf_optimal_accuracy.png",
+        "Rmd_figures/complex_upset_hash.png", 
+        "Rmd_figures/complex_upset_hash_small.png",
+        "Rmd_figures/percent_var_imp_in_db_stacked_with_nbhd_queries.png",
+        "Rmd_figures/percent_var_imp_in_db_stacked_no_nbhd_queries.png",
+        "Rmd_figures/genome_importance_by_study",
+        "Rmd_figures/change_varimp_with_sgc_no_log.png",
+        "Rmd_figures/change_varimp_with_sgc_log.png"
+    conda: "envs/rmd.yml"
+    script: "scripts/snakemake_figure_rmd.Rmd"  
+
+
