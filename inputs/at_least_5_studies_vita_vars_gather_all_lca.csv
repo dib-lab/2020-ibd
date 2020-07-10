@@ -1,0 +1,42 @@
+﻿name,name_no_gz,GTDB ,NCBI,Contaminated_GTDB,Contaminated? (GTDB)
+ERS537353_12.fna,ERS537353_12.fna,g__Flavonifractor,,no,no
+SRS1719577_6.fna,SRS1719577_6.fna,s__Faecalibacterium prausnitzii_D,,no,no
+SRS294916_20.fna,SRS294916_20.fna,s__Romboutsia timonensis,,no,no
+SRS1719498_9.fna,SRS1719498_9.fna,s__Acetatifactor sp900066565,Clostridium,g__Faecalibacterium,yes
+ERS396297_11.fna,ERS396297_11.fna,s__Lachnospira eligens_B,[Eubacterium] eligens,g__Prevotella; s__43-108 sp001915545; s__Agathobacter faecis,yes
+ERS473255_26.fna,ERS473255_26.fna,s__Faecalibacterium prausnitzii_G,,g__Flavonifractor,yes
+ERS608576_22.fna,ERS608576_22.fna,s__Ruminococcus_E bromii_B,,f__Lachnospiraceae,yes
+ERS537328_30.fna,ERS537328_30.fna,s__Faecalibacterium prausnitzii_K,,g__Lawsonibacter; s__Gemmiger formicilis,yes
+SRS143598_15.fna,SRS143598_15.fna,s__Lachnospira sp000437735,g__Eubacterium; s__,s__Roseburia intestinalis; g__Agathobacter,yes
+SRS476209_42.fna,SRS476209_42.fna,s__Ruminococcus_D bicirculans,,s__Ruminococcus_C sp000980705; f__Lachnospiraceae,yes
+ERS235603_16.fna,ERS235603_16.fna,s__Agathobacter rectale,[Eubacterium] rectale,no,no
+SRS1719112_8.fna,SRS1719112_8.fna,s__Oscillibacter sp900066435,g__Oscillibacter,f__Ruminococcaceae,yes
+ERS235531_43.fna,ERS235531_43.fna,s__Faecalibacterium prausnitzii_F,,no,no
+SRS1735506_4.fna,SRS1735506_4.fna,s__Bacteroides ovatus,,s__Bacteroides congonensis; s__Bacteroides caecimuris,yes
+SRS104400_110.fna,SRS104400_110.fna,s__Lachnospira sp900316325,g__Eubacterium; s__,s__Agathobacter rectale; s__Bacteroides uniformis; g__Faecalibacterium; s__Bacteroides_B vulgatus,yes
+SRR4305229_bin.5.fa.gz,SRR4305229_bin.5.fa,s__Roseburia inulinivorans,,s__Acetatifactor sp900066565,yes
+SRS103987_37.fna,SRS103987_37.fna,s__ER4 sp000765235,Oscillibacter sp. ER4,no,no
+XieH_2016__YSZC12003_37172__bin.63.fa,XieH_2016__YSZC12003_37172__bin.63.fa,s__Acutalibacter sp000435395,Firmicutes bacterium CAG:94,no,no
+LiJ_2014__O2.UC28-1__bin.61.fa,LiJ_2014__O2.UC28-1__bin.61.fa,s__Ruminiclostridium_E siraeum,[Eubacterium] siraeum,no,no
+LeChatelierE_2013__MH0074__bin.19.fa,LeChatelierE_2013__MH0074__bin.19.fa,s__CAG-45 sp900066395,,Roseburia sp. CAG:45,yes
+FCFA01000001.1,GCF_900036035.1_RGNV35913_genomic.fna,s__Faecalicatena gnavus,[Ruminococcus] gnavus,Tyzzerella nexilis,yes
+KB851178.1,GCF_000371685.1_Clos_bolt_90B3_V1_genomic.fna,s__Clostridium_M bolteae,Clostridium bolteae 90B3 ,Clostridium_M clostridioforme_A,yes
+ERS608524_37.fna,ERS608524_37.fna,s__Gemmiger formicilis,,s__Faecalibacterium prausnitzii_D,yes
+LoombaR_2017__SID1050_bax__bin.11.fa,LoombaR_2017__SID1050_bax__bin.11.fa,s__Anaeromassilibacillus sp002159845,Anaeromassilibacillus sp. An250,no,no
+SRS1735645_19.fna,SRS1735645_19.fna,s__Acetatifactor sp900066365,Firmicutes bacterium CAG:65; clostridium,no,no
+ERS396519_11.fna,ERS396519_11.fna,s__Lawsonibacter asaccharolyticus,Clostridium phoceensis,"s__Flavonifractor sp900199495; s__Gemmiger variabile; g__Faecalibacterium,",yes
+SRR6028281_bin.3.fa.gz,SRR6028281_bin.3.fa,s__Lachnospira eligens_B,[Eubacterium] eligens,s__Lachnospira eligens; s__Lachnospira sp003451515,yes
+VatanenT_2016__G80445__bin.9.fa,VatanenT_2016__G80445__bin.9.fa,s__Faecalibacterium prausnitzii_D,,no,no
+ZeeviD_2015__PNP_Main_232__bin.27.fa,ZeeviD_2015__PNP_Main_232__bin.27.fa,s__Blautia_A sp900066165,uncultured Blautia sp.; Ruminococcus sp. Marseille-P328,no,no
+BAHQ02000907.1,GCF_000508885.1_ASM50888v1_genomic.fna,s__Flavonifractor sp000508885,Clostridiales bacterium VE202-03,no,no
+SRS075078_49.fna,SRS075078_49.fna,s__TF01-11 sp003529475,Clostridium sp. CAG:75; Clostridium sp. 42_12,s__Acetatifactor sp900066565,yes
+LiSS_2016__FAT_DON_8-22-0-0__bin.28.fa,LiSS_2016__FAT_DON_8-22-0-0__bin.28.fa,s__CAG-170 sp000432135,Firmicutes bacterium CAG:124,s__CAG-170 sp000436735; s__CAG-170 sp002404795,yes
+NielsenHB_2014__MH0094__bin.44.fa,NielsenHB_2014__MH0094__bin.44.fa,s__Prevotella copri,,s__Prevotella copri_A,yes
+SRR5127401_bin.3.fa.gz,SRR5127401_bin.3.fa,s__UBA11774 sp003507655,,s__Blautia_A wexlerae,yes
+ERS537235_19.fna,ERS537235_19.fna,s__Bacteroides_B massiliensis,,s__Bacteroides uniformis; s__Bacteroides_B vulgatus; f__Lachnospiraceae,yes
+SRR5558047_bin.10.fa.gz,SRR5558047_bin.10.fa,s__Alistipes putredinis,,s__Alistipes onderdonkii,yes
+VogtmannE_2016__MMRS43563715ST-27-0-0__bin.70.fa,VogtmannE_2016__MMRS43563715ST-27-0-0__bin.70.fa,s__CAG-81 sp900066785,uncultured Clostridium sp.,s__CAG-81 sp900066055,yes
+ERS537218_9.fna,ERS537218_9.fna,s__Gemmiger sp003476825,Faecalibacterium sp. UBA2087,g__Faecalibacterium; s__Gemmiger variabile,yes
+QinJ_2012__CON-091__bin.20.fa,QinJ_2012__CON-091__bin.20.fa,s__Faecalibacterium prausnitzii_G,,no,no
+CYXV01000001.1,GCF_001405615.1_13414_6_47_genomic.fna,s__Agathobacter faecis,Roseburia faecis strain 2789STDY5608863,no,no
+ERS235530_10.fna,ERS235530_10.fna,s__CAG-1024 sp000432015,Clostridium sp. CAG:1024,g__Faecalibacterium; s__Gemmiger variabile,yes
