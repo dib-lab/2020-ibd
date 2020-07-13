@@ -1,0 +1,458 @@
+---
+title: "K-mer Random Forests Figures"
+author: "Taylor Reiter"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_knit$set(root.dir = '../')
+knitr::opts_chunk$set(echo = TRUE, fig.path = "Rmd_figures/", cache = T, message = F)
+```
+
+```{r libraries}
+library(readr)
+library(purrr)
+library(dplyr)
+library(ggplot2)
+library(UpSetR)
+library(ComplexUpset)
+library(ggrepel)
+library(ranger)
+```
+
+```{r functions}
+read_varimp <- function(path_optimal_rf){
+  study <- gsub("outputs\\/optimal_rf\\/", "", path_optimal_rf)
+  study <- gsub("_optimal_rf\\.RDS", "", study)
+  optimal_rf <- readRDS(path_optimal_rf)
+  varimp <- data.frame(hash = names(optimal_rf$variable.importance), 
+                       importance = optimal_rf$variable.importance,
+                       study = study)
+  rownames(varimp) <- seq(1:nrow(varimp))
+  # add a column where varimp is normalized by the total var imp
+  # e.g., divide by the sum of all variable importances
+  # this will make all variable importance measures sum to 1
+  varimp$norm <- varimp$importance / sum(varimp$importance)
+  return(varimp)
+}
+```
+
+```{r color_palettes}
+# color palette for study:
+# ihmp = "#D57A6DFF", PRJEB2054 = "#E8B762FF", PRJNA237362 = "#9CCDDFFF", 
+# PRJNA285949 = "#525052FF", PRJNA400072 = "#E6CEAFFF", SRP057027 = "#BA9570FF"))
+```
+
+## Read in data shared by multiple figures
+
+```{r variable_importance}
+ihmp_varimp <- read_varimp("outputs/optimal_rf/iHMP_optimal_rf.RDS")
+prjeb2054_varimp <- read_varimp("outputs/optimal_rf/PRJEB2054_optimal_rf.RDS")
+prjna237362_varimp <- read_varimp("outputs/optimal_rf/PRJNA237362_optimal_rf.RDS")
+prjna385949_varimp <- read_varimp("outputs/optimal_rf/PRJNA385949_optimal_rf.RDS")
+prjna400072_varimp <- read_varimp("outputs/optimal_rf/PRJNA400072_optimal_rf.RDS")
+srp057027_varimp <- read_varimp("outputs/optimal_rf/SRP057027_optimal_rf.RDS")
+
+varimp <- rbind(ihmp_varimp, prjeb2054_varimp, prjna237362_varimp, 
+                prjna385949_varimp, prjna400072_varimp, srp057027_varimp)
+
+varimp_cum <- varimp %>%
+  group_by(hash) %>%
+  summarise(total_imp = sum(norm)) %>%
+  arrange(desc(total_imp))
+
+varimp_cum_study <- varimp %>%
+  group_by(hash) %>%
+  summarise(total_imp = sum(norm)) %>%
+  left_join(varimp) %>%
+  arrange(desc(total_imp))
+
+varimp_cum$hash <- as.numeric(as.character(varimp_cum$hash))
+varimp_cum_study$hash <- as.numeric(as.character(varimp_cum_study$hash))
+```
+
+## Training and Validation Accuracy barplot
+
+```{r rf_optimal_accuracy, fig.cap="This figure depicts the training and validation accuracy of optimized k-mer random forests. The study on the x axis is the left-out validation study.", fig.height = 3.14, fig.width = 7.81}
+acc_files <- list.files("outputs/optimal_rf", pattern = "_acc.csv$", full.names = T)
+acc <- acc_files %>%
+  map_dfr(read_csv) 
+
+ggplot(acc, aes(x = reorder(study, -accuracy), y = accuracy * 100, 
+                fill = set, label = round(accuracy*100, digits = 1))) +
+  geom_col(position = "dodge") + 
+  geom_hline(yintercept = 33.333, linetype = "dashed", color = "grey") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Paired", labels = c("training", "validation")) +
+  geom_text(size = 4, position = position_dodge(width = 1), vjust = 2, 
+            color = "white") +
+  labs(y = "percent accuracy", x = "validation study") 
+```
+
+## Complex upset plot with hashes and variable importance
+```{r}
+prjeb2054 <- read_tsv("outputs/vita_rf/PRJEB2054_vita_vars.txt", col_names = "hash")
+prjna237362 <- read_tsv("outputs/vita_rf/PRJNA237362_vita_vars.txt", col_names = "hash")
+ihmp <- read_tsv("outputs/vita_rf/iHMP_vita_vars.txt", col_names = "hash")
+srp057027 <- read_tsv("outputs/vita_rf/SRP057027_vita_vars.txt", col_names = "hash")
+prjna385949 <- read_tsv("outputs/vita_rf/PRJNA385949_vita_vars.txt", col_names = "hash")
+prjna400072 <- read_tsv("outputs/vita_rf/PRJNA400072_vita_vars.txt", col_names = "hash")
+```
+
+```{r complex_upset_hash, fig.width=13, fig.height=4}
+upset_df_hash <- UpSetR::fromList(list(PRJEB2054 = prjeb2054$hash, 
+                 PRJNA237362 = prjna237362$hash,
+                 iHMP = ihmp$hash,
+                 SRP057027 = srp057027$hash,
+                 PRJNA400072 = prjna400072$hash, 
+                 PRJNA385949 = prjna385949$hash))
+
+upset_df_hash$hash <- unique(c(prjeb2054$hash, prjna237362$hash, ihmp$hash,
+                               srp057027$hash, prjna400072$hash, prjna385949$hash))
+
+# add variable importance and add to upset dataframe
+# check 1:1 match
+# table(upset_df_hash$hash %in% varimp_cum$hash)
+
+upset_df_hash <- left_join(upset_df_hash, varimp_cum)
+
+studies = c("iHMP", "PRJEB2054", "PRJNA237362", "PRJNA385949", "PRJNA400072", "SRP057027")
+ComplexUpset::upset(upset_df_hash, studies, sort_intersections_by='degree',
+      annotations = list(
+        'cumulative importance'=list(
+          aes=aes(x=intersection, total_imp/6),
+          geom=list(geom_bar(stat='identity'))
+        )
+      ),
+      width_ratio = 0.1
+)
+```
+
+```{r complex_upset_hash_small, fig.width = 5, fig.height=4}
+intersect_hashes_all <- Reduce(intersect, list(prjeb2054$hash, prjna237362$hash,
+                                               ihmp$hash, srp057027$hash, 
+                                               prjna400072$hash, prjna385949$hash))
+
+intersect_hashes_no_prjeb2054 <- Reduce(intersect, list(prjna237362$hash,
+                                                        ihmp$hash, srp057027$hash, 
+                                                        prjna400072$hash, prjna385949$hash))
+
+intersect_hashes_no_prjna237362 <- Reduce(intersect, list(prjeb2054$hash,
+                                                          ihmp$hash, srp057027$hash, 
+                                                          prjna400072$hash, prjna385949$hash))
+
+intersect_hashes_no_ihmp <- Reduce(intersect, list(prjeb2054$hash, prjna237362$hash,
+                                                   srp057027$hash, 
+                                                   prjna400072$hash, prjna385949$hash))
+
+intersect_hashes_no_srp057027 <- Reduce(intersect, list(prjeb2054$hash, prjna237362$hash,
+                                                        ihmp$hash,
+                                                        prjna400072$hash, prjna385949$hash))
+
+intersect_hashes_no_prjna400072 <- Reduce(intersect, list(prjeb2054$hash, prjna237362$hash,
+                                                          ihmp$hash, srp057027$hash, 
+                                                          prjna385949$hash))
+
+intersect_hashes_no_prjna385949 <- Reduce(intersect, list(prjeb2054$hash, prjna237362$hash,
+                                                          ihmp$hash, srp057027$hash, 
+                                                          prjna400072$hash))
+
+print(paste0("The number of hashes shared by at least 5 of 6 classifiers is ",
+       length(unique(c(intersect_hashes_all, intersect_hashes_no_ihmp,
+                       intersect_hashes_no_prjeb2054, intersect_hashes_no_prjna237362,
+                       intersect_hashes_no_prjna385949, intersect_hashes_no_prjna400072,
+                       intersect_hashes_no_srp057027)))))
+
+at_least_5_hashes <- unique(c(intersect_hashes_all, intersect_hashes_no_ihmp, 
+                              intersect_hashes_no_prjeb2054,
+                              intersect_hashes_no_prjna237362, 
+                              intersect_hashes_no_prjna385949, 
+                              intersect_hashes_no_prjna400072, 
+                              intersect_hashes_no_srp057027))
+
+upset_df_hash_small <- upset_df_hash %>%
+  filter(hash %in% at_least_5_hashes)
+
+ComplexUpset::upset(upset_df_hash_small, studies, sort_intersections_by='degree',
+                    annotations = list(
+                      'cumulative importance'=list(
+                        aes=aes(x=intersection, total_imp/6),
+                        geom=list(geom_bar(stat='identity'))
+                      )
+                    ),
+                    width_ratio = 0.1
+)
+
+# calculate % varimp held
+print(paste0("The cumulative variable importance attributable to hashes shared by at least 5 of 6 classifiers is ",
+             round(sum(upset_df_hash_small$total_imp) / 6, digits = 3)))
+```
+
+## Percent hashes contained in each database
+
+```{r read_gather_results}
+
+refseq_files <- list.files("outputs/gather", pattern = "_vita_vars_refseq.csv$", full.names = T)
+refseq <- refseq_files %>%
+  set_names() %>% 
+  map_dfr(read_csv, .id = "source") %>%
+  mutate(source = gsub("outputs\\/gather\\/", "", source)) %>%
+  mutate(source = gsub("_vita_vars_refseq\\.csv", "", source))
+
+refseq_totals <- refseq %>%
+  group_by(source) %>%
+  summarize(total = sum(f_unique_to_query)) %>%
+  mutate(db = "refseq")
+
+all_files <- list.files("outputs/gather", pattern = "_vita_vars_all.csv$", full.names = T)
+all <- all_files %>%
+  set_names() %>% 
+  map_dfr(read_csv, .id = "source") %>%
+  mutate(source = gsub("outputs\\/gather\\/", "", source)) %>%
+  mutate(source = gsub("_vita_vars_all\\.csv", "", source))
+
+all_totals <- all %>%
+  group_by(source) %>%
+  summarize(total = sum(f_unique_to_query)) %>%
+  mutate(db = "all")
+
+genbank_files <- list.files("outputs/gather", pattern = "_vita_vars_genbank.csv$", full.names = T)
+genbank <- genbank_files %>%
+  set_names() %>% 
+  map_dfr(read_csv, .id = "source") %>%
+  mutate(source = gsub("outputs\\/gather\\/", "", source)) %>%
+  mutate(source = gsub("_vita_vars_genbank\\.csv", "", source))
+
+genbank_totals <- genbank %>%
+  group_by(source) %>%
+  summarize(total = sum(f_unique_to_query)) %>%
+  mutate(db = "genbank")
+
+totals <- rbind(refseq_totals, genbank_totals, all_totals)
+totals$db <- factor(totals$db, levels = c("refseq", "genbank", "all"))
+
+# add pangenomes + all dbs ----------------------------------------------------
+
+# add in % of signature that only matches the pangenomes (nbhd queries) of 41 genomes
+nbhd_queries_files <- list.files("outputs/sgc_pangenome_gather", pattern = "_vita_vars_all.csv$", full.names = T)
+
+nbhd_queries <- nbhd_queries_files %>%
+  set_names() %>% 
+  map_dfr(read_csv, .id = "source") %>%
+  mutate(source = gsub("outputs\\/sgc_pangenome_gather\\/", "", source)) %>%
+  mutate(source = gsub("_vita_vars_all.csv", "", source))
+
+nbhd_queries_totals <- nbhd_queries %>%
+  group_by(source) %>%
+  summarize(total = sum(f_unique_to_query)) %>%
+  mutate(db = "nbhd_queries")
+
+totals2 <- rbind(refseq_totals, genbank_totals, all_totals, nbhd_queries_totals)
+totals2$db <- factor(totals2$db, levels = c("refseq", "genbank", "all", "nbhd_queries"))
+
+# subtract previous db from each total to calculate the percent added by each database
+tmp <- totals2 %>%
+  group_by(source, db) %>%
+  arrange(match(db, c("refseq", "genbank", "all", "nbhd_queries")), .by_group = TRUE) %>%
+  ungroup() %>%
+  mutate(added = total - lag(total, default = first(total)))
+tmp$added <- ifelse(tmp$db == "refseq", tmp$total, tmp$added)
+```
+
+```{r percent_var_imp_in_db_stacked_with_nbhd_queries, fig.height=4, fig.width=8}
+# pdf(file = "new_figure_scripts/percent_var_imp_in_db_stacked_with_nbhd_queries.pdf", height = 4, width = 8)
+ggplot(tmp, aes(x = reorder(source, -total), y = added * 100, fill = db, 
+                label = round(added * 100, digits = 1))) +
+  geom_col(position = position_stack(reverse = TRUE)) +
+  theme_minimal()+
+  theme(axis.text.y = element_text(size = 12)) +
+  geom_text(color = "white", position = position_stack(vjust = 0.5, reverse = T)) + 
+  ylim(c(0, 100)) +
+  scale_fill_manual(values = c(refseq = "#3c004c", genbank = "#23537d", all = "#29ad64", nbhd_queries = "#e4d219"),
+                    labels = c(refseq = "RefSeq", genbank = "GenBank", all = "All DBs", nbhd_queries = "All DBs +\nNbhd Queries"),
+                    name = "database") +
+  labs(x = "study", y = "percent identifiable")
+# dev.off()
+```
+
+```{r percent_var_imp_in_db_stacked_no_nbhd_queries, fig.height=4, fig.width=8}
+# No sgc pangenome sigs
+# pdf(file = "new_figure_scripts/percent_var_imp_in_db_stacked.pdf", height = 4, width = 8)
+ggplot(tmp %>% filter(db != "nbhd_queries"), aes(x = reorder(source, -total), y = added * 100, fill = db, 
+                label = round(added * 100, digits = 1))) +
+  geom_col(position = position_stack(reverse = TRUE)) +
+  theme_minimal()+
+  theme(axis.text.y = element_text(size = 12)) +
+  geom_text(color = "white", position = position_stack(vjust = 0.5, reverse = T)) + 
+  ylim(c(0, 100)) +
+  scale_fill_manual(values = c(refseq = "#3c004c", genbank = "#23537d", all = "#29ad64"),
+                    labels = c(refseq = "RefSeq", genbank = "GenBank", all = "All DBs"),
+                    name = "database") +
+  labs(x = "study", y = "percent identifiable")
+# dev.off()
+```
+
+
+## Fraction of variable importance held by each of 41 genomes
+
+```{r}
+# the purpose of this script is to plot the proportion of each of predictive 
+# genome from vita variable selection based on when they appear
+# in importance rankings. i.e. only 1 genome contains the most
+# predictive hash
+hash_to_genome <- read_csv("outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv") %>%
+  select(-X1) %>%
+  mutate(sig = gsub("\\.sig", "", sig))
+
+all <- left_join(hash_to_genome, varimp_cum_study, by = 'hash')
+
+# summarize to total importance by genome
+by_genome <- all %>%
+  select(sig, hash, total_imp) %>%
+  distinct() %>%
+  group_by(sig) %>%
+  summarize(genome_imp = sum(total_imp, na.rm = T)) %>%
+  mutate(genome_imp_div_6 = genome_imp / 6)
+
+lca <- read_csv("inputs/at_least_5_studies_vita_vars_gather_all_lca.csv")
+
+by_genome_labelled <- left_join(by_genome, lca, by = c("sig" = "name"))
+colnames(by_genome_labelled) <- c("genome", "genome_imp", "genome_importance", "name_no_gz", "GTDB", 
+                                  "NCBI", "contaminated_with", "contaminated")                
+by_genome_labelled <- by_genome_labelled %>%
+  select(genome, genome_importance, GTDB, NCBI, contaminated, contaminated_with) %>%
+  arrange(genome_importance) %>%
+  mutate(rank = nrow(.):1)
+
+# summarize by study
+by_genome_study <- all %>%
+  filter(!is.na(study)) %>%
+  select(sig, hash, norm, study) %>%
+  distinct() %>%
+  group_by(sig, study) %>%
+  summarize(genome_imp_study = sum(norm, na.rm = T)) %>%
+  mutate(genome_imp_study_div_6 = genome_imp_study / 6)
+```
+
+```{r, eval = F}
+ggplot(by_genome_study, aes(x = reorder(sig, by_genome_study$genome_imp_study_div_6), 
+                            y = genome_imp_study_div_6, fill = study)) +
+  geom_col() +
+  theme_minimal() +
+  coord_flip() +
+  labs(y = "fraction of total importance", x ="genome") +
+  scale_fill_manual(values = c("#D57A6DFF", "#E8B762FF", "#9CCDDFFF", "#525052FF", "#E6CEAFFF", "#BA9570FF"))
+```
+
+```{r genome_importance_by_study, fig.cap = "Fraction of total variable importance anchored to each genome.", fig.height=6, fig.width=6}
+by_genome_study_labeled <- left_join(by_genome_study, lca, by = c("sig" = "name")) %>%
+  arrange(desc(genome_imp_study_div_6))
+
+#a <- ifelse(by_genome_study_labeled$`Contaminated? (GTDB)` == "yes", "red", "black")
+
+ggplot(by_genome_study_labeled, aes(x = reorder(sig, by_genome_study_labeled$genome_imp_study_div_6), 
+                            y = genome_imp_study_div_6, fill = study)) +
+  geom_col()+
+  theme_minimal() +
+  coord_flip() +
+  labs(y = "fraction of total importance", x = "genome") +
+  #theme(axis.text.y = element_text(colour = a)) +
+  scale_fill_manual(values = c("#D57A6DFF", "#E8B762FF", "#9CCDDFFF", "#525052FF", "#E6CEAFFF", "#BA9570FF")) +
+  scale_x_discrete(labels = by_genome_labelled$GTDB)
+```
+
+## Change in variable importance anchored to a genome with sgc queries
+
+```{r}
+# the purpose of this script is to plot the change in variable importance
+# held by a genome after it becomes a pangenome via spacegraphcats queries
+
+# generate data from of importance 41 pangenomes -------------------------------
+
+hash_to_pangenome <- read_csv("outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv") %>%
+  select(-X1) %>%
+  mutate(sig = gsub("_renamed\\.sig", "", sig)) %>%
+  mutate(sig = gsub("outputs\\/sgc_pangenome_sigs\\/", "", sig))
+
+pangenome_importance <- left_join(hash_to_pangenome, varimp_cum, by = 'hash')
+
+# summarize to total importance by pangenome
+by_pangenome <- pangenome_importance %>%
+  select(sig, hash, total_imp) %>%
+  distinct() %>%
+  group_by(sig) %>%
+  summarize(pangenome_imp = sum(total_imp, na.rm = T)) %>%
+  mutate(pangenome_imp_div_6 = pangenome_imp / 6)
+
+# generate data from of importance 41 genomes -------------------------------
+
+genome_importance <- left_join(hash_to_genome, varimp_cum, by = 'hash')
+
+# summarize to total importance by genome
+by_genome <- genome_importance %>%
+  select(sig, hash, total_imp) %>%
+  distinct() %>%
+  group_by(sig) %>%
+  summarize(genome_imp = sum(total_imp, na.rm = T)) %>%
+  mutate(genome_imp_div_6 = genome_imp / 6)
+
+# join and label and plot  ----------------------------------------------------
+by_pangenome_labelled <- left_join(by_pangenome, lca, by = c("sig" = "name_no_gz"))
+by_genome_labelled <- left_join(by_genome, lca, by = c("sig" = "name"))
+
+all_labelled <- left_join(by_genome_labelled, by_pangenome_labelled, by = c("sig" = "name"))
+```
+
+```{r change_varimp_with_sgc_log, fig.height = 4, fig.width=4}
+# all log-log plot
+ggplot() +
+  geom_point(data = all_labelled, aes(x = genome_imp_div_6, y = pangenome_imp_div_6), size = 3, alpha = .5) +
+  theme_minimal() +
+  #xlim(c(0, .13)) + ylim(c(0, .13))+
+  scale_y_log10() +
+  scale_x_log10() +
+  geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed") +
+  labs(x = "log cumulative importance of genome", y = "log cumulative importance of pangenome",
+       title = "Log cumulative importance of genomes before and after spacegraphcats queries") +
+  theme(plot.title.position = "plot",
+        panel.grid.major = element_line(color = "grey25"),
+        panel.grid.minor = element_line(color = "grey25")) +
+  geom_label_repel(data = subset(all_labelled, pangenome_imp_div_6 > .05), 
+                   aes(x = genome_imp_div_6, y = pangenome_imp_div_6, label = GTDB.x), force =5) +
+  geom_label_repel(data = subset(all_labelled, genome_imp_div_6 > .045), 
+                   aes(x = genome_imp_div_6, y = pangenome_imp_div_6, label = GTDB.x), force = 5)
+```
+
+```{r change_varimp_with_sgc_no_log, fig.height = 4, fig.width=4}
+# no log log plot
+ggplot() +
+  geom_point(data = all_labelled, aes(x = genome_imp_div_6, y = pangenome_imp_div_6), size = 3, alpha = .5) +
+  theme_minimal() +
+  #xlim(c(0, .13)) + ylim(c(0, .13))+
+  geom_abline(intercept = 0, slope = 1, color = "grey", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "grey25") +
+  labs(x = "cumulative importance of genome", y = "cumulative importance of pangenome",
+       title = "Cumulative importance of genomes before and after spacegraphcats queries") +
+  theme(plot.title.position = "plot",
+        panel.grid.major = element_line(color = "grey25"),
+        panel.grid.minor = element_line(color = "grey25")) +
+  geom_label_repel(data = subset(all_labelled, pangenome_imp_div_6 > .05), 
+                   aes(x = genome_imp_div_6, y = pangenome_imp_div_6, label = GTDB.x), force =5) +
+  geom_label_repel(data = subset(all_labelled, genome_imp_div_6 > .045), 
+                   aes(x = genome_imp_div_6, y = pangenome_imp_div_6, label = GTDB.x), force = 5)
+
+```
+
+## Pangenome stats
+
+```{r}
+tmp <- read_csv("outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv")
+print(paste0(round(sum(tmp$f_unique_weighted) * 100, digits = 3), "% of hashes were in the SGC pangenomes"))
+```
+
+```{r}
+print(paste0("The pangenomes alone capture ", 
+             round(sum(pangenome_importance$norm, na.rm =T) / 6 * 100, digits = 3),
+             "% of the total variable importance"))
+```
