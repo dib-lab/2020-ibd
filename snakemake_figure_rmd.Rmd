@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = '../')
+#knitr::opts_knit$set(root.dir = '../')
 knitr::opts_chunk$set(echo = TRUE, fig.path = "Rmd_figures/", cache = T, message = F)
 ```
 
@@ -106,15 +106,16 @@ ggplot(acc, aes(x = reorder(study, -accuracy), y = accuracy * 100,
 ```
 
 ## Complex upset plot with hashes and variable importance
-
-```{r complex_upset_hash, fig.width=13, fig.height=4}
+```{r}
 prjeb2054 <- read_tsv("outputs/vita_rf/PRJEB2054_vita_vars.txt", col_names = "hash")
 prjna237362 <- read_tsv("outputs/vita_rf/PRJNA237362_vita_vars.txt", col_names = "hash")
 ihmp <- read_tsv("outputs/vita_rf/iHMP_vita_vars.txt", col_names = "hash")
 srp057027 <- read_tsv("outputs/vita_rf/SRP057027_vita_vars.txt", col_names = "hash")
 prjna385949 <- read_tsv("outputs/vita_rf/PRJNA385949_vita_vars.txt", col_names = "hash")
 prjna400072 <- read_tsv("outputs/vita_rf/PRJNA400072_vita_vars.txt", col_names = "hash")
+```
 
+```{r complex_upset_hash, fig.width=13, fig.height=4}
 upset_df_hash <- UpSetR::fromList(list(PRJEB2054 = prjeb2054$hash, 
                  PRJNA237362 = prjna237362$hash,
                  iHMP = ihmp$hash,

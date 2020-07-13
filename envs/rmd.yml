@@ -13,3 +13,4 @@ dependencies:
    - r-ggrepel=0.8.2
    - r-knitr=1.29
    - r-devtools=2.0.2
+   - r-rmarkdown=2.3 

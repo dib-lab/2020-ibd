@@ -64,10 +64,11 @@ rule all:
         #expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
         # PANGENOME SIGS
-        "outputs/gather_sgc_pangenome/hash_to_genome_map_at_least_5_studies_pangenome.csv",
-        "outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_all.csv",
-        expand("outputs/gather_sgc_pangenome/{study}_vita_vars_all.csv", study = STUDY),
-        expand("outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv", study = STUDY)
+        "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
+        "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
+        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
+        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
+        "snakemake_figure_rmd.html"
 
 
 ########################################
@@ -1328,11 +1329,31 @@ rule install_complexupset:
     conda: "envs/rmd.yml"
     script: "scripts/install_complexupset.R"
 
-rule make_figures:
+#rule make_figures:
+#    input:
+#        complexupset="Rmd_figures/complexupset_installed.txt",
+#        acc = expand("outputs/optimal_rf/{study}_{tv}_acc.csv", study = STUDY, tv = ['training', 'validation']), 
+#        optimal_rf = expand("outputs/optimal_rf/{study}_optimal_rf.RDS", study = STUDY),
+#        vita_rf = expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
+#        sgc_pangenome_gather_only = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
+#        sgc_pangenome_gather_all_db = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
+#        gather_all_db = expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
+#        gather_genbank = expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
+#        gather_refseq = expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
+#        hash_to_gather_map_loso = "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv",
+#        hash_to_gather_map_pangenome = "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
+#        lca = "inputs/at_least_5_studies_vita_vars_gather_all_lca.csv",
+#        gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
+#    output: "snakemake_figure_rmd.html"
+#    conda: "envs/rmd.yml"
+#    script: "snakemake_figure_rmd.Rmd"  
+
+
+rule actually_make_figures:
     input:
         complexupset="Rmd_figures/complexupset_installed.txt",
         acc = expand("outputs/optimal_rf/{study}_{tv}_acc.csv", study = STUDY, tv = ['training', 'validation']), 
-        optimal_rf = expand("outputs/optimal_rf/{study}_optimal_rf.RDS"),
+        optimal_rf = expand("outputs/optimal_rf/{study}_optimal_rf.RDS", study = STUDY),
         vita_rf = expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
         sgc_pangenome_gather_only = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         sgc_pangenome_gather_all_db = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
@@ -1343,16 +1364,8 @@ rule make_figures:
         hash_to_gather_map_pangenome = "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
         lca = "inputs/at_least_5_studies_vita_vars_gather_all_lca.csv",
         gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
-    output:
-        "Rmd_figures/rf_optimal_accuracy.png",
-        "Rmd_figures/complex_upset_hash.png", 
-        "Rmd_figures/complex_upset_hash_small.png",
-        "Rmd_figures/percent_var_imp_in_db_stacked_with_nbhd_queries.png",
-        "Rmd_figures/percent_var_imp_in_db_stacked_no_nbhd_queries.png",
-        "Rmd_figures/genome_importance_by_study",
-        "Rmd_figures/change_varimp_with_sgc_no_log.png",
-        "Rmd_figures/change_varimp_with_sgc_log.png"
+    output: "snakemake_figure_rmd.html"
     conda: "envs/rmd.yml"
-    script: "scripts/snakemake_figure_rmd.Rmd"  
-
-
+    shell:'''
+    Rscript -e "rmarkdown::render('snakemake_figure_rmd.Rmd')"
+    '''
