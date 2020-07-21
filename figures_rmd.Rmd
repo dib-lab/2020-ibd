@@ -303,7 +303,8 @@ ggplot(tmp %>% filter(db != "nbhd_queries"), aes(x = reorder(source, -total), y 
 # predictive hash
 hash_to_genome <- read_csv("outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv") %>%
   select(-X1) %>%
-  mutate(sig = gsub("\\.sig", "", sig))
+  mutate(sig = gsub("\\.sig", "", sig)) %>%
+  mutate(sig = gsub("outputs\\/gather_matches_loso_sigs\\/", "", sig))
 
 all <- left_join(hash_to_genome, varimp_cum_study, by = 'hash')
 
@@ -453,6 +454,6 @@ print(paste0(round(sum(tmp$f_unique_weighted) * 100, digits = 3), "% of hashes w
 
 ```{r}
 print(paste0("The pangenomes alone capture ", 
-             round(sum(pangenome_importance$norm, na.rm =T) / 6 * 100, digits = 3),
+             round(sum(by_pangenome$pangenome_imp_div_6, na.rm =T) * 100, digits = 3),
              "% of the total variable importance"))
 ```
