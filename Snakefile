@@ -61,14 +61,16 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
-        #expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        "outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
         #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
         # PANGENOME SIGS
         "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
-        "snakemake_figure_rmd.html"
+        "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
+        "figures_rmd.html"
 
 
 ########################################
@@ -934,19 +936,75 @@ rule spacegraphcats_gather_matches:
     shell:'''
     spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
+
+rule prokka_gather_match_genomes:
+    output: 
+        ffn = 'outputs/gather_matches_loso_prokka/{gather_genome}.ffn',
+        faa = 'outputs/gather_matches_loso_prokka/{gather_genome}.faa'
+    input: 'outputs/gather_matches_loso/{gather_genome}.gz'
+    conda: 'envs/prokka.yml'
+    params: 
+        outdir = 'outputs/gather_matches_loso_prokka/',
+        threads = 2
+    shell:'''
+    prokka {input} --outdir {params.outdir} --prefix {wildcards.gather_genome} --metagenome --force --locustag {wildcards.gather_genome} --cpus {params.threads}
+    touch {output.faa}
+    '''
+    
+rule combine_gather_match_genomes_prokka: 
+    input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.ffn", gather_genome = GATHER_GENOMES)
+    output: "outputs/gather_matches_loso_prokka/all_gather_genome_matches.ffn"
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule spacegraphcats_multifasta:
+    input:
+        query = 'outputs/gather_matches_loso_prokka/all_gather_genome_matches.ffn' 
+        conf = "inputs/sgc_conf/{library}_r1_multifasta_conf.yml",
+        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz",
+        sig = "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
+    output: "outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv"
+    params: outdir = "outputs/sgc_genome_queries"
+    conda: "envs/spacegraphcats_multifasta.yml"
+    shell:'''
+    python -m spacegraphcats {input.conf} {output}
+    '''
+
 ##############################################
 ## Pangenome signature/variable importance
 ##############################################
 
 # use default contig sigs output by sgc to start. 
 
-#rule calc_sig_nbhd_reads:
-#    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
-#    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
-#    conda: "envs/sourmash.yml"
-#    shell:'''
-#    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {wildcards.library}_{wildcards.gather_genome} {input}
-#    '''
+rule calc_sig_nbhd_reads:
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+    params: name = lambda wildcards: wildcards.library + "_" + wildcards.gather_genome
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {params.name} {input}
+    '''
+
+rule index_sig_nbhd_reads:
+    input: expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
+    output: "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash index -k 31 {output} --traverse-directory outputs/nbhd_read_sigs
+    '''
+
+rule gather_vita_vars_study_against_nbhd_read_sigs:
+    input:
+        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        db = "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
+    output: 
+        csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
+        un="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.un"
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 --threshold-bp 0 -k 31 {input.sig} {input.db}
+    '''
 
 rule merge_sgc_sigs_to_pangenome:
     input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{gather_genome}}.gz.contigs.sig", library = LIBRARIES)
@@ -1052,10 +1110,10 @@ rule at_least_5_of_6_gather_pangenome_sigs:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
         db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
     output: 
-        csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv",
+        csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db} 
+    sourmash gather -o {output.csv} --scaled 2000 -k 31 --threshold-bp 0 {input.sig} {input.db} 
     '''
 
 rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
@@ -1364,8 +1422,8 @@ rule actually_make_figures:
         hash_to_gather_map_pangenome = "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
         lca = "inputs/at_least_5_studies_vita_vars_gather_all_lca.csv",
         gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
-    output: "snakemake_figure_rmd.html"
+    output: "figures_rmd.html"
     conda: "envs/rmd.yml"
     shell:'''
-    Rscript -e "rmarkdown::render('snakemake_figure_rmd.Rmd')"
+    Rscript -e "rmarkdown::render('figures_rmd.Rmd')"
     '''

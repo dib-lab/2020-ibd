@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 #knitr::opts_knit$set(root.dir = '../')
-knitr::opts_chunk$set(echo = TRUE, fig.path = "Rmd_figures/", cache = T, message = F)
+knitr::opts_chunk$set(echo = TRUE, fig.path = "Rmd_figures/", cache = F, message = F)
 ```
 
 ```{r libraries}
