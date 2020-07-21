@@ -457,3 +457,54 @@ print(paste0("The pangenomes alone capture ",
              round(sum(by_pangenome$pangenome_imp_div_6, na.rm =T) * 100, digits = 3),
              "% of the total variable importance"))
 ```
+
+## Are hashes with higher variable importance more likely to not end up in the assemblies than hashes with lower importance?
+
+```{r}
+unassembled_hashes <- read_csv("sandbox/test_megahit_diginorm_nocat/megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.un.csv") %>%
+  mutate(hash = minhash) %>%
+  select(hash) %>%
+  mutate(assembled = "unassembled")
+
+at_least_5_hashes_varimp_cum <- varimp_cum %>%
+  filter(hash %in% at_least_5_hashes) %>%
+  left_join(unassembled_hashes)
+
+at_least_5_hashes_varimp_cum$assembled <- ifelse(is.na(at_least_5_hashes_varimp_cum$assembled), "assembled", "unassembled")
+
+t.test(total_imp ~ assembled, data = at_least_5_hashes_varimp_cum)
+
+# ggplot(at_least_5_hashes_varimp_cum, aes(x = total_imp, fill = assembled)) +
+#   geom_density(alpha = .3) +
+#   theme_minimal()
+```
+
+## Do some metapangenomes contain more unassembled hashes than others?
+
+```{r}
+at_least_5_pangenome_importance <- pangenome_importance %>%
+  filter(hash %in% at_least_5_hashes) %>%
+  left_join(unassembled_hashes)
+
+at_least_5_pangenome_importance$assembled <- ifelse(is.na(at_least_5_pangenome_importance$assembled), "assembled", "unassembled")
+
+tally1 <- at_least_5_pangenome_importance %>%
+  group_by(sig) %>%
+  tally() %>%
+  mutate(total_hashes = n) %>%
+  select(-n)
+
+tallied <- at_least_5_pangenome_importance %>%
+  group_by(sig, assembled) %>%
+  tally() %>%
+  mutate(hashes_assembled = n) %>%
+  select(-n) %>%
+  left_join(tally1) %>%
+  mutate(percent = hashes_assembled/total_hashes)
+
+
+ggplot(tallied, aes(x = reorder(sig, hashes_assembled), y = hashes_assembled, fill = assembled)) +
+  geom_col() +
+  theme_minimal() + 
+  coord_flip()
+```
