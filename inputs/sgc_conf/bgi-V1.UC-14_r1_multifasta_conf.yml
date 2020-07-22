@@ -88,5 +88,5 @@ multifasta_reference:
 - outputs/gather_matches_loso_prokka/VogtmannE_2016__MMRS43563715ST-27-0-0__bin.70.fa.ffn
 - outputs/gather_matches_loso_prokka/XieH_2016__YSZC12003_37172__bin.63.fa.ffn
 - outputs/gather_matches_loso_prokka/ZeeviD_2015__PNP_Main_232__bin.27.fa.ffn
-multifasta_scaled: 1000
+multifasta_scaled: 2000
 multifasta_query_sig: outputs/vita_rf/at_least_5_studies_vita_vars.sig
