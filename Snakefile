@@ -72,8 +72,8 @@ rule all:
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
         "figures_rmd.html",
-        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES)
-
+        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations"
 
 ########################################
 ## PREPROCESSING
@@ -958,12 +958,6 @@ rule prokka_gather_match_genomes:
     gzip {params.gzip}
     '''
     
-#rule combine_gather_match_genomes_prokka: 
-#    input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.ffn", gather_genome = GATHER_GENOMES)
-#    output: "outputs/gather_matches_loso_prokka/all_gather_genome_matches.ffn"
-#    shell:'''
-#    cat {input} > {output}
-#    '''
 
 rule spacegraphcats_multifasta:
     input:
@@ -1186,7 +1180,54 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
         all_sig_df = all_sig_df.drop_duplicates(keep = "first")
         all_sig_df.to_csv(str(output))
 
+##############################################
+## Query by multifasta eggnog gene annotation
+##############################################
 
+rule combine_gather_match_genomes_prokka: 
+    input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.faa", gather_genome = GATHER_GENOMES)
+    output: "outputs/gather_matches_loso_prokka/all_gather_genome_matches.faa"
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule combine_multifasta_results:
+    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES)
+    output: "outputs/gather_matches_loso_multifasta/all-query-results.csv"
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule get_multifasta_query_gene_names:
+    input: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.csv"
+    output: names = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results-names.txt"
+    conda: 'envs/vegan.yml'
+    script: "scripts/get_multifasta_names.R"
+
+rule grab_multifasta_query_genes:
+    output: "outputs/gather_matches_loso_multifasta/{gather_genome}_multifasta.faa"
+    input:
+        names = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results-names.txt",
+        faa = 'outputs/gather_matches_loso_prokka/all-multifasta-query-results.faa'
+    conda: "envs/sourmash.yml"
+    shell: '''
+    scripts/extract-aaseq-matches.py {input.names} {input.faa} > {output}
+    '''
+
+rule eggnog_multifasta_query_genes:
+    input:
+        faa = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.faa"
+        db = "inputs/eggnog_db/eggnog.db"
+    output: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations"
+    params:
+        cpus = 8, 
+        outdir = "outputs/gather_matches_loso_multifasta/",
+        dbdir = "inputs/eggnog_db",
+        out_prefix = "all-multifasta-query-results"
+    conda: 'envs/eggnog.yml'
+    shell:'''
+    emapper.py --cpu {params.cpus} -i {input.faa} --output {params.out_prefix} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
+    '''
 
 ##############################################
 ## Ribosomal gene abundance validation 
