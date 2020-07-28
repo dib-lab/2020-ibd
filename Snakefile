@@ -62,6 +62,7 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
         expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
         "outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
         #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
         # PANGENOME SIGS
@@ -70,7 +71,8 @@ rule all:
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
-        "figures_rmd.html"
+        "figures_rmd.html",
+        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES)
 
 
 ########################################
@@ -945,30 +947,37 @@ rule prokka_gather_match_genomes:
     conda: 'envs/prokka.yml'
     params: 
         outdir = 'outputs/gather_matches_loso_prokka/',
-        threads = 2
+        prefix = lambda wildcards: wildcards.gather_genome[0:25],
+        threads = 2,
+        gzip = lambda wildcards: "outputs/gather_matches_loso/" + wildcards.gather_genome
     shell:'''
-    prokka {input} --outdir {params.outdir} --prefix {wildcards.gather_genome} --metagenome --force --locustag {wildcards.gather_genome} --cpus {params.threads}
-    touch {output.faa}
+    gunzip {input}
+    prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {params.threads} --centre X --compliant
+    mv {params.prefix}.ffn {output.ffn}
+    mv {params.prefix}.faa {output.faa}
+    gzip {params.gzip}
     '''
     
-rule combine_gather_match_genomes_prokka: 
-    input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.ffn", gather_genome = GATHER_GENOMES)
-    output: "outputs/gather_matches_loso_prokka/all_gather_genome_matches.ffn"
-    shell:'''
-    cat {input} > {output}
-    '''
+#rule combine_gather_match_genomes_prokka: 
+#    input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.ffn", gather_genome = GATHER_GENOMES)
+#    output: "outputs/gather_matches_loso_prokka/all_gather_genome_matches.ffn"
+#    shell:'''
+#    cat {input} > {output}
+#    '''
 
 rule spacegraphcats_multifasta:
     input:
-        query = 'outputs/gather_matches_loso_prokka/all_gather_genome_matches.ffn' 
+        queries = expand('outputs/gather_matches_loso_prokka/{gather_genome}.ffn', gather_genome = GATHER_GENOMES),
         conf = "inputs/sgc_conf/{library}_r1_multifasta_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz",
         sig = "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
     output: "outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv"
-    params: outdir = "outputs/sgc_genome_queries"
+    params: 
+        outdir = "outputs/sgc_genome_queries",
+        #out = lambda wildcards: wildcards.library + "_k31_r1_multifasta/query-results.csv"
     conda: "envs/spacegraphcats_multifasta.yml"
     shell:'''
-    python -m spacegraphcats {input.conf} {output}
+    python -m spacegraphcats {input.conf} multifasta_query --nolock --outdir {params.outdir}
     '''
 
 ##############################################
@@ -1177,6 +1186,27 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
         all_sig_df = all_sig_df.drop_duplicates(keep = "first")
         all_sig_df.to_csv(str(output))
 
+
+
+##############################################
+## Ribosomal gene abundance validation 
+##############################################
+
+rule rename_sgc_nbhd_reads:
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    output: "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz"
+    shell:'''
+    zcat {input} | awk '{{print (NR%4 == 1) ? "@1_" ++i : $0}}' | gzip -c > {output}
+    '''
+
+rule singlem_default_nbhd_reads:
+    input: "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz"
+    output: "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv"
+    conda: "envs/singlem.yml"
+    params: threads = 2
+    shell: '''
+    singlem pipe --sequences {input} --otu_table {output} --output_extras --threads {params.threads}
+    '''
 
 ##############################################
 ## Pangenome differential abundance analysis
