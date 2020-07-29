@@ -72,9 +72,10 @@ rule all:
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
         "figures_rmd.html",
-        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations"
+        #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
+        "outputs/sgc_genome_queries_singlem/done.txt"
 
 ########################################
 ## PREPROCESSING
@@ -1273,6 +1274,15 @@ rule singlem_16s_nbhd_reads:
     params: threads = 2
     shell: '''
     singlem pipe --sequences {input.seq} --singlem_packages {inputs.pkg} --otu_table {output} --output_extras --threads {params.threads}
+    '''
+
+rule combine_singlem:
+    input:
+        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+    output: "outputs/sgc_genome_queries_singlem/done.txt"
+    shell: '''
+    touch {output}    
     '''
 
 ##############################################
