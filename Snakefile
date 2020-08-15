@@ -1280,13 +1280,27 @@ rule singlem_16s_nbhd_reads:
     touch {output}
     '''
 
-rule combine_singlem:
+rule combine_singlem_default:
     input:
         default = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        s16 = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-    output: res = "outputs/sgc_genome_queries_singlem/combined.tsv"
+    output: res = "outputs/sgc_genome_queries_singlem/combined_default.tsv"
     conda: "envs/tidy.yml"
-    script: "scripts/parse_singlem.R"
+    script: "scripts/parse_singlem_default.R"
+
+rule combine_singlem_16s:
+    input:
+        s16 = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+    output: res = "outputs/sgc_genome_queries_singlem/combined_16s.tsv"
+    conda: "envs/tidy.yml"
+    script: "scripts/parse_singlem_16s.R"
+
+rule combine_singlem:
+   input: 
+       s16 = "outputs/sgc_genome_queries_singlem/combined_16s.tsv",
+       default = "outputs/sgc_genome_queries_singlem/combined_default.tsv"
+   output: res = "outputs/sgc_genome_queries_singlem/combined.tsv"
+   conda: "envs/tidy.yml"
+   script: "scripts/parse_singlem.R"
 
 rule singlem_to_counts:
     input:  res = "outputs/sgc_genome_queries_singlem/combined.tsv"
@@ -1294,11 +1308,18 @@ rule singlem_to_counts:
     conda: "envs/tidy.yml"
     script: "scripts/make_singlem_counts.R"
 
+rule singlem_install_pomona:
+    input: "outputs/sgc_genome_queries_singlem/combined.tsv"
+    output:
+        pomona = "outputs/singlem_vita_rf/pomona_install.txt"
+    conda: 'envs/rf.yml'
+    script: "scripts/install_pomona.R"
+
 rule singlem_var_sel_rf:
     input:
         info = "inputs/working_metadata.tsv", 
         counts = "outputs/sgc_genome_queries_singlem/singlem_counts.tsv",
-        pomona = "outputs/vita_rf/pomona_install.txt"
+        pomona = "outputs/singlem_vita_rf/pomona_install.txt"
     output:
         vita_rf = "outputs/singlem_vita_rf/{study}_vita_rf.RDS",
         vita_vars = "outputs/singlem_vita_rf/{study}_vita_vars.txt",
