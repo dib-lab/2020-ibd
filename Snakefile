@@ -1195,7 +1195,7 @@ rule combine_gather_match_genomes_prokka:
 
 rule combine_multifasta_results:
     input: expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES)
-    output: "outputs/gather_matches_loso_multifasta/all-query-results.csv"
+    output: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.csv"
     shell:'''
     cat {input} > {output}
     '''
@@ -1203,14 +1203,14 @@ rule combine_multifasta_results:
 rule get_multifasta_query_gene_names:
     input: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.csv"
     output: names = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results-names.txt"
-    conda: 'envs/vegan.yml'
+    conda: 'envs/tidy.yml'
     script: "scripts/get_multifasta_names.R"
 
 rule grab_multifasta_query_genes:
-    output: "outputs/gather_matches_loso_multifasta/{gather_genome}_multifasta.faa"
+    output: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.faa"
     input:
         names = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results-names.txt",
-        faa = 'outputs/gather_matches_loso_prokka/all-multifasta-query-results.faa'
+        faa = 'outputs/gather_matches_loso_prokka/all_gather_genome_matches.faa'
     conda: "envs/sourmash.yml"
     shell: '''
     scripts/extract-aaseq-matches.py {input.names} {input.faa} > {output}
@@ -1218,7 +1218,7 @@ rule grab_multifasta_query_genes:
 
 rule eggnog_multifasta_query_genes:
     input:
-        faa = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.faa"
+        faa = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.faa",
         db = "inputs/eggnog_db/eggnog.db"
     output: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations"
     params:
@@ -1248,7 +1248,8 @@ rule singlem_default_nbhd_reads:
     conda: "envs/singlem.yml"
     params: threads = 2
     shell: '''
-    singlem pipe --sequences {input} --otu_table {output} --output_extras --threads {params.threads}
+    singlem pipe --sequences {input} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 || touch {output}
+    touch {output} # creates output file for runs with no seq matches
     '''
 
 rule download_singlem_16s_pkg:
@@ -1259,7 +1260,7 @@ rule download_singlem_16s_pkg:
 
 rule untar_singlem_16s_pkg:
     input:"inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg.tar.xz"
-    output: "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
+    output: "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
     params: outdir = "inputs/singlem"
     shell:'''
     tar xf {input} -C {params.outdir}
@@ -1268,12 +1269,15 @@ rule untar_singlem_16s_pkg:
 rule singlem_16s_nbhd_reads:
     input: 
         seq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
-        pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
+        pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
     output: "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv"
     conda: "envs/singlem.yml"
-    params: threads = 2
+    params: 
+        threads = 2,
+        pkg_dir = "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
     shell: '''
-    singlem pipe --sequences {input.seq} --singlem_packages {inputs.pkg} --otu_table {output} --output_extras --threads {params.threads}
+    singlem pipe --sequences {input.seq} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 || touch {output}
+    touch {output}
     '''
 
 rule combine_singlem:
