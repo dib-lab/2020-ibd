@@ -19,7 +19,7 @@ ibd <- read_tsv(snakemake@input[['counts']]) # read in hash abund table
 ibd <- as.data.frame(ibd)                         # transform to dataframe
 rownames(ibd) <- ibd$sample                       # set sample as rownames
 ibd <- ibd[ , -1]                         # remove the samples column
-
+ibd[is.na(ibd)] <- 0                      # replace 0 with NA
 ## read in study metadata
 ## collapse duplicate libraries so each sample only has one row
 # info <- read_tsv("~/github/2020-ibd/inputs/working_metadata.tsv") %>%
