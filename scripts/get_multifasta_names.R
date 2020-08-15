@@ -5,6 +5,7 @@ library(purrr)
 res <- read_csv(unlist(snakemake@input)) %>%
   distinct() %>%
   select(filename, record_name) %>%
-  distinct() 
+  distinct() %>%
+  mutate(record_name = gsub(" .*", "", record_name)) 
 
-write_csv(snakemake@output[['names']], col_names = F)
+write.table(res$record_name, snakemake@output[['names']], col.names = F, quote = F, row.names = F)
