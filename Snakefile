@@ -75,7 +75,7 @@ rule all:
         #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
-        "outputs/sgc_genome_queries_singlem/done.txt"
+        expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY)
 
 ########################################
 ## PREPROCESSING
@@ -1282,12 +1282,52 @@ rule singlem_16s_nbhd_reads:
 
 rule combine_singlem:
     input:
-        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-    output: "outputs/sgc_genome_queries_singlem/done.txt"
-    shell: '''
-    touch {output}    
-    '''
+        default = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        s16 = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+    output: res = "outputs/sgc_genome_queries_singlem/combined.tsv"
+    conda: "envs/tidy.yml"
+    script: "scripts/parse_singlem.R"
+
+rule singlem_to_counts:
+    input:  res = "outputs/sgc_genome_queries_singlem/combined.tsv"
+    output: counts = "outputs/sgc_genome_queries_singlem/singlem_counts.tsv"
+    conda: "envs/tidy.yml"
+    script: "scripts/make_singlem_counts.R"
+
+rule singlem_var_sel_rf:
+    input:
+        info = "inputs/working_metadata.tsv", 
+        counts = "outputs/sgc_genome_queries_singlem/singlem_counts.tsv",
+        pomona = "outputs/vita_rf/pomona_install.txt"
+    output:
+        vita_rf = "outputs/singlem_vita_rf/{study}_vita_rf.RDS",
+        vita_vars = "outputs/singlem_vita_rf/{study}_vita_vars.txt",
+        ibd_filt = "outputs/singlem_vita_rf/{study}_ibd_filt.csv"
+    params: 
+        threads = 8,
+        validation_study = "{study}"
+    conda: 'envs/rf.yml'
+    script: "scripts/singlem_vita_rf.R"
+
+
+rule singlem_loo_validation:
+    input: 
+        ibd_filt = 'outputs/singlem_vita_rf/{study}_ibd_filt.csv',
+        info = 'inputs/working_metadata.tsv',
+        eval_model = 'scripts/function_evaluate_model.R',
+        ggconfusion = 'scripts/ggplotConfusionMatrix.R'
+    output: 
+        recommended_pars = 'outputs/singlem_optimal_rf/{study}_rec_pars.tsv',
+        optimal_rf = 'outputs/singlem_optimal_rf/{study}_optimal_rf.RDS',
+        training_accuracy = 'outputs/singlem_optimal_rf/{study}_training_acc.csv',
+        training_confusion = 'outputs/singlem_optimal_rf/{study}_training_confusion.pdf',
+        validation_accuracy = 'outputs/singlem_optimal_rf/{study}_validation_acc.csv',
+        validation_confusion = 'outputs/singlem_optimal_rf/{study}_validation_confusion.pdf'
+    params:
+        threads = 8,
+        validation_study = "{study}"
+    conda: 'envs/tuneranger.yml'
+    script: "scripts/singlem_tune_rf.R"
 
 ##############################################
 ## Pangenome differential abundance analysis
