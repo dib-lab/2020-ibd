@@ -186,19 +186,40 @@ We then clustered ORFs and ORF fragments from pangeomes in the metapangenome at 
 
 While the reads from all metapangenomes contain 90.9% of shared hashes, the metapangenome gene catalogues only contain 59.4% of shared hashes. 
 While this loss is in part explained by ORF extraction and clustering, only 63.1% of shared hashes are in the assemblies themselves, demonstrating that assembly accounts for the largest loss of predictive hashes. 
+Further, when we build random forest models of gene counts using the leave-one-study out approach, we observe a substantial decrease in prediction accuracy (**Table {@tbl:acc}**). 
+This indicates that some sequences that are important for IBD classification do not assemble.
 
-To assess what fraction of the unassembled reads account for the 31.5% drop in observed shared hashes, XXX.
+Unassembled hashes occur in 40 of the 41 metapangenomes.
+Hashes that are unassembled are not more likely to hold higher variable importance than hashes that do not assemble (Welch Two Sample t-test p = .07; mean assembled = 0.00057, mean unassembled = 0.00072). 
 
-(*TR: are the hashes with the highest variable importance more likely to not be in assembly? t-test var imp in assembly vs. var imp not in assembly*)
+|**Validation Study** | **Hash model** | **Ribosomal model** | **Gene model** | 
+|-----------------|------------|-----------------|------------|
+|SRP057027        |    75.9    |      86.4       |     44     |
+|PRJNA237362      |    71.4    |       75        |     NA     |
+|PRJEB2054        |    69.4    |      19.1       |     NA     |
+|PRJNA385949      |    52.9    |      52.9       |     35.3   |
+|PRJNA400072      |    50.9    |      48.1       |     50     |
+|iHMP             |    49.1    |      44.2       |     44.3   |
+Table: Accuracy of model on each validation set. {#tbl:acc}
+ 
+### Unassembled hashes are largely from marker genes
 
-+ *What do these hashes look like in a nbhd?*
-    + *low abund?*
-    + *complex? bandage plot*
-+ *What is the function encoded in these reads?*
-    + *mifaser*
-+ *Do some metapangenomes contain more "lost" hashes than others?*
+Given that many important hashes do not assemble and are therefore difficult to annotate, we sought a new approach to characterize the functional content predictive of IBD subtype within metapangenomes. 
+We produced each metapangenom by combining neighborhoods from genome queries in metagenomes. 
+To determine the gene within the query genome that is closest to to each important hash, we queried each metagenome with each gene from each query genome, producing a neighborhood around each gene. 
+We then hashed each gene neighborhood to generate a map from hashes to genes.
+In essence, this process annotated the important hashes from the random forest models with a gene name. 
 
-### Predictive hashes that do assembly indicate lower diversity in IBD
+When we looked at the identity of unassembled hashes, many were annotated as 16s and 23s ribosomal RNA, as well as genes encoding 30s and 50s ribosomal proteins. 
+These sequences are difficult to assemble given their repetitive content, but are useful markers of taxonomy given their universal presence in bacterial genomes (CITE: 10.1093/bioinformatics/btv231; checkm; singlem). 
+Given this, we next extracted abundances for 15 marker genes for each pangenome and built random forest models from the abundances. 
+These models perform equally well as the hash models (**Table {@tbl:acc}**), with the exception of PRJEB2054.
+PRJEB2054 was sequenced with 36 basepair reads, and the software we used to extract marker gene abundances was optimized for 100 basepair reads (CITE: metahit, singlem).
+These results show that a substantial portion of predictive power for IBD classification comes from marker genes, indicating that organism abundance is a signatures of IBD subtype.
+
+Further, in 3 of 6 models, a sequences from *Acetatifactor* holds the most importance, matching variable importance from the hash model.  
+
+### Predictive hashes that assemble indicate lower diversity in IBD
 
 While many hashes that are predictive of IBD subtype do not assemble, approximately 60% do.
 We next investigated how metapangenomes differed in CD, UC, and nonIBD.
@@ -295,6 +316,8 @@ We selected five as a signal:noise compromise, as five was the smallest consecut
 We find no evidence of gene clusters that are more abundant in UC. 
 Conversely, we find many gene clusters in XX pangenomes that are more abundant in CD. 
 XXX
+
+
 
 ### Predictive hashes not in the metapangenomes XXX
 
