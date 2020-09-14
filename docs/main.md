@@ -82,8 +82,7 @@ These preprocessing steps removed hashes that were likely to be errors while kee
 
 ### K-mers capture variation due to disease subtype
 
-In this study, we aimed to identify microbial signatures associated with IBD. 
-However, given that biological and technical artifacts can differ greatly between metagenome studies [@wirbel2019], we first quantified these sources of variation. 
+We first sought to understand whether variation due to IBD diagnosis is detectable in gut metagenomes.  
 We calculated pairwise distance matrices using jaccard distance and cosine distance between filtered signatures, where jaccard distance captured sample richness and cosine distance captured sample diversity. 
 We performed principle coordinate analysis and PERMANOVA with these distance matrices (**Figure {@fig:comp-plts}**), using the variables study accession, diagnosis, library size, and number of hashes in a filtered signature (**Table {@tbl:permanova}**). 
 Number of hashes in a filtered signature accounts for the highest variation, possibly reflecting reduced diversity in stool metagenomes of CD and UC patients (reviewed in [@schirmer2019microbial]). 
@@ -131,153 +130,85 @@ The presence of shared hashes between classifiers indicates that there is a weak
 
 Shared hashes accounted for 2.8% of all hashes used to build the optimized classifiers.
 If shared hashes are predictive of IBD subtype, we would expect that these hashes would account for an outsized proportion of variable importance in the optimized classifiers.
-After normalizing variable importance across classifiers, 40.2% of the total variable importance was held by the 3,859 hashes shared between at least five classifiers, with 21.5% attributable to the 932 hashes shared between all six classifiers. 
+After normalizing variable importance across classifiers, 40.2% of the total variable importance was held by shared between hashes, with 21.5% attributable to the 932 hashes shared between all six classifiers. 
 This indicates that shared hashes contribute a large fraction of predictive power for classification of IBD subtype. 
 
 ![Random forest classifiers weakly predict IBD subtype. **A** Accuracy of leave-one-study-out random forest classifiers on training and validation sets. The validation study is on the x axis. **B** Confusion matrices depicting performance of each leave-one-study-out random forest classifier on the validation set. **C** Upset plot depicting intersections of sets of hashes as well as the cumulative normalized variable importance of those hashes in the optimized random forest classifiers. Each classifier is labelled by the left-out validation study.](./figures/fig3.pdf){#fig:acc-plts}
 
-### Some predictive hashes anchor to known genomes
-
-We next evaluated the identity of the predictive hashes in each classifier. 
-To anchor predictive hashes to known genomes, we compared our predictive hashes against all microbial genomes in GenBank, as well as metagenome-assembled genomes from three recent *de novo* assembly efforts from human microbiome metagenomes [@pasolli2019; @nayfach2019; @almeida2019]. 
-Between 75.1-80.3% of hashes anchored to 1,161 genomes (**Figure {@fig:genomes-plt} A**). 
-In contrast, of the 3,859 shared hashes, 69.4% anchored to 41 genomes (**Figure {@fig:genomes-plt} B**).
-This indicates that fewer of the hashes that hold the most predictive power are in reference databases.
-
-Futher, these 41 genomes accounted for 50.5% of the total variable importance, a 10.3% increase over the hashes alone.
-These genomes contain additional predictive hashes not shared between at least five classifiers, but that are important for IBD subtype classification. (*TR should this paragraph even be included? kind of messes up the flow*)
-
-
+Many hashes were identifiable when compared against all microbial genomes in GenBank, as well as metagenome-assembled genomes from three recent *de novo* assembly efforts from human microbiome metagenomes [@pasolli2019; @nayfach2019; @almeida2019]. 
+77.7% of hashes from all classifiers were identifiable and anchored to 1,161 genomes (**Figure {@fig:genomes-plt} A**). 
+In contrast, 69.4% of shared hashes anchored to 41 genomes (**Figure {@fig:genomes-plt} B**).
+These shared 41 genomes held an additional 10.3% of variable importance over the shared hashes because some genomes contain additional hashes not shared across all models.
 Using sourmash lca classify to assign GTDB taxonomy, we find 38 species represented among the 41 genomes (**Figure {@fig:genomes-plt} B**). 
-However, we observe that while most genomes assign to one species, 19 assign to an additional one or more distantly related genomes that likely represent contamination from the assembly and binning process. 
-When we take the Jaccard index of these 41 genomes, we observe little similarity despite contamination (**Figure {@fig:genomes-plt}**). 
-Therefore, we proceeded with analysis with the idea that each of the 41 genomes is a self-contained entity that captures distinct biology.
 
 ![Some predictive hashes from random forest classifiers anchor to known genomes. **A** 75.1-80.3% of all hashes used to train classifiers anchor to known genomes in RefSeq, GenBank, or human microbiome metagenome-assembled genome databases. A further 4.2-5.6% of hashes anchor to metapangenomes of a subset of these genomes. **B** The 3,859 hashes shared between at least five classifiers anchor to 41 genomes. Genomes account for different amounts of variable importance in each model. Genomes are labelled by 38 GTDB taxonomy assignments. **C** Jaccard similarity between 41 genomes. The highest similarity between genomes is 0.37 and is shared by genomes of the same species, while most genomes have no similarity. This indicates that each genome represents distinct nucleotide sequence.](./figures/fig4.pdf){#fig:genomes-plt}
 
-### Unknown but predictive hashes represent novel pangenomic elements
 
-Given that 30.6% of shared hashes did not anchor to genomes in databases, we next sought to characterize these hashes. 
-We reasoned that many unknown but predictive hashes likely originate from closely related strain variants of identified genomes and sought to recover these variants. 
-We performed compact de Bruijn graph queries into each metagenome sample with the 41 genomes that contained shared hashes [@brown2020exploring], producing a pangenome for each query genome within each metagenome sample.
-Combining pangenomes from all metagenome, we generated a metapangenome for each of the 41 original query genomes.
-90.9% of shared hashes were in the 41 metapangenomes, a 21.5% increase over the genomes alone. 
-This suggests that at least 21.5% of shared hashes originate from novel strain-variable or accessory elements in pangenomes. 
+### Marker genes dominate signatures of IB
 
-Further, these metapangenomes captured an additional 4.2-5.2% of all predictive hashes from each classifier, indicating that metapangenomes contain novel sequences not captured in any database (**Figure {@fig:genomes-plt}**).
-The metapangenomes also captured 74.5% of all variable importance, a 24% increase over the 41 genomes alone. 
-This indicates that strain variation contributes substantial predictive power toward IBD subtype classification.
+While k-mer based signatures allow us to use all sequencing data in a metagenome and quickly compare against all known genomes, hashes lack sequence context and do not represent function. 
+Given this, we next sought to uncover the functional potential of the shared hashes. 
+To annotate each hash, we reasoned that a hash with predictive importance would be nearby the genomic feature driving the predictive signal in both genomic DNA and the DNA assembly graph. 
+Therefore, we performed assembly graph queries on each metagenome using each gene in the 51 shared genomes. 
+We then identified all gene query neighborhoods in which each hash occurred, and transferred those annotations to the hash.
 
-Recovery of metapangenomic variation disproportionately impacts the variable importance attributable to specific genomes (**Figure {@fig:sgc-plt}**).
-While most genomes maintained a similar proportion of importance with or without expansion by neighborhood queries, three metapangenomes shifted dramatically.
-While an *Acetatifactor* species anchored the most importance prior to pangenome queries, the specific species of *Acetatifactor* switched from *sp900066565*, to *sp900066365*. 
-Conversely, *Faecalibacterium prausnitzii_D* increased from anchoring ~2.9% to ~10.5% of the total variable importance. 
-These results indicate that strain variation is more important and less characterizable for prediction of IBD subtype in some species that in others.
+We noticed that many hashes were annotated as marker genes: 440 hashes accounting for 7.5% of variable importance across all models annotated to bacterial single copy marker genes [@parks2015checkm; @na2018ubcg], as well as 16S and 23S ribosomal RNA. 
+Given the substantial fraction of variable importance attributable to these genetic elements, we were curious how well models built from marker genes alone would perform in IBD subtype classification. 
+However, we wanted to only look at marker gene abundances from the 41 shared genomes. 
+We first performed cDBG queries using the 41 genomes to retreive all reads in the assembly graph neighborhoods of those genomes. 
+We then built random forest classifiers using the same approach as with hashes, but using abundance of 14 ribosomal marker genes and 16S rRNA [@woodcroft2018singlem].
+Classification accuracy across all models was similar to the k-mer based model (**Table {@tbl:acc}**), however performs marginally better at CD classification and marginally worse at UC classification (**Figure SUPPLEMENTAL CONFUSION MATRICES**) 
+Both model types ranked a 16S rRNA sequence from the genus *Acetatifactor* as having the highest variable importance across studies, demonstrating that while based on different data features, both model types extract similar information.  
 
-![Metapangenome neighborhoods generated with compact de Bruijn graph queries recover strain variation that is important for predicting IBD subtype. While the variable importance attributable to some genomes does not change with cDBG queries, other genomes increase by more than 7%.](./figures/fig5.png){#fig:sgc-plt}
-
-
-### Many predictive hashes in metapangenomes do not assemble
-
-While k-mer-based signatures allow us to use all sequencing data in a metagenome and quickly compare against all known genomes, hashes lack sequence context and do not represent function. 
-Given this, we next sought to uncover the functional potential in each metapangenome through assembly and annotation. 
-To build a gene catalogue for each metapangenome, we asesmbled each pangenome individually and extracted open reading frames (ORFs). 
-We then clustered ORFs and ORF fragments from pangeomes in the metapangenome at 90% identity.
-
-While the reads from all metapangenomes contain 90.9% of shared hashes, the metapangenome gene catalogues only contain 59.4% of shared hashes. 
-While this loss is in part explained by ORF extraction and clustering, only 63.1% of shared hashes are in the assemblies themselves, demonstrating that assembly accounts for the largest loss of predictive hashes. 
-Further, when we build random forest models of gene counts using the leave-one-study out approach, we observe a substantial decrease in prediction accuracy (**Table {@tbl:acc}**). 
-This indicates that some sequences that are important for IBD classification do not assemble.
-
-Unassembled hashes occur in 40 of the 41 metapangenomes.
-Hashes that are unassembled are not more likely to hold higher variable importance than hashes that do not assemble (Welch Two Sample t-test p = .07; mean assembled = 0.00057, mean unassembled = 0.00072). 
-
-|**Validation Study** | **Hash model** | **Ribosomal model** | **Gene model** | 
+|**Validation Study** | **Hash model** | **Ribosomal model** | **Hash model of ribosomal reads** | 
 |-----------------|------------|-----------------|------------|
-|SRP057027        |    75.9    |      86.4       |     44     |
-|PRJNA237362      |    71.4    |       75        |     NA     |
-|PRJEB2054        |    69.4    |      19.1       |     NA     |
-|PRJNA385949      |    52.9    |      52.9       |     35.3   |
-|PRJNA400072      |    50.9    |      48.1       |     50     |
-|iHMP             |    49.1    |      44.2       |     44.3   |
-Table: Accuracy of model on each validation set. {#tbl:acc}
- 
-### Unassembled hashes are largely from marker genes
+|SRP057027        |    75.9    |      86.4       |   71.7   |
+|PRJNA237362      |    71.4    |       75        |   64.3   |
+|PRJEB2054        |    69.4    |      19.1       |   15.5   |
+|PRJNA385949      |    52.9    |      52.9       |   41.2   |
+|PRJNA400072      |    50.9    |      48.1       |   47.4   |
+|iHMP             |    49.1    |      44.2       |   46.5   |
+Table: Accuracy of random forest classifiers built with different underlying representations of IBD metagenomes when applied to each validation set. {#tbl:acc}
 
-Given that many important hashes do not assemble and are therefore difficult to annotate, we sought a new approach to characterize the functional content predictive of IBD subtype within metapangenomes. 
-We produced each metapangenom by combining neighborhoods from genome queries in metagenomes. 
-To determine the gene within the query genome that is closest to to each important hash, we queried each metagenome with each gene from each query genome, producing a neighborhood around each gene. 
-We then hashed each gene neighborhood to generate a map from hashes to genes.
-In essence, this process annotated the important hashes from the random forest models with a gene name. 
+The marker gene model performed similarly as the k-mer model for all studies except PRJEB2054, however this study was sequenced with 36 base pair reads.
+It performed poorly due to decreased prediction of marker genes from reads. 
+While the hash model performs well even with very short reads, this has limited technological application given ever-increasing sequencing read lengths.
 
-When we looked at the identity of unassembled hashes, many were annotated as 16s and 23s ribosomal RNA, as well as genes encoding 30s and 50s ribosomal proteins. 
-These sequences are difficult to assemble given their repetitive content, but are useful markers of taxonomy given their universal presence in bacterial genomes (CITE: 10.1093/bioinformatics/btv231; checkm; singlem). 
-Given this, we next extracted abundances for 15 marker genes for each pangenome and built random forest models from the abundances. 
-These models perform equally well as the hash models (**Table {@tbl:acc}**), with the exception of PRJEB2054.
-PRJEB2054 was sequenced with 36 basepair reads, and the software we used to extract marker gene abundances was optimized for 100 basepair reads (CITE: metahit, singlem).
-These results show that a substantial portion of predictive power for IBD classification comes from marker genes, indicating that organism abundance is a signatures of IBD subtype.
+While hash and ribosomal models performed similarly, we were curious whether they captured the same information or whether they captured overlapping but distinct characteristics about IBD subtype. 
+Therefore, we used reads used to build the marker gene model to build a hash model from marker genes alone. 
+These hash models of ribosomal reads performed worse than both the full hash model and ribosomal model (**Table {@tbl:acc}**}, indicating that each model captures separate, additonal information important for IBD classification.
+The ribosomal model likely out-performed the hash model of ribosomal reads given both subsampling and shorter sequence lengths used by k-mers, both of which obscure taxonomic relationships between short sequences.
 
-Further, in 3 of 6 models, a sequences from *Acetatifactor* holds the most importance, matching variable importance from the hash model.  
+To test whether marker gene model accuracies were uniquely driven by marker gene abundance in the 41 shared genomes, we next built a model from all marker genes in the metagenome. 
+XXXXX.
 
-### Predictive hashes that assemble indicate lower diversity in IBD
+### Decreased diversity punctuated by strain enrichment explains IBD
 
-While many hashes that are predictive of IBD subtype do not assemble, approximately 60% do.
-We next investigated how metapangenomes differed in CD, UC, and nonIBD.
+To better understand microbial signatures of IBD captured by the hash model, we performed differential abundance analysis on the shared hashes [@martin2020modeling].
+Many more hashes were differentially abundant in CD than UC (1815 hashes versus 166 hashes, respectively), reflecting the heterogeneity of the UC gut microbiome [@franzosa2019].
+Differentially abundant marker genes segregated to the fraction of hashes that were decreased in abundance in CD. 
+This, combined with results from results from marker gene models, indicates taht decrease in diversity captured by marker genes is a hallmark of the CD gut microbiome. 
+The majority of non-marker genes with decreased abundance in CD appear to be driven by general decrease in diversity of the gut microbiome, not systematic loss of specific functional potential.
 
-Given that reduced diversity of sepcies in the gut microbiome is a hallmark of IBD (CITATIONS), we first investigated whether the diversity of metapangeome ORFs within a metagenome differed between CD and nonIBD and UC and nonIBD. 
-For each metagenome, we counted the number of ORFs within each metapangenome against which any reads mapped.
-For 39 of 41 metapangenomes for CD and 37 of 41 metapangenomes for UC, the mean number of ORFs observed per metagenome was lower than non-IBD (ANOVA p < .05, Tukey's HSD p < .05). 
-This indicates that the majority of metapangenomes in IBD microbiomes have lower diversity in observed ORFs than nonIBD microbiomes.
+Two strains of *Faecalibacterium prausnitzii* have the largest number of hashes with decreased abundance compared to nonIBD. 
+*F. prausnitzii* is an obligate anaerobe and a key butyrate producer in the gut, thereby playing a crucial role in reducing health inflammation [@lopez2017faecalibacterium].
+*F. prausnitzii* is extremely sensitive to oxygen, though may be able to withstand exposure for up to 24 hours depending on the availability of metabolites for extracellular electron transfer [@lopez2017faecalibacterium].
+Hashes annotated to *Acetatifactor* (GTDB species *s__Acetatifactor sp900066365*) held the largest variable importance of hashes with decreased abundance compared to nonIBD.   
+*Acetatifactor* is a bile-acid producing bacteria associated with a health gut, but limited evidence has associated it with decreased abundance in IBD [@pathak2018intestine].
+In UC, *Gemmiger formicilis* held both the largest variable importance and number of hashes with decreased abundance compared to non-IBD.
+*G. formicilis* is a strictly anaerobic bacteria that produces both formic acid butyric acid [@gossling1975gemmiger].
 
-Only the metapangenome of *Clostridium bolteae* had a higher mean number of observed ORFs per sample in CD than nonIBD. 
-*C. bolteae* is a virulent and opportunistic bacteria detected in the human gut microbiome that is more abundant in diseased than healthy guts [@finegold2005clostridium; @lozupone2012identifying].
-*C. bolteae* is associated with disturbance succession in which the stable gut consortia is compromised [@lozupone2012identifying], and has increased gene expression during gut dysbiosis [@lloyd2019].
+While most shared genomes decrease in abundance, a substantial portion of hashes from four genomes in CD and two in UC are more abundant in disease. 
+These four belong to *Faecalicatena gnavus* (referred to as *[Ruminococcus] gnavus* in NCBI taxonomy and IBD literature) and  *Clostridium bolteae* in CD, and two genomes in the *Flavonifractor* in CD and UC. 
+KEGG enrichment analysis on more and less abundant hashes deomonstrated enrichment of pathways dominated by marker genes (e.g. Ribosomes, tRNA biosynthesis) in the less abundant hashes from CD in all four genomes, indicating a general decrease in abundance for these organisms. 
+However, metabolic pathways such as starch and sucrose metabolism, propanoate metabolism, and peptidoglycan synthesis (MAKE FIGURE) are enriched in the more abundant hashes in CD.
+This shift is indicative of strain-specific enrichment in CD.  
 
-In three pangenomes, we see a higher mean number of genes observed per sample for UC than CD or nonIBD. 
-These include *R. timonensis*, *Anaeromassilibacillus*, and *Actulibacter*. 
-?
+ADD:
 
-Only *Faecalicatena gnavus* (*Ruminococcus gnavus* in NCBI taxonomy) showed no difference in the mean number of genes per sample between CD and nonIBD and UC and nonIBD. 
-*F. gnavus* is an aerotolerant anaerobe, one clade of which has only been found in the guts of IBD patients [@hall2017].
-*F. gnavus* also produces an inflammatory polysaccharide that induces TNFa secretion in a response mediated by toll-like receptor 4 [@henke2019ruminococcus].
++ kmer accumulation curves
++ ...
 
-While there is lower diversity of ORFs in IB metapangenomes, we find limited evidence of disease-specific metapangenomes. 
-We generated accumulation curves using read mapping information for teh metapangenome gene catalogues. 
-For most metapangenomes, the majority of genes are observed in CD, UC, and nonIBD.
-This in part explains heterogenous study findings in IBD gut microbiome investigations (CITATIONS) and underscores that IBD is a spectrum of diseases characterized by intermittent health and dysbiosis.
-
-One of 41 pangenome accumulation curves did not saturate for UC, while 10 did not saturate for CD. 
-*C. bolteae* does not saturate in UC. 
-One hundred seventy-one of 16,822 genes were not observed in UC, many of which had no annotated function. 
-
-Ten of 41 pangenome accumulation curves did not saturate for CD samples. 
-On average, 366 genes were unobserved in CD. 
-The largest number of unobserved genes was 2,089 in CAG-1024 pangenome. 
-
-Given that most ORFs are observed in metagenomes from CD, UC, and nonIBD, we next sought to understand the source of differences in the gene content of the metagenomes. 
-We performed differential abundance analysis between CD and nonIBD and UC and nonIBD for all metapangenomes. 
-*TR: stats, numbers, etc.*
-
-We first search significantly differentially abundant ORFs for the presence of marker genes. 
-We reasoned that if we identified no marker genes among differentially abundant ORFs, accessory elements were responsible for disease-specific signatures.
-Conversely, if we identified marker genes among only more or only less abundant genes, then the abundance of an organism likely differed. 
-Lastly, if we identified marker genes in both more and less ORFs, different strains were likely present in CD or UC compared to nonIBD. 
-
-We find almost no marker genes in any metapangenome among genes that are more abundant in UC. 
-However, we see the presence of marker genes in less abundant genes for three organisms, including *Gemminger formicilis*. 
-This indicates that while some organisms are less abundant in UC, differences in non-marker genes, e.g. accessory elements, are a greater source of differentiation.
-
-Conversely, two metapangeomes contained marker genes that were more abundant in CD: *C. bolteae* and *F. gnavus*. 
-For *C. bolteae*, 95% of marker genes were detected among more abundant genes, while 23% of marker genes were detected among less abundant genes. 
-This suggests that *C. bolteae* is more abundant in CD. 
-For *F. gnavus*, 60% of marker genes were detected among more abundant genes, while 68% were detected in less abundant genes. 
-This suggests that a different strain of *F. gnavus* is more abundant in CD, which matches previous findings from gut microbiome metagenome investigations [@hall2017]. 
-
-For 31 of 41 metapangenomes, the majority of marker genes were significantly less abundant in CD, indicating that these organisms are less abundant in CD. 
-However, for 10 metapangenomes, we detect few marker genes in significantly less abundant genes. 
-This includes *Prevotella copri*, *Bacteroidees massilensis*, *Bacteroides ovatus*, and two organisms from the genus *Flavonifractor*. 
-Differences in these metapangenomes are likely attributable to accessory elements. 
-**ARE THERE CONFLICTING REPORTS ON THE GOOD/BAD OF THESE ORGS? COULD MAKE SENSE IF DRIVEN BY STRAIN VARIATION**
 
 ### Other diff abund bio results
 
@@ -365,10 +296,11 @@ We used ggplot2 and ggMarginal to visualize the principle coordinate analysis [@
 To test for sources of variation in these distance matrices, we performed PERMANOVA using the `adonis` function in the R vegan package [@oksanen2010].
 The PERMANOVA was modeled as `~ diagnosis + study accession + library size + number of hashes`.
 
-### Random forest classification
+### Random forest classifiers
 
-We built a random forest classifier to predict CD, UC, and non-IBD status using filtered signatures. 
-First, we transformed sourmash signatures into a hash abundance table where each metagenome was a sample, each hash was a feature, and abundances were recorded for each hash for each sample. 
+We built random forests classifier to predict CD, UC, and non-IBD status using filtered signatures (hash models), marker genes in the shared 41 genomes (marker gene models), signatures from reads that were detected as marker genes (hash models of marker genes), and marker genes in the full metagenome (full marker gene models).
+ 
+For models from signatures, we transformed sourmash signatures into a hash abundance table where each metagenome was a sample, each hash was a feature, and abundances were recorded for each hash for each sample. 
 We normalized abundances by dividing by the total number of hashes in each filtered signature. 
 We then used a leave-one-study-out validation approach where we trained six models, each of which was trained on five studies and validated on the sixth. 
 To build each model, we first performed vita variable selection on the training set as implemented in the Pomona and ranger packages [@degenhardt2017; @wright2015]. 
@@ -377,7 +309,10 @@ Using this smaller set of hashes, we then built an optimized random forest model
 We evaluated each validation set using the optimal model, and extracted variable importance measures for each hash for subsequent analysis. 
 To make variable importance measures comparable across models, we normalized importance to 1 by dividing variable importance by the total number of hashes in a model and the total number of models.  
 
-### Characterization of predictive k-mers
+For the marker gene models, we generated marker gene abundances for 14 ribosomal marker genes and 16S rRNA using singleM [@woodcroft2018singlem].
+We then followed the same model building procedure as the hash models. 
+ 
+### Anchoring predictive hashes to genomes
 
 We used sourmash `gather` with parameters `k 31` and `--scaled 2000` to anchor predictive hashes to known genomes [@brown2016]. 
 Sourmash `gather` searches a database of known k-mers for matches with a query [@pierce2019].
@@ -392,29 +327,23 @@ To identify hashes that were predictive in at least five of six models, we took 
 We refer to these hashes as shared predictive hashes.
 We anchored variable importance of these shared predictive hashes to known genomes using sourmash `gather` as above. 
 
-### Compact de Bruijn graph queries for predictive genomes
+### Compact de Bruijn graph queries for predictive genes and genomes
 
-We used spacegraphcats `search` to retreive k-mers in the compact de Bruijn graph neighborhood of the genomes that matched predictive k-mers (CITATION). 
+To annotate hashes with functional potential, we first extracted open reading frames (ORFs) from the shared 41 genomes using prokka, and annotated ORFs with EggNog [@seemann2014prokka; @huerta2019eggnog].
+When then used spacegraphcats `multifasta_query` to create a hash:gene map.
+Spacegraphcats retreives k-mers in the compact de Bruijn graph neighborhood of a query gene, and hashing these k-mers via sourmash generates a hash:gene map [@brown2020exploring; @brown2016]. 
+Because genomes with shared 31-mers may annotate the same hash, we allowed hashes to be annotated multiple times. 
+This was particularly appropriate for hashes from highly conserved regions, e.g. 16S ribosomal RNA.
+
+We used spacegraphcats `search` to retreive k-mers in the compact de Bruijn graph neighborhood of the shared genomes [@brown2020exploring]. 
 We then used spacegraphcats `extract_reads` to retreive the reads and `extract_contigs` to retreive unitigs in the compact de Bruijn graph that contained those k-mers, respectively.
+These reads were used to generate marker gene abundances for the 41 shared genomes for the marker gene random forest models.
+ 
+### Differential hash abundance analysis
 
-### Characterization of graph pangenomes
-
-**Pangenome signatures** To evaluate the k-mers recovered by pangenome neighborhood queries, we generated sourmash signatures from the unitigs in each query neighborhood. 
-We merged signatures from the same query genome, producing 41 pangenome signatures. 
-We indexed these signatures to create a sourmash gather database. 
-To estimate how query neighborhoods increased the identifiable fraction of predictive hashes, we ran sourmash `gather` with the pangenome database, as well as the GenBank and human microbiome metagenome databases. 
-To estimate how query neighborhoods increased the identifiable fraction of shared predictive hashes, we ran sourmash `gather` with the pangenome database alone.
-We anchored variable importance of the shared predictive hashes to known genomes using sourmash `gather` results as above. 
-
-**Differential abundance** We used differential abundance analysis to determine which protein sequences in each pangenome were differentially abundant in IBD subtype.
-We used diginorm on each spacegraphcats query neighborhood implemented in khmer as `normalize-by-median.py` with parameters `-k 20 -C 20` [@crusoe2015]. 
-We then assembled each neighborhood from a single query with `megahit` using default parameters [@li2015megahit], and annotated each assembly using prokka [@seemann2014prokka].
-We used CD-HIT to cluster nucleotide sequences within a pangenome at 90% identity and retained the representative sequence [@fu2012cd].
-We used Salmon to quantify the number of reads aligned to each representative gene sequence [@patro2017salmon].
-Using these abundances, we used the R package corncob to perform differential abundance analysis between IBD subtype, using the likelihood ratio test with the formula `study_accession + diagnosis` and the null formula `study_accession` [@martin2020modeling]. 
+To determine whether shared hashes were differentially abundant from nonIBD in UC or CD, we used corncob [@martin2020modeling].
+We used all hash abundances from sourmash signatures to determine hash library size, and then compared hash abundances between disease groups using the likelihood ratio test with the formula `study_accession + diagnosis` and the null formula `study_accession` [@martin2020modeling]. 
 We considered genes with p values < .05 after bonferonni correction as statistically significant. 
-
-**Annotation of differentially abundant proteins** We used EggNog to annotate the representative sequences in each pangenome [@huerta2019eggnog]. 
 We performed enrichment analysis using the R package clusterProfiler [@yu2012clusterprofiler]. 
 
 ## References
