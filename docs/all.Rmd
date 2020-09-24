@@ -286,7 +286,7 @@ Even still, we detect many significantly differentially abundant genes among the
 These results indicate that subsampled k-mer profiles are an adequate, scalable tool to use to investigate strain-level variation, and are powerful enough to capture large-scale disease associations.
 
 We next performed pathway enrichment analysis on the KEGG orthologs in these four strains that were only annotated as more abundant in IBD. 
-Given the small number of differentially abundant genes in UC, the only significantly enriche dpathwyas contained one gene. 
+Given the small number of differentially abundant genes in UC, the only significantly enriched pathwyas contained one gene. 
 In contrast, many pathways are enriced in CD (**Figure \ref{fig:hashcontent}**).
 
 Many enriched pathways are associated with virulence factors, including quorum sensing, flagellar assembly, and vancomycin resistance. 
@@ -308,18 +308,15 @@ In both *C. bolteae* and *F. gnavus*, we identify genes encoding the two-compone
 Given that CD patients are at an increased risk of hospitalization due to infectious complications of disease, this trend should be further investigated as it may direct empiric antibiotic choices by providers.
 IBD patients are at an increased risk for vancomycin-resistant *Enterococcus* infection [@nguyen2011increased].
 
+Concomitant with profound reduction in oxygen-sensitive species, we observe increased abundance of orthologs involved in oxidative stress response in enriched strains. 
+In both *C. bolteae* and *F. gnavus*, the pentose phosphate pathway and cysteine and methionine metabolism are enriched.
+The oxidative branch of the pentose phosphate pathway regenerates NADPH, while cysteine is a precursor for the antioxidant glutathione.
+Many orthologs that quench reactive oxygen (**Table \ref{tab:oxstress}**) and nitrogen species (**Table \ref{tab:nitrostress}**) are also more abundant in these strains and in the *Flavonifractor* strains.
+
 We investigated whether the gene cluster involved in biosynthesis of the inflammatory polysaccharide was significantly more abundant in CD [@henke2019ruminococcus]. 
 We identified 19 of 23 ORFs in the *F. gnavus* pangenome that matched the putative genes in the cluster, all of which were more abundant in CD. 
 Further, two subsets, one containing five ORFs and one contain seven ORFs, were co-located on two contiguous sequences, indicating these genes do form a biosynthetic cluster.
 These results suggest that our k-mer analysis detected the same inflammatory clade of *F. gnavus* as has been previously detected [@hall2017; @henke2019ruminococcus].
-
-We compared our results against a study of virulence-causing genes in *C. bolteae* [@lozupone2012identifying], and find that 24 of 41 previously identified orthologs are significantly induced in CD. 
-Seven of these orthologs are associated with response to oxidative stress. 
-(OXIDATIVE STRESS IBD BIO TIE IN). 
-
-FLAVONIFRACTOR WRITE UP
-
-+ include nature 2013 article 
 
 ## Enriched strains are more abundant in but not exclusive to IBD
 
@@ -465,7 +462,11 @@ We anchored variable importance of the shared predictive k-mers to known genomes
 **Pangenome assembly** We used diginorm on each spacegraphcats query neighborhood implemented in khmer as `normalize-by-median.py` with parameters `-k 20 -C 20` [@crusoe2015]. 
 We then assembled each neighborhood from a single query with `megahit` using default parameters [@li2015megahit], and annotated each assembly using prokka [@seemann2014prokka].
 We used CD-HIT to cluster nucleotide sequences within a pangenome at 90% identity and retained the representative sequence [@fu2012cd].
-We used Salmon to quantify the number of reads aligned to each representative gene sequence [@patro2017salmon], and BWA to quantify the number of mapped and unmapped reads (CITE: BWA MEM).
+We annotated representative sequences with EggNog [@huerta2019eggnog].
+We used Salmon to quantify the number of reads aligned to each representative gene sequence [@patro2017salmon], and BWA to quantify the number of mapped and unmapped reads [@li2013aligning].
+
+To identify potential genes encoding vancomycin resistance, we performed hidden markov model searches against the pangenome. 
+We used the `hmmscan` command from HMMER against the Resfam database with a threshold of 200 [@hmmer; @gibson2015improved].
 
 # References
 
@@ -486,6 +487,52 @@ knitr::include_graphics('figures/figS3.pdf')
 
 ```{r pipeline, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, cache=TRUE, fig.width=4, fig.cap="Simplified directed acyclic graph of the steps used in our pipeline, color coded by the section of the pipeline each step corresponds to. The steps in blue were performed six times, each time with a different validation study.", out.width="400px"}
 knitr::include_graphics('figures/figS1.pdf')
+```
+
+```{r oxstress, echo=FALSE, message=FALSE, warnings=FALSE}
+ox_data <- "species|KEGG_ko|definition
+Faecalicatena gnavus|K00362|nirB; nitrite reductase (NADH) large subunit [EC:1.7.1.15]
+Faecalicatena gnavus|K11717|sufS; cysteine desulfurase / selenocysteine lyase [EC:2.8.1.7 4.4.1.16]
+Faecalicatena gnavus|K01926|rex; redox-sensing transcriptional repressor
+Faecalicatena gnavus|K01069|gloB, gloC, HAGH; hydroxyacylglutathione hydrolase [EC:3.1.2.6]
+Faecalicatena gnavus|K03671|trxA; thioredoxin 1
+Faecalicatena gnavus|K04565|SOD1; superoxide dismutase, Cu-Zn family [EC:1.15.1.1]
+Faecalicatena gnavus|K14155|patB, malY; cysteine-S-conjugate beta-lyase [EC:4.4.1.13]
+Clostridium_M bolteae|K11717|sufS; cysteine desulfurase / selenocysteine lyase [EC:2.8.1.7 4.4.1.16]
+Clostridium_M bolteae|K01069|gloB, gloC, HAGH; hydroxyacylglutathione hydrolase [EC:3.1.2.6]
+Clostridium_M bolteae|K14155|patB, malY; cysteine-S-conjugate beta-lyase [EC:4.4.1.13]
+Clostridium_M bolteae|K03386|PRDX2_4, ahpC; peroxiredoxin 2/4 [EC:1.11.1.24]
+Clostridium_M bolteae|K01758|CTH; cystathionine gamma-lyase [EC:4.4.1.1]
+Clostridium_M bolteae|K03564|BCP, PRXQ, DOT5; thioredoxin-dependent peroxiredoxin [EC:1.11.1.24]
+Clostridium_M bolteae|K00362|nirB; nitrite reductase (NADH) large subunit [EC:1.7.1.15]
+Clostridium_M bolteae|K01926|rex; redox-sensing transcriptional repressor
+Clostridium_M bolteae|K04565|SOD1; superoxide dismutase, Cu-Zn family [EC:1.15.1.1]
+Clostridium_M bolteae|K03676|grxC, GLRX, GLRX2; glutaredoxin 3
+Flavonifractor sp000508885|K01759|GLO1, gloA; lactoylglutathione lyase [EC:4.4.1.5]
+Flavonifractor sp000508885|K03671|trxA; thioredoxin 1
+Flavonifractor sp000508885|K01758|CTH; cystathionine gamma-lyase [EC:4.4.1.1]
+Flavonifractor plautii|K01759|GLO1, gloA; lactoylglutathione lyase [EC:4.4.1.5]
+Flavonifractor plautii|K01758|CTH; cystathionine gamma-lyase [EC:4.4.1.1]
+Flavonifractor plautii|K14155|patB, malY; cysteine-S-conjugate beta-lyase [EC:4.4.1.13]"      
+df <- read.delim(textConnection(ox_data), header=T,sep="|", strip.white=TRUE, stringsAsFactors=FALSE)
+row.names(df)<-NULL
+kable(df, format = "latex", booktabs = T, 
+      caption = "KEGG orthologs involved in oxidative stress response annotated in strains that are more abundant in IBD. KEGG orthologs are only displayed if they were only annotated amoung the more abundant genes, not annotated amoung both the more abundant and less abundant genes in a species.") %>%
+  kable_styling(font_size = 9, latex_options ="striped")
+```
+
+```{r nitrostress, echo=FALSE, message=FALSE, warnings=FALSE}
+nitro_data <- "species|KEGG_ko|definition
+Faecalicatena gnavus|K00362|nirB; nitrite reductase (NADH) large subunit [EC:1.7.1.15]
+Faecalicatena gnavus|K05601|hcp; hydroxylamine reductase [EC:1.7.99.1]
+Clostridium_M bolteae|K03386|PRDX2_4, ahpC; peroxiredoxin 2/4 [EC:1.11.1.24]
+Clostridium_M bolteae|K00362|nirB; nitrite reductase (NADH) large subunit [EC:1.7.1.15]
+Clostridium_M bolteae|K05601|hcp; hydroxylamine reductase [EC:1.7.99.1]"      
+df <- read.delim(textConnection(nitro_data), header=T, sep="|", strip.white=TRUE, stringsAsFactors=FALSE)
+row.names(df)<-NULL
+kable(df, format = "latex", booktabs = T, 
+      caption = "KEGG orthologs involved in oxidative stress response caused by reactive nitrogen species and annotated in strains that are more abundant in IBD. KEGG orthologs are only displayed if they were only annotated amoung the more abundant genes, not annotated amoung both the more abundant and less abundant genes in a species.") %>%
+  kable_styling(font_size = 9, latex_options ="striped")
 ```
 
 ## Description of IBD metagenome study cohorts
@@ -614,7 +661,7 @@ df <- read.delim(textConnection(genomes_data), header=T,sep="|", strip.white=TRU
 row.names(df)<-NULL
 kable(df, format = "latex", booktabs = T, 
       caption = "Identifiers, GTDB and NCBI taxonomy for the 41 shared genomes.") %>%
-  kable_styling(font_size = 9, latex_options ="striped")
+  kable_styling(font_size = 8, latex_options ="striped")
 ```
 
 Genomes are available for download at https://osf.io/ungza/
