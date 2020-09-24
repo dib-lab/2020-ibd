@@ -274,15 +274,15 @@ Interestingly, *Flavonifractor sp000508885* (originally publised as *Flavonifrac
 However, *F. sp000508885* was one of two strains in the consortia detected as more abundant in UC metagenomes [@atarashi2013t], and genes encoding virulence factors such as flagellar assembly were detected in thi strain [@atarashi2013t]. 
 This suggests that *F. sp000508885* may be associated with disease only at high abundance.
 
-To fully characterize the fraction of the pangenomes of these four strains that are more abundant IBD, we generated pangenomes via assembly, clustering, and annotation of all genes in the assembly graph neighborhood of each strain.
+To fully characterize the fraction of the pangenomes of these four strains that are more abundant in IBD, we generated pangenomes via assembly, clustering, and annotation of all genes in the assembly graph neighborhood of each strain.
 Not all shared k-mers from these four strains are contained in the pangenome because many do not assemble (**Figure \ref{fig:assembled}**).
 <!-- Across the four strains, an average of 74.1% of k-mers that are less abundant in IBD do not assemble, while 9.6% of k-mers that are more abundant in IBD do not assemble. -->
 Across the four strains, an average of 74.1% and 9.6% of k-mers that are less or more abundant in IBD do not assemble, respectively.
 Many of the unassembled k-mers that are less abundant in IBD annotate to 16S and 23S ribosomal RNA, which frequently do not assemble due to sequence complexity (CITE).
 While these sequences are not detected by assembly-based approaches, our k-mer-based analysis rescues these associations.
 Of shared k-mers that do assemble from these four strains, 98.9% anchor to genes with the same differential abundance direction as the k-mers (e.g., more or less abundant). 
-However, many genes that anchor k-mers, particularly those that are more abundant in *Flavonifractor*, are not statistically significantly different in CD or UC after bonferroni p-value correction. 
-Even still, we detect many significantly differentially abundant genes among these strains.
+However, many genes that anchor k-mers, particularly those that are more abundant in *Flavonifractor*, are not significantly different in CD or UC compared to nonIBD after bonferroni p-value correction. 
+Even still, we detect many significantly differentially abundant genes among these strains (**Figure \ref{fig:hashcontent}**).
 These results indicate that subsampled k-mer profiles are an adequate, scalable tool to use to investigate strain-level variation, and are powerful enough to capture large-scale disease associations.
 
 We next performed pathway enrichment analysis on the KEGG orthologs in these four strains that were only annotated as more abundant in IBD. 
@@ -297,10 +297,16 @@ Flagellar assembly is enriched in three of four strains, with 24 KEGG orthologs 
 Flagella are rotating structures that enable bacterial motility and promote virulence by allowing bacteria to move toward host tissue and participating in biofilm formation, adherence, and invasion [@haiko2013role]. 
 The dominant protein in flagella is flagellin, and monomeric flagellin can activate host pro-inflammatory gene expression via toll-like receptor 5 [@hayashi2001innate]. 
 While increased flagellin is a feature of inflammation-associated gut microbiomes [@tran2019flagellin], flagellin is the immunodominant antigen in CD [@lodes2004bacterial]. 
-Further, species in Clostridium cluster XiVa, to which *C. bolteae* is a member, produce these flagellins in CD [@duck2007isolation]. 
+Further, species in Clostridium cluster XIVa, to which *C. bolteae* is a member, produce these flagellins in CD [@duck2007isolation]. 
 These results suggest that *C. bolteae* flagellin may play a criticial role in inflammatory maintenance in CD.
 A recent study showed successful reduction of gut flagellin in a mouse model of colitis through immunization with purified flagellin, thereby reducing inflammation, reducing encroachment on host epithelial cells, and reshaping gut microbiota composition [@tran2019flagellin]. 
 This, combined with results our survey, suggests that flagellin purified from *C. bolteae* and *Flovonifractor* may be useful in the treatment of CD and UC, respectively.
+
+Genes that are more abundant in *C. bolteae* and *F. gnavus* are enriched for vancomycin resistance, suggesting that patients with CD are more likely to harbor vancomycin resistant organisms.
+While vancomycin resistance is enriched among annotated KEGG orthologs, we further idenfied resistant genes using hidden markov models. 
+In both *C. bolteae* and *F. gnavus*, we identify genes encoding the two-component regulatory sequence *vanR* and *vanSB*, as well as *vanB*, *vanX*, and *vanW* in *C. bolteae* and *vanY*, *vanH*, and *vanT* in *F. ganvus*. 
+Given that CD patients are at an increased risk of hospitalization due to infectious complications of disease, this trend should be further investigated as it may direct empiric antibiotic choices by providers.
+IBD patients are at an increased risk for vancomycin-resistant *Enterococcus* infection [@nguyen2011increased].
 
 We investigated whether the gene cluster involved in biosynthesis of the inflammatory polysaccharide was significantly more abundant in CD [@henke2019ruminococcus]. 
 We identified 19 of 23 ORFs in the *F. gnavus* pangenome that matched the putative genes in the cluster, all of which were more abundant in CD. 
