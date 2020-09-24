@@ -238,7 +238,7 @@ The remeaining fraction of accuracy is not driven by decreased species abundance
 <!-- Both the k-mer model and the marker gene model ranked a 16S rRNA sequence from the genus *Acetatifactor* as having the highest variable importance across studies, demonstrating that while based on different data features, both model types extract similar information.   -->
 
 
-```{r hashcontent, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Decrease in marker gene abundance drives differences between CD and nonIBD. **A** Many shared k-mers annotate as marker genes or ribosomal RNAs. 11.4% of the 3859 shared k-mers annotate as marker genes, accounting for 7.5% of variable importance across all models. **B** The majority of k-mers are less abundant in IBD than in nonIBD. However, k-mers that anchor to four genomes in CD and two genomes in UC are more abundant. **C** More abundant k-mers in CD are enriched in metabolic pathways and contain few marker genes. Only pathways that are significantly enriched in two of the four genomes are depicted."}
+```{r hashcontent, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Decrease in marker gene abundance drives differences between CD and nonIBD. **A** Many shared k-mers annotate as marker genes or ribosomal RNAs. 11.4% of the 3859 shared k-mers annotate as marker genes, accounting for 7.5% of variable importance across all models. **B** The majority of k-mers are less abundant in IBD than in nonIBD. However, k-mers that anchor to four genomes in CD and two genomes in UC are more abundant. **C** Using pangenome assemblies from these genomes, many KEGG pathways are enriched among genes that are more abundant in CD than nonIBD. Biosynthesis is abbreviated as biosynth."}
 knitr::include_graphics('figures/fig4.pdf')
 ```
 
@@ -254,16 +254,25 @@ Two strains of *Faecalibacterium prausnitzii* have the largest number of k-mers 
 *Acetatifactor* (GTDB species *Acetatifactor sp900066365*) has k-mers with the largest variable importance with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent}**).
 *Acetatifactor* is a bile-acid producing bacteria associated with a healthy gut, but limited evidence has associated it with decreased abundance in IBD [@pathak2018intestine].
 In UC, *Gemmiger formicilis* has both the largest variable importance and number of k-mers with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent}**).
-*G. formicilis* is a strictly anaerobic bacteria that produces both formic acid butyric acid [@gossling1975gemmiger].
+*G. formicilis* is a strictly anaerobic bacteria that produces both formic acid and butyric acid [@gossling1975gemmiger].
 We also see a decrease in other oxygen-sensitive sepecies, including *Lachnospira eligens* (annotated in NCBI taxonomy as *[Eubacterium] elegans*). *L. elegans* is an obligate anaerobe that is unable to tolerate atmospheric oxygen for an hour [@hall2017]. 
 Collectively, the decrease in species diversity we observe in IBD, in particular CD, is consistent with a shift toward increased oxidative stress during disease [@rigottier2013dysbiosis].
 
 A substantial portion of k-mers from four genomes in CD and two genomes in UC are more abundant in disease (**Figure \ref{fig:hashcontent}**).
-While many of the k-mers in the less abundant fractions from these genomes annotate to marker genes, the more abundant k-mers annotate to metabolic pathways like starch and sucrose metabolism or flagellar assembly (**Figure \ref{fig:hashcontent}**).
+While many of the k-mers in the less abundant fractions from these genomes annotate to marker genes, the more abundant k-mers annotate to metabolic pathways like starch and sucrose metabolism or flagellar assembly (**Figure \ref{fig:hashcontentsupp}**).
 <!-- TR: move to supplement once the other figure is made -->
 This is indicative of strain enrichment in IBD, where most strains from a species become less abundant but a strain with distinct accessory genes becomes more abundant.
 Enrichment of these metabolic pathways is consistent with functional specialization of strains in different environmental niches [@costea2017subspecies].
 These four genomes belong to *Faecalicatena gnavus* (referred to as *[Ruminococcus] gnavus* in NCBI taxonomy and IBD literature) and  *Clostridium bolteae* in CD, and two genomes in the genus *Flavonifractor* in CD and UC. 
+
+*F. gnavus* is an aerotolerant anaerobe, one clade of which was recently found to be enriched in CD [@hall2017], and to produce an inflammatory polysaccharide [@henke2019ruminococcus]. 
+*C. bolteae* i sa member of the normal gut microbiota but is an opportunistic pathogen that exploits compromised intestinal barriers [@dehoux2016comparative].
+It is associated with disturbance succession when the stable gut consortia is compromised [@lozupone2012identifying], and has increased gene expression during gut dysbiosis [@lloyd2019].
+<!-- *Flavonifractor plautii* and *Flavonifractor sp000508885*  -->
+Species from the genus *Flavonifractor* have rarely been associated with CD or UC [@schaffler2016mucosa; @kwak2020development; @selvig2020fecal; @chen2019p854].
+Interestingly, *Flavonifractor sp000508885* (originally publised as *Flavonifractor plautii*) was identified as a member of a 17-species consortia that induces human CD4+FOXP3+Treg cells, key immunomodulators of gut homeostasis [@atarashi2013t].
+However, *F. sp000508885* was one of two strains in the consortia detected as more abundant in UC metagenomes [@atarashi2013t], and genes encoding virulence factors such as flagellar assembly were detected in thi strain [@atarashi2013t]. 
+This suggests that *F. sp000508885* may be associated with disease only at high abundance.
 
 To fully characterize the fraction of the pangenomes of these four strains that are more abundant IBD, we generated pangenomes via assembly, clustering, and annotation of all genes in the assembly graph neighborhood of each strain.
 Not all shared k-mers from these four strains are contained in the pangenome because many do not assemble (**Figure \ref{fig:assembled}**).
@@ -276,20 +285,28 @@ However, many genes that anchor k-mers, particularly those that are more abundan
 Even still, we detect many significantly differentially abundant genes among these strains.
 These results indicate that subsampled k-mer profiles are an adequate, scalable tool to use to investigate strain-level variation, and are powerful enough to capture large-scale disease associations.
 
-When we compared *F. gnavus* gene abundances in IBD against nonIBD, 5,984 genes were differentially abundant in CD while only 197 were less abundant in UC.
-<!-- This supports results from our k-mer analysis, in which *F. gnavus* is different from nonIBD in CD alone. -->
-Of differentially abundant genes, 3,041 were more abudant in CD than nonIBD. 
-We performed KEGG enrichment analysis the KEGG orthologs that were annotated only as more abundant in CD.
+We next performed pathway enrichment analysis on the KEGG orthologs in these four strains that were only annotated as more abundant in IBD. 
+Given the small number of differentially abundant genes in UC, the only significantly enriche dpathwyas contained one gene. 
+In contrast, many pathways are enriced in CD (**Figure \ref{fig:hashcontent}**).
 
-A recent study found that one clade of *F. gnavus* is enriched in CD [@hall2017], and that this clade produces a polysaccharide that induced intestinal inflammation [@henke2019ruminococcus].
-We investigated whether the gene cluster involved in biosynthesis of the inflammatory polysaccharide was significantly more abundant in CD. 
+Many enriched pathways are associated with virulence factors, including quorum sensing, flagellar assembly, and vancomycin resistance. 
+Quorum sensing controls many pathways associated with virulence and pathogenicity (e.g. biofilm formation [@parsek2005sociomicrobiology]), but also coordinates many other functions of the human gut microbiota, disruption of which may lead to disturbance of gut homeostasis [@thompson2016chemical; @krzyzek2019challenges]. 
+Of all induced pathways, only quorum sensing is enriched among all four genomes that are more abundant in CD and UC, suggesting that it may be an entry point for potential therapeutics.
+
+Flagellar assembly is enriched in three of four strains, with 24 KEGG orthologs detected in *C. bolteae* and three orthologs detected in each of the *Flavonifractor* strains. 
+Flagella are rotating structures that enable bacterial motility and promote virulence by allowing bacteria to move toward host tissue and participating in biofilm formation, adherence, and invasion [@haiko2013role]. 
+The dominant protein in flagella is flagellin, and monomeric flagellin can activate host pro-inflammatory gene expression via toll-like receptor 5 [@hayashi2001innate]. 
+While increased flagellin is a feature of inflammation-associated gut microbiomes [@tran2019flagellin], flagellin is the immunodominant antigen in CD [@lodes2004bacterial]. 
+Further, species in Clostridium cluster XiVa, to which *C. bolteae* is a member, produce these flagellins in CD [@duck2007isolation]. 
+These results suggest that *C. bolteae* flagellin may play a criticial role in inflammatory maintenance in CD.
+A recent study showed successful reduction of gut flagellin in a mouse model of colitis through immunization with purified flagellin, thereby reducing inflammation, reducing encroachment on host epithelial cells, and reshaping gut microbiota composition [@tran2019flagellin]. 
+This, combined with results our survey, suggests that flagellin purified from *C. bolteae* and *Flovonifractor* may be useful in the treatment of CD and UC, respectively.
+
+We investigated whether the gene cluster involved in biosynthesis of the inflammatory polysaccharide was significantly more abundant in CD [@henke2019ruminococcus]. 
 We identified 19 of 23 ORFs in the *F. gnavus* pangenome that matched the putative genes in the cluster, all of which were more abundant in CD. 
 Further, two subsets, one containing five ORFs and one contain seven ORFs, were co-located on two contiguous sequences, indicating these genes do form a biosynthetic cluster.
 These results suggest that our k-mer analysis detected the same inflammatory clade of *F. gnavus* as has been previously detected [@hall2017; @henke2019ruminococcus].
 
-*C. bolteae* is a virulent and opportunistic bacteria detected in the human gut microbiome that is more abundant in diseased than healthy guts [@finegold2005clostridium; @lozupone2012identifying].
-*C. bolteae* is associated with disturbance succession in which the stable gut consortia is compromised [@lozupone2012identifying], and has increased gene expression during gut dysbiosis [@lloyd2019].
-We also performed differential abundance analysis on the *C. bolteae* pangenome between CD and nonIBD.
 We compared our results against a study of virulence-causing genes in *C. bolteae* [@lozupone2012identifying], and find that 24 of 41 previously identified orthologs are significantly induced in CD. 
 Seven of these orthologs are associated with response to oxidative stress. 
 (OXIDATIVE STRESS IBD BIO TIE IN). 
@@ -703,7 +720,9 @@ Ten of 41 do not saturate for CD, with an average of 366 genes unobserved.
 knitr::include_graphics("figures/figS6.pdf")
 ```
 
-
+```{r hashcontentsupp, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE,fig.cap="More abundant k-mers in CD are enriched in metabolic pathways and contain few marker genes. Only pathways that are significantly enriched in two of the four genomes are depicted."}
+knitr::include_graphics("figures/figS7.pdf")
+```
 
 
 # Supplementary References
