@@ -134,7 +134,7 @@ knitr::include_graphics('figures/fig2.pdf')
 ```{r permanova, echo=FALSE, message=FALSE, warnings=FALSE}
 permanova_data <- "
 Variable |Jaccard distance | Angular distance
-Number of k-meres | 9.9%           | 6.2%
+Number of k-mers | 9.9%           | 6.2%
 Study accession  | 6.6%           | 13.5
 Diagnosis        | 6.2%           | 3.3%
 Library size     | 0.009%        | 0.01%"      
@@ -155,23 +155,6 @@ Variable selection reduced the number of k-mers used in each model by two orders
 Using this reduced set of k-mers, we then optimized each random forests classifier on the training set, producing six optimized models. 
 We validated each model on the left-out study.
 The accuracy on the validation studies ranged from 49.1%-75.9% (**Table \ref{tab:acc}**, **Figure \ref{fig:confusionplts}**), outperforming a previously published model built on metagenomic data alone [@franzosa2019].
-
-```{r varselhashes, echo=FALSE, message=FALSE, warnings=FALSE}
-varsel_data <- "
-Validation study|Selected k-mers |Percent of total k-mers
-PRJNA385949 | 41701 | 0.57% 
-PRJNA237362 | 40726 | 0.55% 
-iHMP        | 39628 | 0.54% 
-PRJEB2054   | 35343 | 0.48% 
-PRJNA400072 | 32578 | 0.44% 
-SRP057027   | 29264 | 0.40% "      
-df <- read.delim(textConnection(varsel_data), header=T,sep="|", strip.white=TRUE, stringsAsFactors=FALSE)
-row.names(df)<-NULL
-kable(df, format = "latex", booktabs = T, 
-      caption = "Number of predictive k-mers after variable selection for each of 6 classifiers. Classifiers are labelled by the validation study that was held out from training.",
-      col.names = c("Validation study", "Selected k-mers", "Percent of total k-mers")) %>%
-  kable_styling(font_size = 9, latex_options ="striped")
-```
 
 ```{r acc, echo=FALSE, message=FALSE, warnings=FALSE}
 acc_data <- "
@@ -205,7 +188,7 @@ These shared 41 genomes held an additional 10.3% of variable importance over the
 Using GTDB taxonomy, we find 38 species represented among the 41 genomes (**Figure \ref{fig:sharedfeatures} C**).
 These genomes represent a microbial core important for IBD subtype classification. 
 
-```{r sharedfeatures, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="**A** K-mers in random forest classifiers anchor to 1,161 known genomes accounting for 75.1-80.3% of all predictive k-mers in each model. Models are labelled by validation study. **B** The 3,859 k-mers that are shared between the majority of models anchor to 41 genomes. These genomes account for 50.5% of cumulative normalized variable importance for k-mers across all models. **C** The 41 shared genomes are annoated as 38 species in the GTDB taxonomy."}
+```{r sharedfeatures, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="**A** K-mers in random forest classifiers anchor to 1,161 known genomes accounting for 75.1-80.3% of all predictive k-mers in each model. Models are labelled by validation study. **B** The 3,859 k-mers that are shared between the majority of models anchor to 41 genomes. These genomes account for 50.5% of cumulative normalized variable importance for k-mers across all models."}
 knitr::include_graphics('figures/fig3.pdf')
 ```
 
@@ -220,7 +203,7 @@ To determine the functional annotation of the shared k-mers, we performed assemb
 Many k-mers annotate as bacterial marker genes, as well as 16S and 23S ribosomal RNA (**Figure \ref{fig:hashcontent}**). 
 Marker genes are present in most known bacteria and distinguish taxonimic ranks through sequence similarity estimates [@parks2015checkm; @na2018ubcg].
 Four hundred and forty k-mers accounting for 7.5% of variable importance across all models annotated as bacterial marker genes. 
-We performed differential abundance analysis on these k-mers and found that XX% are decreased in IBD, particularly in CD. 
+We performed differential abundance analysis on these k-mers and found that 89.4% are decreased in IBD, particularly in CD. 
 This demonstrates that loss of species diversity captured by decreased marker gene abundance is a signature of IBD subtype.
 
 We next investigated whether accuracy in out k-mer models is driven by signals of reduced diversity in IBD alone. 
@@ -238,7 +221,7 @@ The remeaining fraction of accuracy is not driven by decreased species abundance
 <!-- Both the k-mer model and the marker gene model ranked a 16S rRNA sequence from the genus *Acetatifactor* as having the highest variable importance across studies, demonstrating that while based on different data features, both model types extract similar information.   -->
 
 
-```{r hashcontent, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Decrease in marker gene abundance drives differences between CD and nonIBD. **A** Many shared k-mers annotate as marker genes or ribosomal RNAs. 11.4% of the 3859 shared k-mers annotate as marker genes, accounting for 7.5% of variable importance across all models. **B** The majority of k-mers are less abundant in IBD than in nonIBD. However, k-mers that anchor to four genomes in CD and two genomes in UC are more abundant. **C** Using pangenome assemblies from these genomes, many KEGG pathways are enriched among genes that are more abundant in CD than nonIBD. Biosynthesis is abbreviated as biosynth."}
+```{r hashcontent, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Decrease in marker gene abundance drives differences between CD and nonIBD. **A** Many shared k-mers annotate as marker genes or ribosomal RNAs. 11.4% of the 3859 shared k-mers annotate as marker genes, accounting for 7.5% of variable importance across all models. **B** The majority of k-mers are less abundant in IBD than in nonIBD. However, k-mers that anchor to four genomes in CD and two genomes in UC are more abundant. The 41 shared genomes are annoated as 38 species in the GTDB taxonomy.**C** Using pangenome assemblies from these genomes, many KEGG pathways are enriched among genes that are more abundant in CD than nonIBD. Biosynthesis is abbreviated as biosynth. **D** Number of predicted genes in the pangenome that are differentially abundant between CD or UC and nonIBD for each of the enriched strains."}
 knitr::include_graphics('figures/fig4.pdf')
 ```
 
@@ -248,6 +231,7 @@ To understand microbial signatures of IBD captured by the k-mer model, we perfor
 While many more k-mers are differentially abundant in CD than UC when compared to nonIBD (1815 k-mers versus 166 k-mers, respectively), the majority of k-mers are less abundant in IBD (**Figure \ref{fig:hashcontent}**).
 This is driven by loss of species diversity, not systematic loss of specific functional potential.
 
+Many beneficial bacteria, in particular those that are oxygen sensitive, decrease in abundance in IBD.
 Two strains of *Faecalibacterium prausnitzii* have the largest number of k-mers with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent} B**). 
 *F. prausnitzii* is an obligate anaerobe and a key butyrate producer in the gut, and plays a crucial role in reducing intestinal inflammation [@lopez2017faecalibacterium].
 *F. prausnitzii* is extremely sensitive to oxygen, though may be able to withstand oxygen exposure for up to 24 hours depending on the availability of metabolites for extracellular electron transfer [@lopez2017faecalibacterium].
@@ -332,7 +316,7 @@ While more abundant in CD, this cluster is also identifiable within healthy huma
 
 # Discussion
 
-IBD is a heterogeneous disease characterized by periods of activity and dormancy. 
+IBD is a heterogeneous disease characterized by periods of activity and remission. 
 While the underlying etiology is poorly understood, IBD arises from a complex interaction between host genetics, environment, and the gut microbiome. 
 Here we present a new method to examine microbial associations of disease, and using this method, uncover signatures of IBD subtype. 
 These signatures demonstrate consistent loss of diversity of specific microorganisms, particularly in CD. 
@@ -366,7 +350,7 @@ Taken together, XXXXX.
 
 # Methods
 
-All code associated with our analyses is available at www.github.com/dib-lab/2020-ibd/
+All code associated with our analyses is available at www.github.com/dib-lab/2020-ibd/.
 
 ## IBD metagenome data acquisition and processing
 
@@ -488,6 +472,24 @@ knitr::include_graphics('figures/figS3.pdf')
 ```{r pipeline, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, cache=TRUE, fig.width=4, fig.cap="Simplified directed acyclic graph of the steps used in our pipeline, color coded by the section of the pipeline each step corresponds to. The steps in blue were performed six times, each time with a different validation study.", out.width="400px"}
 knitr::include_graphics('figures/figS1.pdf')
 ```
+
+```{r varselhashes, echo=FALSE, message=FALSE, warnings=FALSE}
+varsel_data <- "
+Validation study|Selected k-mers |Percent of total k-mers
+PRJNA385949 | 41701 | 0.57% 
+PRJNA237362 | 40726 | 0.55% 
+iHMP        | 39628 | 0.54% 
+PRJEB2054   | 35343 | 0.48% 
+PRJNA400072 | 32578 | 0.44% 
+SRP057027   | 29264 | 0.40% "      
+df <- read.delim(textConnection(varsel_data), header=T,sep="|", strip.white=TRUE, stringsAsFactors=FALSE)
+row.names(df)<-NULL
+kable(df, format = "latex", booktabs = T, 
+      caption = "Number of predictive k-mers after variable selection for each of 6 classifiers. Classifiers are labelled by the validation study that was held out from training.",
+      col.names = c("Validation study", "Selected k-mers", "Percent of total k-mers")) %>%
+  kable_styling(font_size = 9, latex_options ="striped")
+```
+
 
 ```{r oxstress, echo=FALSE, message=FALSE, warnings=FALSE}
 ox_data <- "species|KEGG_ko|definition
