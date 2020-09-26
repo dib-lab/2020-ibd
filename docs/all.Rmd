@@ -76,7 +76,7 @@ Data-reduction techniques like MinHash make k-mer-based analysis scalable to lar
 MinHash sacrifices the fine-scaled resolution of reference-based techniques but is representative of the full sequencing sample, including strains that are associated with diseases. 
 
 Tertiary information acquired through reference-based analysis, in particular functional annotations and gene-gene proximity, is lost through MinHash analysis but can be recovered via assembly-graph queries with k-mers of interest [@brown2020exploring; @jaillard2018fast]. 
-Both k-mers and assembly graphs represent all seqeunces contained within a metagenome, retaining strain-specific features that may be lost by other analysis approaches. 
+Both k-mers and assembly graphs represent all sequences contained within a metagenome, retaining strain-specific features that may be lost by other analysis approaches. 
 Assembly graphs reassociate k-mers with important context (e.g. operon structures) and known annotations, recovering critical information lost through the MinHash approach.
 We refer to sequences nearby to and recovered by queries as assembly graph *neighborhoods* [@brown2020exploring]. 
 Neighborhoods are targeted subsets of metagenomes that contain only sequences of interest that can be analyzed with traditional, computationally-intensive, high-resolution methods. 
@@ -115,7 +115,7 @@ kable(df, caption = "Six IBD cohorts used in this meta-analysis.", format = "lat
 knitr::include_graphics('figures/fig1.pdf')
 ```
 
-We developped a reference-free pipeline to fully characterize gut metagenomes of IBD patients (**Figure \ref{fig:overview}**).
+We developed a reference-free pipeline to fully characterize gut metagenomes of IBD patients (**Figure \ref{fig:overview}**).
 After consistent preprocessing, we use scaled MinHash sketching to produce subsampled k-mer abundance profiles of metagenomes that reflect the sequence diversity in a sample [@pierce2019], and use these profiles to perform metagenome-wide k-mer association with IBD subtype. 
 We refer to scaled MinHash sketches as signatures, and for simplicity, continue referring to the sub-sampled k-mers in a signature as k-mers. 
 In total, we profiled 7,376,151 k-mers across all samples in all cohorts. 
@@ -124,7 +124,7 @@ Variation due to IBD diagnosis is detectable in k-mer profiles of gut metagenome
 We calculated pairwise distance matrices using jaccard distance and cosine distance between k-mer profiles, where jaccard distance captured sample richness and cosine distance captured sample diversity. 
 We performed principle coordinate analysis and PERMANOVA with these distance matrices (**Figure \ref{fig:compplts}**), using the variables study accession, diagnosis, library size, and number of k-mers observed in a sample (**Table \ref{tab:permanova}**). 
 Number of k-mers observed in a sample accounts for the highest variation, possibly reflecting reduced diversity in stool metagenomes of CD and UC patients (reviewed in [@schirmer2019microbial]). 
-Study accounts for the second highest variation, emphasizing that technical artifacts can introduce strong signals that may influence heterogeneity in IBD microbiome studies but that can be mitigated through meta-anlysis [@wirbel2019].
+Study accounts for the second highest variation, emphasizing that technical artifacts can introduce strong signals that may influence heterogeneity in IBD microbiome studies but that can be mitigated through meta-analysis [@wirbel2019].
 Diagnosis accounts for a similar amount of variation as study, indicating that there is a small but detectable signal of IBD subtype in stool metagenomes.
 
 ```{r compplts, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Principle coordinate analysis of metagenomes from IBD cohorts performed on k-mer profiles. **A** Jaccard distance. **B** Angular distance."}
@@ -188,25 +188,25 @@ These shared 41 genomes held an additional 10.3% of variable importance over the
 Using GTDB taxonomy, we find 38 species represented among the 41 genomes (**Figure \ref{fig:sharedfeatures} C**).
 These genomes represent a microbial core important for IBD subtype classification. 
 
-```{r sharedfeatures, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="**A** K-mers in random forest classifiers anchor to 1,161 known genomes accounting for 75.1-80.3% of all predictive k-mers in each model. Models are labelled by validation study. **B** The 3,859 k-mers that are shared between the majority of models anchor to 41 genomes. These genomes account for 50.5% of cumulative normalized variable importance for k-mers across all models."}
+```{r sharedfeatures, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="**A** K-mers in random forest classifiers anchor to 1,161 known genomes accounting for 75.1-80.3% of all predictive k-mers in each model. Models are labeled by validation study. **B** The 3,859 k-mers that are shared between the majority of models anchor to 41 genomes. These genomes account for 50.5% of cumulative normalized variable importance for k-mers across all models."}
 knitr::include_graphics('figures/fig3.pdf')
 ```
 
-## Decreased abundance of marker genes dominates singatures of IBD
+## Decreased abundance of marker genes dominates signatures of IBD
 
-To determine the functional annotation of the shared k-mers, we performed assembly graph queries using all genes from the 41 shared genomes, and anchored k-mers to the genes when they occured in gene neighborhoods.
+To determine the functional annotation of the shared k-mers, we performed assembly graph queries using all genes from the 41 shared genomes, and anchored k-mers to the genes when they occurred in gene neighborhoods.
 
 <!-- To annotate each k-mer, we reasoned that a k-mer with predictive importance would be nearby the genomic feature driving the predictive signal in both genomic DNA and the DNA assembly graph.  -->
 <!-- Therefore, we performed assembly graph queries on each metagenome using each gene in the 41 shared genomes.  -->
 <!-- We then identified all gene query neighborhoods in which each k-mer occurred, and transferred those annotations to the k-mer. -->
 
 Many k-mers annotate as bacterial marker genes, as well as 16S and 23S ribosomal RNA (**Figure \ref{fig:hashcontent}**). 
-Marker genes are present in most known bacteria and distinguish taxonimic ranks through sequence similarity estimates [@parks2015checkm; @na2018ubcg].
+Marker genes are present in most known bacteria and distinguish taxonomic ranks through sequence similarity estimates [@parks2015checkm; @na2018ubcg].
 Four hundred and forty k-mers accounting for 7.5% of variable importance across all models annotated as bacterial marker genes. 
 We performed differential abundance analysis on these k-mers and found that 89.4% are decreased in IBD, particularly in CD. 
 This demonstrates that loss of species diversity captured by decreased marker gene abundance is a signature of IBD subtype.
 
-We next investigated whether accuracy in out k-mer models is driven by signals of reduced diversity in IBD alone. 
+We next investigated whether accuracy in our k-mer models is driven by signals of reduced diversity in IBD alone. 
 We built a series of classifiers to determine whether the k-mer models contained additional predictive accuracy derived from genetic elements other than marker genes. 
 
 First, we built random forest classifiers using abundance of marker genes alone from the whole metagenome and from the shared 41 genomes. 
@@ -214,14 +214,14 @@ Both model types performed similarly to the k-mer models (**Table \ref{tab:acc}*
 Reduced accuracy on cohort PRJEB2054 is attributable to 36 base pair reads used for sequencing that reduces accuracy of marker gene prediction from reads.
 
 Next, we built k-mer models using subsampled k-mers from the marker genes and their abundances to better represent the marker gene sequences as they appeared in the original k-mer models. 
-These models performed worse than the orginal k-mer models and the marker gene models (**Table \ref{tab:acc}**). 
-The accuracy of the k-mer model of marker genes is a proxy for the fraction of accuracy in the original k-mer models attributable to marker genes, or the decreased species diveristy observed in IBD. 
-The remeaining fraction of accuracy is not driven by decreased species abundance, but by other differences in IBD subtypes. 
+These models performed worse than the original k-mer models and the marker gene models (**Table \ref{tab:acc}**). 
+The accuracy of the k-mer model of marker genes is a proxy for the fraction of accuracy in the original k-mer models attributable to marker genes, or the decreased species diversity observed in IBD. 
+The remaining fraction of accuracy is not driven by decreased species abundance, but by other differences in IBD subtypes. 
 
 <!-- Both the k-mer model and the marker gene model ranked a 16S rRNA sequence from the genus *Acetatifactor* as having the highest variable importance across studies, demonstrating that while based on different data features, both model types extract similar information.   -->
 
 
-```{r hashcontent, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Decrease in marker gene abundance drives differences between CD and nonIBD. **A** Many shared k-mers annotate as marker genes or ribosomal RNAs. 11.4% of the 3859 shared k-mers annotate as marker genes, accounting for 7.5% of variable importance across all models. **B** The majority of k-mers are less abundant in IBD than in nonIBD. However, k-mers that anchor to four genomes in CD and two genomes in UC are more abundant. The 41 shared genomes are annoated as 38 species in the GTDB taxonomy.**C** Using pangenome assemblies from these genomes, many KEGG pathways are enriched among genes that are more abundant in CD than nonIBD. Biosynthesis is abbreviated as biosynth. **D** Number of predicted genes in the pangenome that are differentially abundant between CD or UC and nonIBD for each of the enriched strains."}
+```{r hashcontent, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.cap="Decrease in marker gene abundance drives differences between CD and nonIBD. **A** Many shared k-mers annotate as marker genes or ribosomal RNAs. 11.4% of the 3859 shared k-mers annotate as marker genes, accounting for 7.5% of variable importance across all models. **B** The majority of k-mers are less abundant in IBD than in nonIBD. However, k-mers that anchor to four genomes in CD and two genomes in UC are more abundant. The 41 shared genomes are annotated as 38 species in the GTDB taxonomy.**C** Using pangenome assemblies from these genomes, many KEGG pathways are enriched among genes that are more abundant in CD than nonIBD. Biosynthesis is abbreviated as biosynth. **D** Number of predicted genes in the pangenome that are differentially abundant between CD or UC and nonIBD for each of the enriched strains."}
 knitr::include_graphics('figures/fig4.pdf')
 ```
 
@@ -234,12 +234,12 @@ This is driven by loss of species diversity, not systematic loss of specific fun
 Many beneficial bacteria, in particular those that are oxygen sensitive, decrease in abundance in IBD.
 Two strains of *Faecalibacterium prausnitzii* have the largest number of k-mers with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent} B**). 
 *F. prausnitzii* is an obligate anaerobe and a key butyrate producer in the gut, and plays a crucial role in reducing intestinal inflammation [@lopez2017faecalibacterium].
-*F. prausnitzii* is extremely sensitive to oxygen, though may be able to withstand oxygen exposure for up to 24 hours depending on the availability of metabolites for extracellular electron transfer [@lopez2017faecalibacterium].
+*F. prausnitzii* is extremely sensitive to oxygen, though it may be able to withstand oxygen exposure for up to 24 hours depending on the availability of metabolites for extracellular electron transfer [@lopez2017faecalibacterium].
 *Acetatifactor* (GTDB species *Acetatifactor sp900066365*) has k-mers with the largest variable importance with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent}**).
 *Acetatifactor* is a bile-acid producing bacteria associated with a healthy gut, but limited evidence has associated it with decreased abundance in IBD [@pathak2018intestine].
 In UC, *Gemmiger formicilis* has both the largest variable importance and number of k-mers with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent}**).
 *G. formicilis* is a strictly anaerobic bacteria that produces both formic acid and butyric acid [@gossling1975gemmiger].
-We also see a decrease in other oxygen-sensitive sepecies, including *Lachnospira eligens* (annotated in NCBI taxonomy as *[Eubacterium] elegans*). *L. elegans* is an obligate anaerobe that is unable to tolerate atmospheric oxygen for an hour [@hall2017]. 
+We also see a decrease in other oxygen-sensitive species, including *Lachnospira eligens* (annotated in NCBI taxonomy as *[Eubacterium] elegans*). *L. elegans* is an obligate anaerobe that is unable to tolerate atmospheric oxygen for an hour [@hall2017]. 
 Collectively, the decrease in species diversity we observe in IBD, in particular CD, is consistent with a shift toward increased oxidative stress during disease [@rigottier2013dysbiosis].
 
 A substantial portion of k-mers from four genomes in CD and two genomes in UC are more abundant in disease (**Figure \ref{fig:hashcontent}**).
@@ -254,8 +254,8 @@ These four genomes belong to *Faecalicatena gnavus* (referred to as *[Ruminococc
 It is associated with disturbance succession when the stable gut consortia is compromised [@lozupone2012identifying], and has increased gene expression during gut dysbiosis [@lloyd2019].
 <!-- *Flavonifractor plautii* and *Flavonifractor sp000508885*  -->
 Species from the genus *Flavonifractor* have rarely been associated with CD or UC [@schaffler2016mucosa; @kwak2020development; @selvig2020fecal; @chen2019p854].
-Interestingly, *Flavonifractor sp000508885* (originally publised as *Flavonifractor plautii*) was identified as a member of a 17-species consortia that induces human CD4+FOXP3+Treg cells, key immunomodulators of gut homeostasis [@atarashi2013t].
-However, *F. sp000508885* was one of two strains in the consortia detected as more abundant in UC metagenomes [@atarashi2013t], and genes encoding virulence factors such as flagellar assembly were detected in thi strain [@atarashi2013t]. 
+Interestingly, *Flavonifractor sp000508885* (originally published as *Flavonifractor plautii*) was identified as a member of a 17-species consortia that induces human CD4+FOXP3+Treg cells, key immunomodulators of gut homeostasis [@atarashi2013t].
+However, *F. sp000508885* was one of two strains in the consortia detected as more abundant in UC metagenomes [@atarashi2013t], and genes encoding virulence factors such as flagellar assembly were detected in this strain [@atarashi2013t]. 
 This suggests that *F. sp000508885* may be associated with disease only at high abundance.
 
 To fully characterize the fraction of the pangenomes of these four strains that are more abundant in IBD, we generated pangenomes via assembly, clustering, and annotation of all genes in the assembly graph neighborhood of each strain.
@@ -270,8 +270,8 @@ Even still, we detect many significantly differentially abundant genes among the
 These results indicate that subsampled k-mer profiles are an adequate, scalable tool to use to investigate strain-level variation, and are powerful enough to capture large-scale disease associations.
 
 We next performed pathway enrichment analysis on the KEGG orthologs in these four strains that were only annotated as more abundant in IBD. 
-Given the small number of differentially abundant genes in UC, the only significantly enriched pathwyas contained one gene. 
-In contrast, many pathways are enriced in CD (**Figure \ref{fig:hashcontent}**).
+Given the small number of differentially abundant genes in UC, the only significantly enriched pathways contained one gene. 
+In contrast, many pathways are enriched in CD (**Figure \ref{fig:hashcontent}**).
 
 Many enriched pathways are associated with virulence factors, including quorum sensing, flagellar assembly, and vancomycin resistance. 
 Quorum sensing controls many pathways associated with virulence and pathogenicity (e.g. biofilm formation [@parsek2005sociomicrobiology]), but also coordinates many other functions of the human gut microbiota, disruption of which may lead to disturbance of gut homeostasis [@thompson2016chemical; @krzyzek2019challenges]. 
@@ -282,13 +282,13 @@ Flagella are rotating structures that enable bacterial motility and promote viru
 The dominant protein in flagella is flagellin, and monomeric flagellin can activate host pro-inflammatory gene expression via toll-like receptor 5 [@hayashi2001innate]. 
 While increased flagellin is a feature of inflammation-associated gut microbiomes [@tran2019flagellin], flagellin is the immunodominant antigen in CD [@lodes2004bacterial]. 
 Further, species in Clostridium cluster XIVa, to which *C. bolteae* is a member, produce these flagellins in CD [@duck2007isolation]. 
-These results suggest that *C. bolteae* flagellin may play a criticial role in inflammatory maintenance in CD.
+These results suggest that *C. bolteae* flagellin may play a critical role in inflammatory maintenance in CD.
 A recent study showed successful reduction of gut flagellin in a mouse model of colitis through immunization with purified flagellin, thereby reducing inflammation, reducing encroachment on host epithelial cells, and reshaping gut microbiota composition [@tran2019flagellin]. 
 This, combined with results our survey, suggests that flagellin purified from *C. bolteae* and *Flovonifractor* may be useful in the treatment of CD and UC, respectively.
 
 Genes that are more abundant in *C. bolteae* and *F. gnavus* are enriched for vancomycin resistance, suggesting that patients with CD are more likely to harbor vancomycin resistant organisms.
-While vancomycin resistance is enriched among annotated KEGG orthologs, we further idenfied resistant genes using hidden markov models. 
-In both *C. bolteae* and *F. gnavus*, we identify genes encoding the two-component regulatory sequence *vanR* and *vanSB*, as well as *vanB*, *vanX*, and *vanW* in *C. bolteae* and *vanY*, *vanH*, and *vanT* in *F. ganvus*. 
+While vancomycin resistance is enriched among annotated KEGG orthologs, we further identified resistant genes using hidden markov models. 
+In both *C. bolteae* and *F. gnavus*, we identify genes encoding the two-component regulatory sequence *vanR* and *vanSB*, as well as *vanB*, *vanX*, and *vanW* in *C. bolteae* and *vanY*, *vanH*, and *vanT* in *F. gnavus*. 
 Given that CD patients are at an increased risk of hospitalization due to infectious complications of disease, this trend should be further investigated as it may direct empiric antibiotic choices by providers.
 IBD patients are at an increased risk for vancomycin-resistant *Enterococcus* infection [@nguyen2011increased].
 
@@ -387,7 +387,7 @@ The PERMANOVA was modeled as `~ diagnosis + study accession + library size + num
 We built random forests classifier to predict CD, UC, and non-IBD status using scaled MinHash signatures (k-mer models), marker genes in the shared 41 genomes (marker gene models), signatures from reads that were detected as marker genes (k-mer models of marker genes), and marker genes in the full metagenome (full marker gene models).
  
 For models from signatures, we transformed sourmash signatures into a k-mer abundance table where each metagenome was a sample, each k-mer was a feature, and abundances were recorded for each k-mer for each sample. 
-We normalized abundances by dividing by the total number of k-mers in each scaled MinHah signature. 
+We normalized abundances by dividing by the total number of k-mers in each scaled MinHash signature. 
 We then used a leave-one-study-out validation approach where we trained six models, each of which was trained on five studies and validated on the sixth. 
 To build each model, we first performed vita variable selection on the training set as implemented in the Pomona and ranger packages [@degenhardt2017; @wright2015]. 
 Vita variable selection reduces the number of variables (e.g. k-mers) to a smaller set of predictive variables through selection of variables with high cross-validated permutation variable importance [@janitza2018].
@@ -465,7 +465,7 @@ We used the `hmmscan` command from HMMER against the Resfam database with a thre
 knitr::include_graphics('figures/figS2.pdf')
 ```
 
-```{r upset, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, cache=TRUE, fig.width=4, fig.cap="K-mer models share a large fraction of predictive k-mers. Upset plot depicting intersections of sets of k-mers as well as the cumulative normalized variable importance of those k-mers in the optimized random forest classifiers. Each classifier is labelled by the left-out validation study.", out.width="400px"}
+```{r upset, eval=TRUE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, cache=TRUE, fig.width=4, fig.cap="K-mer models share a large fraction of predictive k-mers. Upset plot depicting intersections of sets of k-mers as well as the cumulative normalized variable importance of those k-mers in the optimized random forest classifiers. Each classifier is labeled by the left-out validation study.", out.width="400px"}
 knitr::include_graphics('figures/figS3.pdf')
 ```
 
@@ -485,7 +485,7 @@ SRP057027   | 29264 | 0.40% "
 df <- read.delim(textConnection(varsel_data), header=T,sep="|", strip.white=TRUE, stringsAsFactors=FALSE)
 row.names(df)<-NULL
 kable(df, format = "latex", booktabs = T, 
-      caption = "Number of predictive k-mers after variable selection for each of 6 classifiers. Classifiers are labelled by the validation study that was held out from training.",
+      caption = "Number of predictive k-mers after variable selection for each of 6 classifiers. Classifiers are labeled by the validation study that was held out from training.",
       col.names = c("Validation study", "Selected k-mers", "Percent of total k-mers")) %>%
   kable_styling(font_size = 9, latex_options ="striped")
 ```
@@ -519,7 +519,7 @@ Flavonifractor plautii|K14155|patB, malY; cysteine-S-conjugate beta-lyase [EC:4.
 df <- read.delim(textConnection(ox_data), header=T,sep="|", strip.white=TRUE, stringsAsFactors=FALSE)
 row.names(df)<-NULL
 kable(df, format = "latex", booktabs = T, 
-      caption = "KEGG orthologs involved in oxidative stress response annotated in strains that are more abundant in IBD. KEGG orthologs are only displayed if they were only annotated amoung the more abundant genes, not annotated amoung both the more abundant and less abundant genes in a species.") %>%
+      caption = "KEGG orthologs involved in oxidative stress response annotated in strains that are more abundant in IBD. KEGG orthologs are only displayed if they were only annotated among the more abundant genes, not annotated amoung both the more abundant and less abundant genes in a species.") %>%
   kable_styling(font_size = 9, latex_options ="striped")
 ```
 
