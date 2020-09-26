@@ -234,7 +234,7 @@ This is driven by loss of species diversity, not systematic loss of specific fun
 Many beneficial bacteria, in particular those that are oxygen sensitive, decrease in abundance in IBD.
 Two strains of *Faecalibacterium prausnitzii* have the largest number of k-mers with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent} B**). 
 *F. prausnitzii* is an obligate anaerobe and a key butyrate producer in the gut, and plays a crucial role in reducing intestinal inflammation [@lopez2017faecalibacterium].
-*F. prausnitzii* is extremely sensitive to oxygen, though may be able to withstand oxygen exposure for up to 24 hours depending on the availability of metabolites for extracellular electron transfer [@lopez2017faecalibacterium].
+*F. prausnitzii* is extremely sensitive to oxygen, though it may be able to withstand oxygen exposure for up to 24 hours depending on the availability of metabolites for extracellular electron transfer [@lopez2017faecalibacterium].
 *Acetatifactor* (GTDB species *Acetatifactor sp900066365*) has k-mers with the largest variable importance with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent}**).
 *Acetatifactor* is a bile-acid producing bacteria associated with a healthy gut, but limited evidence has associated it with decreased abundance in IBD [@pathak2018intestine].
 In UC, *Gemmiger formicilis* has both the largest variable importance and number of k-mers with decreased abundance compared to nonIBD (**Figure \ref{fig:hashcontent}**).
