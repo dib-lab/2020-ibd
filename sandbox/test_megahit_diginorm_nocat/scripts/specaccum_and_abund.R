@@ -15,7 +15,7 @@ generate_counts <- function(path){
   counts <- counts[ , -1]
 }
 
-generate_presence_absence <- function(path, threshold = 3){
+generate_presence_absence <- function(path, threshold = 0){
   counts <- generate_counts(path)
   # replace any count > 0 with 1
   counts_pa <- ifelse(counts > threshold, 1, 0)
@@ -89,7 +89,7 @@ do_all <- function(path, pangenome_name, threshold, info = info,
 
 
 do_all(path = snakemake@input[['counts']], info = info,
-       pangenome_name = snakemake@params[['gather_genome']], threshold = 3,
+       pangenome_name = snakemake@params[['gather_genome']], threshold = 0,
        out_gene_abund_plt = snakemake@output[['gene_abund_plt']],
        out_gene_abund_tukey = snakemake@output[['gene_abund_tukey']],
        out_specaccum_plt = snakemake@output[['specaccum_plt']])
