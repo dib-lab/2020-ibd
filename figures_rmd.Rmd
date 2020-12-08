@@ -88,6 +88,18 @@ ggplot(acc, aes(x = reorder(study, -accuracy), y = accuracy * 100,
   geom_text(size = 4, position = position_dodge(width = 1), vjust = 2, 
             color = "white") +
   labs(y = "percent accuracy", x = "validation study") 
+
+ggplot(acc %>% filter(set == "validation"), 
+       aes(x = reorder(study, -accuracy), y = accuracy * 100, 
+           label = round(accuracy*100, digits = 1))) +
+  geom_col(position = "dodge", color = "grey") + 
+  ylim(0, 100) +
+  geom_hline(yintercept = 33.333, linetype = "dashed", color = "grey") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = .8)) +
+  geom_text(size = 4, position = position_dodge(width = 1), vjust = 2, 
+            color = "white") +
+  labs(y = "percent accuracy", x = "validation study") 
 ```
 
 ## Complex upset plot with hashes and variable importance
@@ -460,6 +472,16 @@ print(paste0("The pangenomes alone capture ",
 
 ## Are hashes with higher variable importance more likely to not end up in the assemblies than hashes with lower importance?
 
+Welch Two Sample t-test
+
+data:  total_imp by assembled
+t = -1.8091, df = 1659.2, p-value = 0.07062
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -0.0003165793  0.0000127896
+sample estimates:
+  mean in group assembled mean in group unassembled 
+             0.0005701839              0.0007220788 
 ```{r}
 unassembled_hashes <- read_csv("sandbox/test_megahit_diginorm_nocat/megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.un.csv") %>%
   mutate(hash = minhash) %>%
