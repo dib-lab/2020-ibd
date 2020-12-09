@@ -61,7 +61,7 @@ rule all:
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
         "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
-        expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
         "outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
         #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
@@ -75,7 +75,9 @@ rule all:
         #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
-        expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY)
+        expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
+        expand("outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig", library = LIBRARIES),
+        expand('outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY)
 
 ########################################
 ## PREPROCESSING
@@ -236,6 +238,117 @@ rule compute_signatures:
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} {input}
     '''
+
+########################################
+## Try singlem on abundtrim
+########################################
+
+rule split_paired_reads_abundtrim:
+    input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
+    output: 
+        O = "outputs/abundtrim_split/{library}_orphan.abundtrim.fq.gz",
+        R1 = "outputs/abundtrim_split/{library}_R1.abundtrim.fq.gz",
+        R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz"
+    conda: "envs/env.yml"
+    shell:'''
+    split-paired-reads.py -0 {output.O} -1 {output.R1} -2 {output.R2} --gzip {input}    
+    '''
+
+rule singlem_default_abundtrim:
+    input: 
+        R1 = "outputs/abundtrim_split/{library}_R1.abundtrim.fq.gz",
+        R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz"
+    output: "outputs/abundtrim_singlem/{library}_otu_default.csv"
+    conda: "envs/singlem.yml"
+    params: threads = 2
+    shell: '''
+    singlem pipe --forward {input.R1} --reverse {input.R2} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 #|| touch {output}
+    touch {output} # creates output file for runs with no seq matches
+    '''
+
+rule singlem_16s_abundtrim_R1:
+    input: 
+        R1 = "outputs/abundtrim_split/{library}_R1.abundtrim.fq.gz",
+        pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
+    output: "outputs/abundtrim_singlem/{library}_otu_16s_R1.csv"
+    conda: "envs/singlem.yml"
+    params: 
+        threads = 2,
+        pkg_dir = "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
+    shell: '''
+    singlem pipe --sequences {input.R1} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 # || touch {output}
+    touch {output}
+    '''
+
+rule singlem_16s_abundtrim_R2:
+    input: 
+        R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz",
+        pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
+    output: "outputs/abundtrim_singlem/{library}_otu_16s_R2.csv"
+    conda: "envs/singlem.yml"
+    params: 
+        threads = 2,
+        pkg_dir = "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
+    shell: '''
+    singlem pipe --sequences {input.R2} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 # || touch {output}
+    touch {output}
+    '''
+
+rule combine_singlem_abundtrim:
+    input:
+        default = expand("outputs/abundtrim_singlem/{library}_otu_default.csv", library = LIBRARIES),
+        s16_R1 = expand("outputs/abundtrim_singlem/{library}_otu_16s_R1.csv", library = LIBRARIES),
+        s16_R2 = expand("outputs/abundtrim_singlem/{library}_otu_16s_R2.csv", library = LIBRARIES)
+    output: res = "outputs/abundtrim_singlem/combined.tsv"
+    conda: "envs/tidy.yml"
+    script: "scripts/parse_singlem_abundtrim.R"
+
+rule singlem_to_counts_abuntrim:
+    input:  res = "outputs/abundtrim_singlem/combined.tsv"
+    output: counts = "outputs/abundtrim_singlem/singlem_counts.tsv"
+    conda: "envs/tidy.yml"
+    script: "scripts/make_singlem_counts_abundtrim.R"
+
+rule singlem_abundtrim_install_pomona:
+    input: "outputs/abundtrim_singlem/combined.tsv"
+    output:
+        pomona = "outputs/abundtrim_singlem_vita_rf/pomona_install.txt"
+    conda: 'envs/rf.yml'
+    script: "scripts/install_pomona.R"
+
+rule singlem_abundtrim_var_sel_rf:
+    input:
+        info = "inputs/working_metadata.tsv", 
+        counts = "outputs/abundtrim_singlem/singlem_counts.tsv",
+        pomona = "outputs/abundtrim_singlem_vita_rf/pomona_install.txt"
+    output:
+        vita_rf = "outputs/abundtrim_singlem_vita_rf/{study}_vita_rf.RDS",
+        vita_vars = "outputs/abundtrim_singlem_vita_rf/{study}_vita_vars.txt",
+        ibd_filt = "outputs/abundtrim_singlem_vita_rf/{study}_ibd_filt.csv"
+    params: 
+        threads = 6,
+        validation_study = "{study}"
+    conda: 'envs/rf.yml'
+    script: "scripts/singlem_vita_rf.R"
+
+rule singlem_abundtrim_loo_validation:
+    input: 
+        ibd_filt = 'outputs/abundtrim_singlem_vita_rf/{study}_ibd_filt.csv',
+        info = 'inputs/working_metadata.tsv',
+        eval_model = 'scripts/function_evaluate_model.R',
+        ggconfusion = 'scripts/ggplotConfusionMatrix.R'
+    output: 
+        recommended_pars = 'outputs/abundtrim_singlem_optimal_rf/{study}_rec_pars.tsv',
+        optimal_rf = 'outputs/abundtrim_singlem_optimal_rf/{study}_optimal_rf.RDS',
+        training_accuracy = 'outputs/abundtrim_singlem_optimal_rf/{study}_training_acc.csv',
+        training_confusion = 'outputs/abundtrim_singlem_optimal_rf/{study}_training_confusion.pdf',
+        validation_accuracy = 'outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv',
+        validation_confusion = 'outputs/abundtrim_singlem_optimal_rf/{study}_validation_confusion.pdf'
+    params:
+        threads = 6,
+        validation_study = "{study}"
+    conda: 'envs/tuneranger.yml'
+    script: "scripts/singlem_tune_rf.R"
 
 ########################################
 ## Filtering and formatting signatures
@@ -694,6 +807,14 @@ rule calc_sig_nbhd_reads:
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {params.name} {input}
     '''
 
+rule nbhd_read_sig_to_csv:
+    input: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+    output: "outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv"
+    conda: 'envs/sourmash.yml'
+    shell:'''
+    python scripts/sig_to_csv.py {input} {output}
+    '''
+
 rule index_sig_nbhd_reads:
     input: expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
     output: "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
@@ -1048,6 +1169,55 @@ rule singlem_loo_validation:
     conda: 'envs/tuneranger.yml'
     script: "scripts/singlem_tune_rf.R"
 
+rule extract_singlem_read_names_default:
+    input: singlem = "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv",
+    output: reads = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default_names.txt" 
+    conda: "envs/tidy.yml"
+    script: "scripts/extract_singlem_read_names.R"
+
+rule extract_singlem_reads_default:
+    input: 
+        names = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default_names.txt",
+        fq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
+    output: "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default.fq",
+    conda: "envs/sourmash.yml"
+    shell:'''
+    scripts/extract-aaseq-matches.py {input.names} {input.fq} > {output}
+    '''
+
+rule extract_singlem_read_names_16s:
+    input: singlem = "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv",
+    output: reads = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s_names.txt" 
+    conda: "envs/tidy.yml"
+    script: "scripts/extract_singlem_read_names.R"
+
+rule extract_singlem_reads_16s:
+    input: 
+        names = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s_names.txt",
+        fq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
+    output: "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s.fq",
+    conda: "envs/sourmash.yml"
+    shell:'''
+    scripts/extract-aaseq-matches.py {input.names} {input.fq} > {output}
+    '''
+
+rule combine_singlem_reads_per_lib:
+    input:
+        expand("outputs/sgc_genome_queries_singlem_reads/{{library}}/{gather_genome}_otu_default.fq", gather_genome = GATHER_GENOMES),
+        expand("outputs/sgc_genome_queries_singlem_reads/{{library}}/{gather_genome}_otu_16s.fq", gather_genome = GATHER_GENOMES)
+    output: "outputs/sgc_genome_queries_singlem_reads/{library}_singlem_reads.fq"
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule compute_signatures_singlem:
+    input: "outputs/sgc_genome_queries_singlem_reads/{library}_singlem_reads.fq"
+    output: "outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig"
+    conda: "envs/sourmash.yml"
+    shell:'''
+    sourmash compute -k 31 --scaled 2000 -o {output} --track-abundance {input} || touch {output} 
+    '''
+    
 ##############################################
 ## Pangenome differential abundance analysis
 ##############################################
