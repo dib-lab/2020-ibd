@@ -25,15 +25,19 @@ corncob <- corncob_files %>%
   set_names() %>%
   map_dfr(read_tsv, .id = "genome") %>%
   mutate(genome = gsub("_sig_ccs.tsv", "", genome)) %>%
-  mutate(genome = gsub("sandbox\\/test_megahit_diginorm_nocat\\/corncob/", "", genome))
-View(corncob)  
+  mutate(genome = gsub("sandbox\\/test_megahit_diginorm_nocat\\/corncob/", "", genome)) 
 
-corncob <- left_join(corncob, eggnog, by = c("genome", "aa_seq" = "query_name"))
+corncob <- left_join(corncob, eggnog, by = c("genome", "aa_seq" = "query_name")) %>%
+  mutate(genome = gsub(".fa", "", genome)) %>%
+  mutate(genome = gsub(".fna", "", genome))
 
-species <- read_tsv("~/Desktop/41pangenomes_gather_matches_ranked.tsv") %>%
-  select(genome, GTDB, NCBI, rank)
-corncob <- left_join(corncob, species, by = "genome")
+species <- read_tsv("sandbox/test_megahit_diginorm_nocat/gtdbtk/41genomes_out/gtdbtk.bac120.summary.tsv") %>%
+  select(user_genome, classification) %>%
+  mutate(classification = gsub("[dkpcofgs]__", "", classification)) %>%
+  separate(data = ., col = classification, sep = ";",
+           into = c("superkingdom", "phylum", "class", "order", "family", "genus", "species"))
 
+corncob <- left_join(corncob, species, by = c("genome" = "user_genome"))
 
 # get kegg universe -------------------------------------------------------
 
@@ -126,7 +130,10 @@ View(rank2_down_cd_en@result)
 # try with r gnavus, which has a known mechanism --------
 
 rank13 <- corncob %>%
-  filter(genome == "GCF_900036035.1_RGNV35913_genomic.fna")
+  filter(genome == "GCF_900036035.1_RGNV35913_genomic")
+
+# table(rank13_up_cd$KEGG_ko %in% rgnv_cd_up$KEGG_ko)
+# table(rgnv_cd_up$KEGG_ko %in% rank13_up_cd$KEGG_ko)
 
 rank13_up_uc <- rank13 %>%
   filter(estimate > 0 ) %>%
