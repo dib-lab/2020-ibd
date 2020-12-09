@@ -246,10 +246,9 @@ rule get_greater_than_1_filt_sigs:
     output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
     run:
         # Determine the number of hashes, the number of unique hashes, and the number of
-        # hashes that occur once across 954 IBD/control gut metagenomes (excludes the 
-        # iHMP). Calculated for a scaled of 2k. 9 million hashes is the current 
-        # approximate upper limit with which to build a sample vs hash abundance table 
-        # using my current methods.
+        # hashes that occur once across 605 gut metagenomes. Calculated for a scaled of 2k. 
+        # 9 million hashes is the current approximate upper limit with which to build a 
+        # sample vs hash abundance table using my current methods.
 
         files = input
 
@@ -276,6 +275,9 @@ rule get_greater_than_1_filt_sigs:
 
 
 rule calc_total_hashes_sigs:
+    """
+    Output "statistics" about signatures
+    """
     input: expand("outputs/sigs/{library}.sig", library = LIBRARIES)
     output: "outputs/filt_sig_hashes/count_total_hashes.txt"
     run:
@@ -377,6 +379,9 @@ rule vita_var_sel_rf:
         vita_rf = "outputs/vita_rf/{study}_vita_rf.RDS",
         vita_vars = "outputs/vita_rf/{study}_vita_vars.txt",
         ibd_filt = "outputs/vita_rf/{study}_ibd_filt.csv"
+    resources:
+         mem_mb=64000
+    threads: 32
     params: 
         threads = 32,
         validation_study = "{study}"
@@ -396,6 +401,9 @@ rule loo_validation:
         training_confusion = 'outputs/optimal_rf/{study}_training_confusion.pdf',
         validation_accuracy = 'outputs/optimal_rf/{study}_validation_acc.csv',
         validation_confusion = 'outputs/optimal_rf/{study}_validation_confusion.pdf'
+    resources:
+        mem_mb = 16000
+    threads: 20
     params:
         threads = 20,
         validation_study = "{study}"
@@ -414,49 +422,7 @@ rule convert_vita_vars_to_sig:
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
     '''
-
-rule download_gather_almeida:
-    output: "inputs/gather_databases/almeida-mags-k31.tar.gz"
-    shell:'''
-    wget -O {output} https://osf.io/5jyzr/download
-    '''
-
-rule untar_almeida:
-    output: "inputs/gather_databases/almeida-mags-k31.sbt.json"
-    input: "inputs/gather_databases/almeida-mags-k31.tar.gz"
-    params: outdir="inputs/gather_databases"
-    shell:'''
-    tar xf {input} -C {params.outdir}
-    '''
-
-rule download_gather_pasolli:
-    output: "inputs/gather_databases/pasolli-mags-k31.tar.gz"
-    shell:'''
-    wget -O {output} https://osf.io/3vebw/download
-    '''
-
-rule untar_pasolli:
-    output: "inputs/gather_databases/pasolli-mags-k31.sbt.json"
-    input: "inputs/gather_databases/pasolli-mags-k31.tar.gz"
-    params: outdir="inputs/gather_databases"
-    shell:'''
-    tar xf {input} -C {params.outdir}
-    '''
-
-rule download_gather_nayfach:
-    output: "inputs/gather_databases/nayfach-k31.tar.gz"
-    shell:'''
-    wget -O {output} https://osf.io/y3vwb/download
-    '''
-
-rule untar_nayfach:
-    output: "inputs/gather_databases/nayfach-k31.sbt.json"
-    input: "inputs/gather_databases/nayfach-k31.tar.gz"
-    params: outdir="inputs/gather_databases"
-    shell:'''
-    tar xf {input} -C {params.outdir}
-    '''
-
+# TR TODO: UPDATE TO NEW GENBANK DATABASE 
 rule download_gather_genbank:
     output: "inputs/gather_databases/genbank-d2-k31.tar.gz"
     shell:'''
@@ -471,6 +437,7 @@ rule untar_genbank:
     tar xf {input} -C {params.outdir}
     '''
 
+# TR TODO: UPDATE TO NEW REFSEQ DATABASE
 rule download_gather_refseq:
     output: "inputs/gather_databases/refseq-d2-k31.tar.gz"
     shell:'''
@@ -485,22 +452,6 @@ rule untar_refseq:
     tar xf {input} -C {params.outdir}
     '''
 
-rule gather_vita_vars_all:
-    input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
-        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
-        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db3="inputs/gather_databases/nayfach-k31.sbt.json",
-        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
-    output: 
-        csv="outputs/gather/{study}_vita_vars_all.csv",
-        matches="outputs/gather/{study}_vita_vars_all.matches",
-        un="outputs/gather/{study}_vita_vars_all.un"
-    conda: 'envs/sourmash.yml'
-    shell:'''
-    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db4} {input.db3} {input.db2}
-    '''
-
 rule gather_vita_vars_genbank:
     input:
         sig="outputs/vita_rf/{study}_vita_vars.sig",
@@ -511,7 +462,7 @@ rule gather_vita_vars_genbank:
         un="outputs/gather/{study}_vita_vars_genbank.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
 rule gather_vita_vars_refseq:
@@ -524,10 +475,10 @@ rule gather_vita_vars_refseq:
         un="outputs/gather/{study}_vita_vars_refseq.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
-rule merge_vita_vars_sig_all:
+rule create_merged_vita_vars_signature:
     input: expand("outputs/vita_rf/{study}_vita_vars.sig", study = STUDY)
     output: "outputs/vita_rf/vita_vars_merged.sig"
     conda: "envs/sourmash.yml"
@@ -535,185 +486,7 @@ rule merge_vita_vars_sig_all:
     sourmash sig merge -o {output} {input}
     '''
 
-rule combine_gather_vita_vars_all:
-    output: "outputs/gather/vita_vars_all.csv"
-    input: expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY)
-    run:
-        import pandas as pd
-        
-        li = []
-        for filename in input:
-            df = pd.read_csv(str(filename), index_col=None, header=0)
-            df["study"] = str(filename)
-            li.append(df)
-
-        frame = pd.concat(li, axis=0, ignore_index=True)
-        frame.to_csv(str(output))
-
-
-checkpoint collect_gather_vita_vars_all_sig_matches:
-    input:
-        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
-        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db3="inputs/gather_databases/nayfach-k31.sbt.json",
-        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json",
-        csv="outputs/gather/vita_vars_all.csv"
-    output: directory("outputs/gather_matches/")
-    run:
-        from sourmash import signature
-        import pandas as pd
-
-        # load gather results
-        df = pd.read_csv(input.csv)
-
-        # for each row, determine which database the result came from
-        for index, row in df.iterrows():
-            if row["filename"] == "inputs/gather_databases/almeida-mags-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.almeida-mags-k31/" + row["md5"]
-            elif row["filename"] == "inputs/gather_databases/genbank-d2-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.genbank-d2-k31/" + row["md5"]
-            elif row["filename"] == "inputs/gather_databases/nayfach-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.nayfach-k31/" + row["md5"]
-            elif row["filename"] == "inputs/gather_databases/pasolli-mags-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.pasolli-mags-k31/" + row["md5"]
-            # open the signature, parse its name, and write the signature out to a new
-            # folder
-            sigfp = open(sigfp, 'rt')
-            sig = signature.load_one_signature(sigfp)
-            out_sig = str(sig.name())
-            out_sig = out_sig.split('/')[-1]
-            out_sig = out_sig.split(" ")[0]
-            out_sig = "outputs/gather_matches/" + out_sig + ".sig"
-            with open(str(out_sig), 'wt') as fp:
-                signature.save_signatures([sig], fp)      
-
-
-def aggregate_collect_gather_vita_vars_all_sig_matches(wildcards):
-    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output[0]  
-    file_names = expand("outputs/gather_matches/{genome}.sig", 
-                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
-    return file_names
-    
-
-rule create_hash_genome_map_gather_vita_vars_all:
-    input:
-        #genomes = "outputs/gather_matches/{genome}.sig",
-        genomes = aggregate_collect_gather_vita_vars_all_sig_matches,
-        vita_vars = "outputs/vita_rf/vita_vars_merged.sig"
-    output: "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv"
-    run:
-        from sourmash import signature
-        import pandas as pd
-        
-        sigs = input.genomes
-        # read in all genome signatures that had gather 
-        # matches for the var imp hashes create a dictionary, 
-        # where the key is the genome and the values are the minhashes
-        genome_dict = {}
-        for sig in sigs:
-            sigfp = open(sig, 'rt')
-            siglist = list(signature.load_signatures(sigfp))
-            loaded_sig = siglist[0] 
-            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
-            genome_dict[sig] = mins
-
-        # read in vita variables
-        sigfp = open(str(input.vita_vars), 'rt')
-        vita_vars = sig = signature.load_one_signature(sigfp)
-        vita_vars = vita_vars.minhash.get_mins() 
-
-        # generate a list of all minhashes from all genomes
-        all_mins = []
-        for file in sigs:
-            if os.path.getsize(file) > 0:
-                sigfp = open(file, 'rt')
-                siglist = list(signature.load_signatures(sigfp))
-                loaded_sig = siglist[0]
-                mins = loaded_sig.minhash.get_mins() # Get the minhashes 
-                all_mins += mins
-
-        # define a function where if a hash is a value, 
-        # return all key for which it is a value
-        def get_all_keys_if_value(dictionary, hash_query):
-            genomes = list()
-            for genome, v in dictionary.items():
-                if hash_query in v:
-                    genomes.append(genome)
-            return genomes
-
-        # create a dictionary where each vita_vars hash is a key, 
-        # and values are the genome signatures in which that hash
-        # is contained
-        vita_hash_dict = {}
-        for hashy in vita_vars:
-            keys = get_all_keys_if_value(genome_dict, hashy)
-            vita_hash_dict[hashy] = keys
-
-        # transform this dictionary into a dataframe and format the info nicely
-        df = pd.DataFrame(list(vita_hash_dict.values()), index = vita_hash_dict.keys())
-        df = df.reset_index()
-        df = pd.melt(df, id_vars=['index'], var_name= "drop", value_name='genome')
-        # remove tmp col drop
-        df = df.drop('drop', 1)
-        # drop duplicate rows in the df
-        df = df.drop_duplicates()
-        # write the dataframe to csv
-        df.to_csv(str(output), index = False) 
-
-
-rule download_sourmash_lca_db:
-    output: "inputs/gather_databases/gtdb-release89-k31.lca.json.gz"
-    shell:'''
-    wget -O {output} https://osf.io/gs29b/download
-    '''
-
-rule sourmash_lca_classify_vita_vars_all_sig_matches:
-    input:
-        db = "inputs/gather_databases/gtdb-release89-k31.lca.json.gz",
-        genomes = "outputs/gather_matches/{genome}.sig"
-    output: "outputs/gather_matches_lca_classify/{genome}.csv"
-    conda: "envs/sourmash.yml"
-    shell:'''
-    sourmash lca classify --db {input.db} --query {input.genomes} -o {output}
-    '''
-
-def aggregate_collect_gather_vita_vars_all_sig_matches_lca_classify(wildcards):
-    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output[0]  
-    file_names = expand("outputs/gather_matches_lca_classify/{genome}.csv", 
-                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
-    return file_names
-
-    
-rule finished_collect_gather_vita_vars_all_sig_matches_lca_classify:
-    input: aggregate_collect_gather_vita_vars_all_sig_matches_lca_classify
-    output: "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt"
-    shell:'''
-    touch {output}
-    '''
-
-rule sourmash_lca_summarize_vita_vars_all_sig_matches:
-    input:
-        db = "inputs/gather_databases/gtdb-release89-k31.lca.json.gz",
-        genomes = "outputs/gather_matches/{genome}.sig"
-    output: "outputs/gather_matches_lca_summarize/{genome}.csv"
-    conda: "envs/sourmash.yml"
-    shell:'''
-    sourmash lca summarize --db {input.db} --query {input.genomes} -o {output}
-    '''
-
-def aggregate_collect_gather_vita_vars_all_sig_matches_lca_summarize(wildcards):
-    checkpoint_output = checkpoints.collect_gather_vita_vars_all_sig_matches.get(**wildcards).output[0]  
-    file_names = expand("outputs/gather_matches_lca_summarize/{genome}.csv", 
-                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}.sig")).genome)
-    return file_names
-
-    
-rule finished_collect_gather_vita_vars_all_sig_matches_lca_summarize:
-    input: aggregate_collect_gather_vita_vars_all_sig_matches_lca_summarize
-    output: "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt"
-    shell:'''
-    touch {output}
-    '''
+# TR TODO: SUMMARIZE TO SPECIES?
 
 ###################################################
 # Predictive hash characterization -- shared hashes
@@ -741,6 +514,7 @@ rule at_least_5_of_6_sig:
    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
    '''
 
+# TR TODO: UPDATE GENBANK DATABASES
 rule at_least_5_of_6_gather:
     """
     run gather on the signature that contains hashes from
@@ -748,62 +522,18 @@ rule at_least_5_of_6_gather:
     """
     input:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
-        db1="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db2="inputs/gather_databases/almeida-mags-k31.sbt.json",
-        db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
-        db4="inputs/gather_databases/nayfach-k31.sbt.json",
+        db="inputs/gather_databases/genbank-d2-k31.sbt.json",
     output: 
         csv="outputs/gather/at_least_5_studies_vita_vars.csv",
+        matches="outputs/gather/at_least_5_studies_vita_vars.matches",
+        un="outputs/gather/at_least_5_studies_vita_vars.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
-checkpoint collect_gather_at_least_5_of_6_sig_matches:
-    input:
-        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
-        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db3="inputs/gather_databases/nayfach-k31.sbt.json",
-        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json",
-        csv="outputs/gather/at_least_5_studies_vita_vars.csv"
-    output: directory("outputs/gather_matches_loso_sigs/")
-    run:
-        from sourmash import signature
-        import pandas as pd
-
-        # load gather results
-        df = pd.read_csv(input.csv)
-
-        # for each row, determine which database the result came from
-        for index, row in df.iterrows():
-            if row["filename"] == "inputs/gather_databases/almeida-mags-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.almeida-mags-k31/" + row["md5"]
-            elif row["filename"] == "inputs/gather_databases/genbank-d2-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.genbank-d2-k31/" + row["md5"]
-            elif row["filename"] == "inputs/gather_databases/nayfach-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.nayfach-k31/" + row["md5"]
-            elif row["filename"] == "inputs/gather_databases/pasolli-mags-k31.sbt.json":
-                sigfp = "inputs/gather_databases/.sbt.pasolli-mags-k31/" + row["md5"]
-            # open the signature, parse its name, and write the signature out to a new
-            # folder
-            sigfp = open(sigfp, 'rt')
-            sig = signature.load_one_signature(sigfp)
-            out_sig = str(sig.name())
-            out_sig = out_sig.split('/')[-1]
-            out_sig = out_sig.split(" ")[0]
-            out_sig = "outputs/gather_matches_loso_sigs/" + out_sig + ".sig"
-            with open(str(out_sig), 'wt') as fp:
-                signature.save_signatures([sig], fp)      
-
-
-def aggregate_collect_gather_at_least_5_of_6_sig_matches(wildcards):
-    checkpoint_output = checkpoints.collect_gather_at_least_5_of_6_sig_matches.get(**wildcards).output[0]  
-    file_names = expand("outputs/gather_matches_loso_sigs/{genome41}.sig", 
-                        genome41 = glob_wildcards(os.path.join(checkpoint_output, "{genome41}.sig")).genome41)
-    return file_names
-    
 rule compare_at_least_5_of_6_sigs:
-    input: aggregate_collect_gather_at_least_5_of_6_sig_matches
+    input: "outputs/gather/at_least_5_studies_vita_vars.matches",
     output: "outputs/comp_loso/comp_jaccard"
     conda: "envs/sourmash.yml"
     shell:''' 
@@ -819,9 +549,10 @@ rule plot_at_least_5_of_6_sigs:
     sourmash plot --pdf --labels --output-dir {params.out_dir} {input} 
     '''
 
+# TR TODO: WRITTEN TO HAVE SEPARATE SIGS AS INPUT; ALL SIGS IN LIST NOW.
 rule create_hash_genome_map_at_least_5_of_6_vita_vars:
     input:
-        sigs = aggregate_collect_gather_at_least_5_of_6_sig_matches,
+        sigs = "outputs/gather/at_least_5_studies_vita_vars.matches",
         gather = "outputs/gather/at_least_5_studies_vita_vars.csv",
     output: "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv"
     run:
@@ -888,36 +619,6 @@ rule download_gather_match_genomes:
     wget -O {output} https://osf.io/tsu9c/download
     '''
 
-#checkpoint untar_gather_match_genomes:
-#    output:  directory("outputs/gather_matches_loso")
-#    input:"outputs/gather/gather_genomes_loso.tar.gz"
-#    params: outdir = "outputs/"
-#    shell:'''
-#    mkdir -p {params.outdir}
-#    tar xf {input} -C {params.outdir}
-#    '''
-
-#def aggregate_untar_gather_match_genomes(wildcards):
-#    # checkpoint_output produces the output dir from the checkpoint rule.
-#    checkpoint_output = checkpoints.untar_gather_match_genomes.get(**wildcards).output[0]    
-#    file_names = expand("outputs/gather_matches_loso/{gather_genome}.gz",
-#                        gather_genome = glob_wildcards(os.path.join(checkpoint_output, "{gather_genome}.gz")).gather_genome)
-#    return file_names
-
-#rule spacegraphcats_gather_matches:
-#    input: 
-#        query = aggregate_untar_gather_match_genomes,
-#        conf = "inputs/sgc_conf/{library}_r1_conf.yml",
-#        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
-#    output:
-#        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz",
-#        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
-#    params: outdir = "outputs/sgc_genome_queries"
-#    conda: "envs/spacegraphcats.yml"
-#    shell:'''
-#    spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
-#    '''
-
 rule untar_gather_match_genomes:
     output:  expand("outputs/gather_matches_loso/{gather_genome}.gz", gather_genome = GATHER_GENOMES)
     input:"outputs/gather/gather_genomes_loso.tar.gz"
@@ -927,6 +628,8 @@ rule untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
+# TR TODO: FIGURE OUT NEW SGC FILE ENDINGS
+# TR TODO: UPDATE SPACEGRAPHCATS ENV
 rule spacegraphcats_gather_matches:
     input: 
         query = "outputs/gather_matches_loso/{gather_genome}.gz", 
@@ -959,8 +662,8 @@ rule prokka_gather_match_genomes:
     mv {params.prefix}.faa {output.faa}
     gzip {params.gzip}
     '''
-    
 
+# TR TODO: UPDATE ENV? 
 rule spacegraphcats_multifasta:
     input:
         queries = expand('outputs/gather_matches_loso_prokka/{gather_genome}.ffn', gather_genome = GATHER_GENOMES),
@@ -1074,17 +777,14 @@ rule gather_vita_vars_study_against_sgc_pangenome_sigs:
 rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
     input:
         sig="outputs/vita_rf/{study}_vita_vars.sig",
-        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
-        db1="inputs/gather_databases/almeida-mags-k31.sbt.json",
+        db1 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
         db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db3="inputs/gather_databases/nayfach-k31.sbt.json",
-        db4="inputs/gather_databases/pasolli-mags-k31.sbt.json"
     output: 
         csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv",
         un="outputs/sgc_pangenome_gather/{study}_vita_vars_all.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db} {input.db1} {input.db2} {input.db3} {input.db4} 
+    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} 
     '''
 
 rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
@@ -1094,16 +794,13 @@ rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
     """
     input:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
-        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
-        db1="inputs/gather_databases/genbank-d2-k31.sbt.json",
-        db2="inputs/gather_databases/almeida-mags-k31.sbt.json",
-        db3="inputs/gather_databases/pasolli-mags-k31.sbt.json",
-        db4="inputs/gather_databases/nayfach-k31.sbt.json",
+        db1 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
+        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
     output: 
         csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --scaled 2000 -k 31 {input.sig} {input.db} {input.db1} {input.db2} {input.db3} {input.db4}
+    sourmash gather -o {output.csv} --threshold-bp 0 --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2}
     '''
 
 rule at_least_5_of_6_gather_pangenome_sigs:
@@ -1231,10 +928,11 @@ rule eggnog_multifasta_query_genes:
     emapper.py --cpu {params.cpus} -i {input.faa} --output {params.out_prefix} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
     '''
 
-##############################################
-## Ribosomal gene abundance validation 
-##############################################
+###########################################################
+## SingleM Ribosomal gene abundance validation: SGC NBHDS
+###########################################################
 
+# TR TODO: UPDATE INPUT NAMES BASED ON NEW SGC OUTPUT
 rule rename_sgc_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz"
@@ -1369,124 +1067,8 @@ rule cat_diginorm_nbhd_reads:
     cat {input} > {output}
     '''
 
-rule plass_nbhd_reads:
-    input: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
-    output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
-    conda: "envs/plass.yml"
-    shell:'''
-    plass assemble --threads 4 --min-length 25 {input} {output} tmp
-    '''
+# TR TODO: ADD MEGAHIT ASSEMBLE, ANNOTATE, CDHIT, SALMON
 
-rule plass_remove_stops:
-    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa"
-    output: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
-    conda: "envs/screed.yml"
-    shell:'''
-    python scripts/remove-stop-plass.py {input}
-    '''
-
-rule cdhit_plass:
-    input: "outputs/nbhd_reads_plass/{gather_genome}.cdbg_ids.reads.plass.faa.nostop.fa"
-    output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "envs/plass.yml"
-    shell:'''
-    cd-hit -M 15500 -i {input} -o {output} -c .9
-    '''
-
-rule paladin_index_plass:
-    input: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    output: "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt"
-    conda: "envs/plass.yml"
-    shell: '''
-    paladin index -r3 {input}
-    '''
-
-rule paladin_align_plass:
-    input:
-        indx="outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa.bwt",
-        reads="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
-    params: indx = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "envs/plass.yml"
-    shell:'''
-    paladin align -f 125 -t 2 {params.indx} {input.reads} > {output}
-    '''
-
-rule samtools_view_paladin:
-    output: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
-    input: "outputs/nbhd_reads_paladin/{library}/{gather_genome}.sam"
-    conda: "envs/plass.yml"
-    shell:'''
-    samtools view -b {input} > {output}
-    '''
-
-rule salmon_paladin:
-    output: "outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant/quant.sf"
-    input:
-        cdhit="outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa",
-        bam="outputs/nbhd_reads_paladin/{library}/{gather_genome}.bam"
-    params:
-        out="outputs/nbhd_reads_salmon/{library}/{gather_genome}_quant"
-    conda: "envs/plass.yml"
-    shell:'''
-    salmon quant -t {input.cdhit} -l A -a {input.bam} -o {params.out} --minAssignedFrags 1 || touch {output}
-    '''
-
-rule install_corncob:
-    output:
-        corncob = "outputs/nbhd_reads_corncob/corncob_install.txt"
-    conda: 'envs/corncob.yml'
-    script: "scripts/install_corncob.R"
-
-rule make_salmon_counts:
-    input:
-        quant= expand("outputs/nbhd_reads_salmon/{library}/{{gather_genome}}_quant/quant.sf", library = LIBRARIES),
-        info = "inputs/working_metadata.tsv",
-        mqc_fastp = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
-    output:
-        counts = "outputs/nbhd_reads_tximport/{gather_genome}_counts_raw.tsv",
-    params: gather_genome = lambda wildcards: wildcards.gather_genome
-    conda: 'envs/corncob.yml'
-    script: "scripts/run_tximport.R"
-
-rule filt_salmon_counts:
-    input:
-        counts = "outputs/nbhd_reads_tximport/{gather_genome}_counts_raw.tsv",
-        info = "inputs/working_metadata.tsv",
-        mqc_fastp = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
-    output: 
-        dim = "outputs/nbhd_reads_corncob/{gather_genome}_dim.tsv",
-        filt = "outputs/nbhd_reads_tximport/{gather_genome}_counts.tsv"
-    conda: 'envs/corncob.yml'
-    script: "scripts/run_filt_salmon.R"
-
-rule corncob_salmon:
-    input:
-        filt = "outputs/nbhd_reads_tximport/{gather_genome}_counts.tsv",
-        info = "inputs/working_metadata.tsv",
-        mqc_fastp = "outputs/fastp_abundtrim/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt",
-        corncob = "outputs/nbhd_reads_corncob/corncob_install.txt"
-    output:
-        all_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_all_ccs.tsv",
-        sig_ccs = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
-    conda: 'envs/corncob.yml'
-    script: "scripts/run_corncob.R"
-
-rule get_corncob_significant_aaseq_names:
-    input: sig = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv"
-    output: names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt"
-    conda: 'envs/corncob.yml'
-    script: "scripts/get_corncob_names.R"
-
-rule grab_corncob_significant_aa_seqs:
-    output: sig_faa = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.faa" 
-    input:
-        names = "outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs_names.txt",
-        fasta = "outputs/nbhd_reads_cdhit/{gather_genome}.cdbg_ids.reads.plass.cdhit.faa"
-    conda: "envs/sourmash.yml"
-    shell: '''
-    scripts/extract-aaseq-matches.py {input.names} {input.fasta} > {output}
-    '''
 
 ########################################
 ## PCoA
