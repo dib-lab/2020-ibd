@@ -660,71 +660,45 @@ rule convert_vita_vars_to_sig:
     input: "outputs/vita_rf/{study}_vita_vars.txt"
     output: "outputs/vita_rf/{study}_vita_vars.sig"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000
+    threads: 1
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
-    '''
-# TR TODO: UPDATE TO NEW GENBANK DATABASE 
-rule download_gather_genbank:
-    output: "inputs/gather_databases/genbank-d2-k31.tar.gz"
-    shell:'''
-    wget -O {output} https://s3-us-west-2.amazonaws.com/sourmash-databases/2018-03-29/genbank-d2-k31.tar.gz
-    '''
-
-rule untar_genbank:
-    output: "inputs/gather_databases/genbank-d2-k31.sbt.json"
-    input:  "inputs/gather_databases/genbank-d2-k31.tar.gz"
-    params: outdir = "inputs/gather_databases"
-    shell: '''
-    tar xf {input} -C {params.outdir}
-    '''
-
-# TR TODO: UPDATE TO NEW REFSEQ DATABASE
-rule download_gather_refseq:
-    output: "inputs/gather_databases/refseq-d2-k31.tar.gz"
-    shell:'''
-    wget -O {output} https://s3-us-west-2.amazonaws.com/sourmash-databases/2018-03-29/refseq-d2-k31.tar.gz
-    '''
-
-rule untar_refseq:
-    output: "inputs/gather_databases/refseq-d2-k31.sbt.json"
-    input:  "inputs/gather_databases/refseq-d2-k31.tar.gz"
-    params: outdir = "inputs/gather_databases"
-    shell: '''
-    tar xf {input} -C {params.outdir}
     '''
 
 rule gather_vita_vars_genbank:
     input:
         sig="outputs/vita_rf/{study}_vita_vars.sig",
-        db="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
+        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
+        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
+        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
+        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
         csv="outputs/gather/{study}_vita_vars_genbank.csv",
         matches="outputs/gather/{study}_vita_vars_genbank.matches",
         un="outputs/gather/{study}_vita_vars_genbank.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
 rule gather_vita_vars_refseq:
     input:
         sig="outputs/vita_rf/{study}_vita_vars.sig",
-        db="inputs/gather_databases/refseq-d2-k31.sbt.json",
+        db1="/home/irber/sourmash_databases/outputs/sbt/refseq-bacteria-x1e6-k31.sbt.zip",
+        db2="/home/irber/sourmash_databases/outputs/sbt/refseq-viral-x1e6-k31.sbt.zip"
+        db3="/home/irber/sourmash_databases/outputs/sbt/refseq-archaea-x1e6-k31.sbt.zip",
+        db4="/home/irber/sourmash_databases/outputs/sbt/refseq-fungi-x1e6-k31.sbt.zip",
+        db5="/home/irber/sourmash_databases/outputs/sbt/refseq-protozoa-x1e6-k31.sbt.zip",
     output: 
         csv="outputs/gather/{study}_vita_vars_refseq.csv",
         matches="outputs/gather/{study}_vita_vars_refseq.matches",
         un="outputs/gather/{study}_vita_vars_refseq.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
-    '''
-
-rule create_merged_vita_vars_signature:
-    input: expand("outputs/vita_rf/{study}_vita_vars.sig", study = STUDY)
-    output: "outputs/vita_rf/vita_vars_merged.sig"
-    conda: "envs/sourmash.yml"
-    shell:'''
-    sourmash sig merge -o {output} {input}
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
 # TR TODO: SUMMARIZE TO SPECIES?
@@ -755,7 +729,6 @@ rule at_least_5_of_6_sig:
    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
    '''
 
-# TR TODO: UPDATE GENBANK DATABASES
 rule at_least_5_of_6_gather:
     """
     run gather on the signature that contains hashes from
@@ -763,14 +736,18 @@ rule at_least_5_of_6_gather:
     """
     input:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
-        db="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
+        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
+        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
+        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
+        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
         csv="outputs/gather/at_least_5_studies_vita_vars.csv",
         matches="outputs/gather/at_least_5_studies_vita_vars.matches",
         un="outputs/gather/at_least_5_studies_vita_vars.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
 rule compare_at_least_5_of_6_sigs:
@@ -1020,20 +997,24 @@ rule gather_vita_vars_study_against_sgc_pangenome_sigs:
         un="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    sourmash gather --threshold-bp 0 -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
 rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
     input:
         sig="outputs/vita_rf/{study}_vita_vars.sig",
-        db1 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
-        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db0 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
+        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
+        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
+        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
+        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
+        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
         csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv",
         un="outputs/sgc_pangenome_gather/{study}_vita_vars_all.un"
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} 
+    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
 rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
@@ -1043,13 +1024,17 @@ rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
     """
     input:
         sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
-        db1 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
-        db2="inputs/gather_databases/genbank-d2-k31.sbt.json",
+        db0 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
+        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
+        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
+        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
+        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
+        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
         csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
     conda: 'envs/sourmash.yml'
     shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2}
+    sourmash gather -o {output.csv} --threshold-bp 0 --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
 rule at_least_5_of_6_gather_pangenome_sigs:
