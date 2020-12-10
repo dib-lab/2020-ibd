@@ -7,6 +7,8 @@ import glob
 import os
 from collections import Counter
 
+SEED = [2, 3, 4, 5, 6]
+
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
@@ -40,26 +42,18 @@ GATHER_GENOMES = ["ERS235530_10.fna", "ERS235531_43.fna", "ERS235603_16.fna",
 rule all:
     input:
         # SOURMASH COMPARE OUTPUTS:
-        "outputs/comp/all_filt_permanova_cosine.csv",
-        "outputs/comp/all_filt_permanova_jaccard.csv",
         "outputs/comp/study_plt_all_filt_jaccard.pdf",
         "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf",
         "outputs/comp/study_plt_all_filt_cosine.pdf",
         "outputs/comp/diagnosis_plt_all_filt_cosine.pdf",
-        # VARIABLE SELECTION OUTPUTS:
+        # VARIABLE SELECTION & RF OUTPUTS:
         "outputs/filt_sig_hashes/count_total_hashes.txt",
-        expand("outputs/vita_rf/{study}_vita_rf.RDS", study = STUDY),
-        expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
-        expand("outputs/vita_rf/{study}_ibd_filt.csv", study = STUDY),
-        # OPTIMAL RF OUTPUTS:
         expand('outputs/optimal_rf/{study}_optimal_rf.RDS', study = STUDY),
+        expand('outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS', study = STUDY, seed = SEED),
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
         expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
-        expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
         "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
-        "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_classify.txt",
-        "aggregated_checkpoints/finished_collect_gather_vita_vars_all_sig_matches_lca_summarize.txt",
         # SPACEGRAPHCATS OUTPUTS:
         expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
@@ -72,12 +66,11 @@ rule all:
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
         "figures_rmd.html",
-        #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        #expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
+        # SINGLEM OUTPUTS:
+        expand('outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         expand("outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig", library = LIBRARIES),
-        expand('outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY)
 
 ########################################
 ## PREPROCESSING
@@ -86,6 +79,9 @@ rule all:
 rule download_fastq_files_R1:
     output: 
         r1="inputs/raw/{sample}_1.fastq.gz",
+    threads: 1
+    resources:
+        mem_mb=1000
     run:
         row = m.loc[m['run_accession'] == wildcards.sample]
         fastq_1 = row['fastq_ftp_1'].values
@@ -96,6 +92,9 @@ rule download_fastq_files_R1:
 rule download_fastq_files_R2:
     output:
         r2="inputs/raw/{sample}_2.fastq.gz"
+    threads: 1
+    resources:
+        mem_mb=1000
     run:
         row = m.loc[m['run_accession'] == wildcards.sample]
         fastq_2 = row['fastq_ftp_2'].values
@@ -106,6 +105,9 @@ rule download_fastq_files_R2:
 rule cat_libraries_R1:
     input: expand("inputs/raw/{sample}_1.fastq.gz", sample = SAMPLES)
     output: expand("inputs/cat/{library}_1.fastq.gz", library = LIBRARIES)
+    threads: 1
+    resources:
+        mem_mb=4000
     run: 
         merge_df = m[['library_name','run_accession']]
         merge_df = copy.deepcopy(merge_df)
@@ -126,6 +128,9 @@ rule cat_libraries_R1:
 rule cat_libraries_R2:
     input: expand("inputs/raw/{sample}_2.fastq.gz", sample = SAMPLES)
     output: expand("inputs/cat/{library}_2.fastq.gz", library = LIBRARIES)
+    threads: 1
+    resources:
+        mem_mb=4000
     run: 
         merge_df = m[['library_name','run_accession']]
         merge_df = copy.deepcopy(merge_df)
@@ -154,6 +159,9 @@ rule adapter_trim_files:
         o1 = 'outputs/trim/{library}_o1.trim.fq.gz',
         o2 = 'outputs/trim/{library}_o2.trim.fq.gz'
     conda: 'envs/env.yml'
+    threads: 1
+    resources:
+        mem_mb=8000
     shell:'''
      trimmomatic PE {input.r1} {input.r2} \
              {output.r1} {output.o1} {output.r2} {output.o2} \
@@ -169,6 +177,9 @@ rule cutadapt_files:
         r1 = 'outputs/cut/{library}_R1.cut.fq.gz',
         r2 = 'outputs/cut/{library}_R2.cut.fq.gz',
     conda: 'envs/env2.yml'
+    threads: 1
+    resources:
+        mem_mb=8000
     shell:'''
     cutadapt -a AGATCGGAAGAG -A AGATCGGAAGAG -o {output.r1} -p {output.r2} {input.r1} {input.r2}
     '''
@@ -181,6 +192,9 @@ rule fastqc:
         r1 = 'outputs/fastqc/{library}_R1.cut_fastqc.html',
         r2 = 'outputs/fastqc/{library}_R2.cut_fastqc.html'
     conda: 'envs/env2.yml'
+    threads: 1
+    resources:
+        mem_mb=4000
     shell:'''
     fastqc -o outputs/fastqc {input} 
     '''
@@ -197,6 +211,9 @@ rule remove_host:
         r1 = 'outputs/cut/{library}_R1.cut.fq.gz',
         r2 = 'outputs/cut/{library}_R2.cut.fq.gz',
         human='inputs/host/hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz'
+    threads: 1
+    resources:
+        mem_mb=64000
     conda: 'envs/env.yml'
     shell:'''
     bbduk.sh -Xmx64g t=3 in={input.r1} in2={input.r2} out={output.r1} out2={output.r2} outm={output.human_r1} outm2={output.human_r2} k=31 ref={input.human}
@@ -208,6 +225,9 @@ rule kmer_trim_reads:
         'outputs/bbduk/{library}_R2.nohost.fq.gz'
     output: "outputs/abundtrim/{library}.abundtrim.fq.gz"
     conda: 'envs/env.yml'
+    threads: 1
+    resources:
+        mem_mb=64000
     shell:'''
     interleave-reads.py {input} | trim-low-abund.py --gzip -C 3 -Z 18 -M 60e9 -V - -o {output}
     '''
@@ -216,6 +236,9 @@ rule fastp_trimmed_reads:
     input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: "outputs/fastp_abundtrim/{library}.abundtrim.fastp.json"
     conda: "envs/fastp.yml"
+    threads: 1
+    resources:
+        mem_mb=4000
     shell:'''
     fastp -i {input} --interleaved_in -j {output}
     '''
@@ -227,6 +250,9 @@ rule multiqc_fastp:
         indir = "outputs/fastp_abundtrim",
         outdir = "outputs/fastp_abundtrim"
     conda: "envs/multiqc.yml"
+    threads: 1
+    resources:
+        mem_mb=4000
     shell:'''
     multiqc {params.indir} -o {params.outdir} 
     '''
@@ -235,6 +261,9 @@ rule compute_signatures:
     input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: "outputs/sigs/{library}.sig"
     conda: 'envs/env.yml'
+    threads: 1
+    resources:
+        mem_mb=2000
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} {input}
     '''
@@ -524,6 +553,54 @@ rule loo_validation:
     script: "scripts/tune_rf.R"
 
 
+########################################################################
+## Random forests & optimization -- validate results by switching seeds
+########################################################################
+
+rule vita_var_sel_rf_seed:
+    input:
+        info = "inputs/working_metadata.tsv", 
+        feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
+        pomona = "outputs/vita_rf/pomona_install.txt"
+    output:
+        vita_rf = "outputs/vita_rf_seed/{study}_vita_rf_seed{seed}.RDS",
+        vita_vars = "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt",
+        ibd_filt = "outputs/vita_rf_seed/{study}_ibd_filt_seed{seed}.csv"
+    resources:
+         mem_mb=64000
+    threads: 32
+    params: 
+        threads = 32,
+        validation_study = "{study}"
+    conda: 'envs/rf.yml'
+    script: "scripts/vita_rf_seed.R"
+
+rule loo_validation_seed:
+    input: 
+        ibd_filt = 'outputs/vita_rf_seed/{study}_ibd_filt_seed{seed}.csv',
+        info = 'inputs/working_metadata.tsv',
+        eval_model = 'scripts/function_evaluate_model.R',
+        ggconfusion = 'scripts/ggplotConfusionMatrix.R'
+    output: 
+        recommended_pars = 'outputs/optimal_rf_seed/{study}_rec_pars_seed{seed}.tsv',
+        optimal_rf = 'outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS',
+        training_accuracy = 'outputs/optimal_rf_seed/{study}_training_acc_seed{seed}.csv',
+        training_confusion = 'outputs/optimal_rf_seed/{study}_training_confusion_seed{seed}.pdf',
+        validation_accuracy = 'outputs/optimal_rf_seed/{study}_validation_acc_seed{seed}.csv',
+        validation_confusion = 'outputs/optimal_rf_seed/{study}_validation_confusion_seed{seed}.pdf'
+    resources:
+        mem_mb = 16000
+    threads: 20
+    params:
+        threads = 20,
+        validation_study = "{study}"
+    conda: 'envs/tuneranger.yml'
+    script: "scripts/tune_rf_seed.R"
+
+
+############################################
+## Predictive hash characterization - gather
+############################################
 ############################################
 ## Predictive hash characterization - gather
 ############################################
