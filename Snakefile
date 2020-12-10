@@ -680,6 +680,9 @@ rule gather_vita_vars_genbank:
         matches="outputs/gather/{study}_vita_vars_genbank.matches",
         un="outputs/gather/{study}_vita_vars_genbank.un"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 128000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
@@ -697,11 +700,14 @@ rule gather_vita_vars_refseq:
         matches="outputs/gather/{study}_vita_vars_refseq.matches",
         un="outputs/gather/{study}_vita_vars_refseq.un"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 128000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
-# TR TODO: SUMMARIZE TO SPECIES?
+# TR TODO: SUMMARIZE TO SPECIES
 
 ###################################################
 # Predictive hash characterization -- shared hashes
@@ -715,6 +721,9 @@ rule at_least_5_of_6_hashes:
     input: expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY)
     output: at_least_5 = "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
     conda: 'envs/ggplot.yml'
+    resources:
+        mem_mb = 2000
+    threads: 1
     script: 'scripts/at_least_5_studies.R'
 
 
@@ -725,6 +734,9 @@ rule at_least_5_of_6_sig:
    input: "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
    output: "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 2000
+    threads: 1
    shell:'''
    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
    '''
@@ -746,6 +758,9 @@ rule at_least_5_of_6_gather:
         matches="outputs/gather/at_least_5_studies_vita_vars.matches",
         un="outputs/gather/at_least_5_studies_vita_vars.un"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 128000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
@@ -754,6 +769,9 @@ rule compare_at_least_5_of_6_sigs:
     input: "outputs/gather/at_least_5_studies_vita_vars.matches",
     output: "outputs/comp_loso/comp_jaccard"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:''' 
     sourmash compare --ignore-abundance -k 31 -o {output} {input}
     '''
@@ -763,6 +781,9 @@ rule plot_at_least_5_of_6_sigs:
     output: "outputs/comp_loso/comp_jaccard.matrix.pdf"
     params: out_dir = "outputs/comp_loso"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     shell:'''
     sourmash plot --pdf --labels --output-dir {params.out_dir} {input} 
     '''
@@ -773,6 +794,9 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars:
         sigs = "outputs/gather/at_least_5_studies_vita_vars.matches",
         gather = "outputs/gather/at_least_5_studies_vita_vars.csv",
     output: "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv"
+    resources:
+        mem_mb = 8000
+    threads: 1
     run:
         files = input.sigs
          # load in all signatures that had gather matches and generate a list of all hashes 
@@ -831,6 +855,7 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars:
 # Spacegraphcats Genome Queries
 #############################################
 
+# TR TODO: REPLACE WITH GENOME-GRIST
 rule download_gather_match_genomes:
     output: "outputs/gather/gather_genomes_loso.tar.gz"
     shell:'''
@@ -858,6 +883,9 @@ rule spacegraphcats_gather_matches:
         "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
+    resources:
+        mem_mb = 64000
+    threads: 1
     shell:'''
     spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
@@ -868,14 +896,16 @@ rule prokka_gather_match_genomes:
         faa = 'outputs/gather_matches_loso_prokka/{gather_genome}.faa'
     input: 'outputs/gather_matches_loso/{gather_genome}.gz'
     conda: 'envs/prokka.yml'
+    resources:
+        mem_mb = 8000
+    threads: 2
     params: 
         outdir = 'outputs/gather_matches_loso_prokka/',
         prefix = lambda wildcards: wildcards.gather_genome[0:25],
-        threads = 2,
         gzip = lambda wildcards: "outputs/gather_matches_loso/" + wildcards.gather_genome
     shell:'''
     gunzip {input}
-    prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {params.threads} --centre X --compliant
+    prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {threads} --centre X --compliant
     mv {params.prefix}.ffn {output.ffn}
     mv {params.prefix}.faa {output.faa}
     gzip {params.gzip}
@@ -893,6 +923,9 @@ rule spacegraphcats_multifasta:
         outdir = "outputs/sgc_genome_queries",
         #out = lambda wildcards: wildcards.library + "_k31_r1_multifasta/query-results.csv"
     conda: "envs/spacegraphcats_multifasta.yml"
+    resources:
+        mem_mb = 32000
+    threads: 1
     shell:'''
     python -m spacegraphcats {input.conf} multifasta_query --nolock --outdir {params.outdir}
     '''
@@ -908,6 +941,9 @@ rule calc_sig_nbhd_reads:
     output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     params: name = lambda wildcards: wildcards.library + "_" + wildcards.gather_genome
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 2000
+    threads: 1
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {params.name} {input}
     '''
@@ -916,6 +952,9 @@ rule nbhd_read_sig_to_csv:
     input: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     output: "outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 2000
+    threads: 1
     shell:'''
     python scripts/sig_to_csv.py {input} {output}
     '''
@@ -924,6 +963,9 @@ rule index_sig_nbhd_reads:
     input: expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
     output: "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 2000
+    threads: 1
     shell:'''
     sourmash index -k 31 {output} --traverse-directory outputs/nbhd_read_sigs
     '''
@@ -936,6 +978,9 @@ rule gather_vita_vars_study_against_nbhd_read_sigs:
         csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
         un="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.un"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 32000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 --threshold-bp 0 -k 31 {input.sig} {input.db}
     '''
@@ -944,6 +989,9 @@ rule merge_sgc_sigs_to_pangenome:
     input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{gather_genome}}.gz.contigs.sig", library = LIBRARIES)
     output: "outputs/sgc_pangenome_sigs/{gather_genome}.sig"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     sourmash signature merge -o {output} -k 31 {input}
     '''
@@ -952,6 +1000,9 @@ rule rename_sgc_pangenome_sigs:
     input: "outputs/sgc_pangenome_sigs/{gather_genome}.sig"
     output: "outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000
+    threads: 1
     shell:'''
     sourmash sig rename -o {output} {input} {wildcards.gather_genome}_pangenome
     '''
@@ -960,6 +1011,9 @@ rule compare_sgc_pangenome_sigs:
     input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
     output: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     sourmash compare -o {output} --ignore-abundance {input}
     '''
@@ -968,6 +1022,9 @@ rule plot_sgc_pangenome_sigs:
     input: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
     output: "outputs/sgc_pangenome_compare/pangenome_compare.comp.matrix.pdf"
     conda:"envs/sourmash.yml"
+    resources:
+        mem_mb = 4000
+    threads: 1
     shell:'''
     sourmash plot --labels {input}
     '''
@@ -976,6 +1033,9 @@ rule compare_sgc_pangenome_sigs_csv:
     input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
     output: "outputs/sgc_pangenome_compare/pangenome_compare.csv"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     sourmash compare --csv {output} --ignore-abundance {input}
     '''
@@ -984,6 +1044,9 @@ rule index_sgc_pangenome_sigs:
     input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
     output: "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 32000
+    threads: 1
     shell:'''
     sourmash index -k 31 {output} {input}
     '''
@@ -996,6 +1059,9 @@ rule gather_vita_vars_study_against_sgc_pangenome_sigs:
         csv="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv",
         un="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.un"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     sourmash gather --threshold-bp 0 -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
@@ -1013,6 +1079,9 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
         csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv",
         un="outputs/sgc_pangenome_gather/{study}_vita_vars_all.un"
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
@@ -1033,6 +1102,9 @@ rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
     output: 
         csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 128000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
@@ -1048,6 +1120,9 @@ rule at_least_5_of_6_gather_pangenome_sigs:
     output: 
         csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
     conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     sourmash gather -o {output.csv} --scaled 2000 -k 31 --threshold-bp 0 {input.sig} {input.db} 
     '''
@@ -1057,6 +1132,9 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
         sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
         gather="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
     output: "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv"
+    resources:
+        mem_mb = 16000
+    threads: 1
     run:
         import re
         files = input.sigs
@@ -1120,6 +1198,9 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
 rule combine_gather_match_genomes_prokka: 
     input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.faa", gather_genome = GATHER_GENOMES)
     output: "outputs/gather_matches_loso_prokka/all_gather_genome_matches.faa"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     cat {input} > {output}
     '''
@@ -1127,6 +1208,9 @@ rule combine_gather_match_genomes_prokka:
 rule combine_multifasta_results:
     input: expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES)
     output: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.csv"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     cat {input} > {output}
     '''
@@ -1135,6 +1219,9 @@ rule get_multifasta_query_gene_names:
     input: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.csv"
     output: names = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results-names.txt"
     conda: 'envs/tidy.yml'
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/get_multifasta_names.R"
 
 rule grab_multifasta_query_genes:
@@ -1143,6 +1230,9 @@ rule grab_multifasta_query_genes:
         names = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results-names.txt",
         faa = 'outputs/gather_matches_loso_prokka/all_gather_genome_matches.faa'
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 4000
+    threads: 1
     shell: '''
     scripts/extract-aaseq-matches.py {input.names} {input.faa} > {output}
     '''
@@ -1152,14 +1242,16 @@ rule eggnog_multifasta_query_genes:
         faa = "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.faa",
         db = "inputs/eggnog_db/eggnog.db"
     output: "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations"
-    params:
-        cpus = 8, 
+    resources:
+        mem_mb = 64000
+    threads: 8
+    params: 
         outdir = "outputs/gather_matches_loso_multifasta/",
         dbdir = "inputs/eggnog_db",
         out_prefix = "all-multifasta-query-results"
     conda: 'envs/eggnog.yml'
     shell:'''
-    emapper.py --cpu {params.cpus} -i {input.faa} --output {params.out_prefix} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
+    emapper.py --cpu {threads} -i {input.faa} --output {params.out_prefix} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
     '''
 
 ###########################################################
@@ -1170,6 +1262,9 @@ rule eggnog_multifasta_query_genes:
 rule rename_sgc_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz"
+    resources:
+        mem_mb = 4000
+    threads: 1
     shell:'''
     zcat {input} | awk '{{print (NR%4 == 1) ? "@1_" ++i : $0}}' | gzip -c > {output}
     '''
@@ -1178,14 +1273,19 @@ rule singlem_default_nbhd_reads:
     input: "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz"
     output: "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv"
     conda: "envs/singlem.yml"
-    params: threads = 2
+    resources:
+        mem_mb = 16000
+    threads: 2
     shell: '''
-    singlem pipe --sequences {input} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 || touch {output}
+    singlem pipe --sequences {input} --otu_table {output} --output_extras --threads {threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 || touch {output}
     touch {output} # creates output file for runs with no seq matches
     '''
 
 rule download_singlem_16s_pkg:
     output: "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg.tar.xz"
+    resources:
+        mem_mb = 1000
+    threads: 1
     shell:'''
     wget -O {output} https://github.com/wwood/singlem_extra_packages/raw/master/release1/4.40.2013_08_greengenes_97_otus.with_euks.spkg.tar.xz
     '''
@@ -1193,6 +1293,9 @@ rule download_singlem_16s_pkg:
 rule untar_singlem_16s_pkg:
     input:"inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg.tar.xz"
     output: "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
+    resources:
+        mem_mb = 1000
+    threads: 1
     params: outdir = "inputs/singlem"
     shell:'''
     tar xf {input} -C {params.outdir}
@@ -1204,11 +1307,13 @@ rule singlem_16s_nbhd_reads:
         pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
     output: "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv"
     conda: "envs/singlem.yml"
+    resources:
+        mem_mb = 16000
+    threads: 2
     params: 
-        threads = 2,
         pkg_dir = "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
     shell: '''
-    singlem pipe --sequences {input.seq} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 || touch {output}
+    singlem pipe --sequences {input.seq} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 || touch {output}
     touch {output}
     '''
 
@@ -1217,6 +1322,9 @@ rule combine_singlem_default:
         default = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
     output: res = "outputs/sgc_genome_queries_singlem/combined_default.tsv"
     conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     script: "scripts/parse_singlem_default.R"
 
 rule combine_singlem_16s:
@@ -1224,26 +1332,38 @@ rule combine_singlem_16s:
         s16 = expand("outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
     output: res = "outputs/sgc_genome_queries_singlem/combined_16s.tsv"
     conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/parse_singlem_16s.R"
 
 rule combine_singlem:
-   input: 
-       s16 = "outputs/sgc_genome_queries_singlem/combined_16s.tsv",
-       default = "outputs/sgc_genome_queries_singlem/combined_default.tsv"
-   output: res = "outputs/sgc_genome_queries_singlem/combined.tsv"
-   conda: "envs/tidy.yml"
-   script: "scripts/parse_singlem.R"
+    input: 
+        s16 = "outputs/sgc_genome_queries_singlem/combined_16s.tsv",
+        default = "outputs/sgc_genome_queries_singlem/combined_default.tsv"
+    output: res = "outputs/sgc_genome_queries_singlem/combined.tsv"
+    conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
+    script: "scripts/parse_singlem.R"
 
 rule singlem_to_counts:
     input:  res = "outputs/sgc_genome_queries_singlem/combined.tsv"
     output: counts = "outputs/sgc_genome_queries_singlem/singlem_counts.tsv"
     conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/make_singlem_counts.R"
 
 rule singlem_install_pomona:
     input: "outputs/sgc_genome_queries_singlem/combined.tsv"
     output:
         pomona = "outputs/singlem_vita_rf/pomona_install.txt"
+    resources:
+        mem_mb = 1000
+    threads: 1
     conda: 'envs/rf.yml'
     script: "scripts/install_pomona.R"
 
@@ -1256,6 +1376,9 @@ rule singlem_var_sel_rf:
         vita_rf = "outputs/singlem_vita_rf/{study}_vita_rf.RDS",
         vita_vars = "outputs/singlem_vita_rf/{study}_vita_vars.txt",
         ibd_filt = "outputs/singlem_vita_rf/{study}_ibd_filt.csv"
+    resources:
+        mem_mb = 64000
+    threads: 8
     params: 
         threads = 8,
         validation_study = "{study}"
@@ -1276,6 +1399,9 @@ rule singlem_loo_validation:
         training_confusion = 'outputs/singlem_optimal_rf/{study}_training_confusion.pdf',
         validation_accuracy = 'outputs/singlem_optimal_rf/{study}_validation_acc.csv',
         validation_confusion = 'outputs/singlem_optimal_rf/{study}_validation_confusion.pdf'
+    resources:
+        mem_mb = 8000
+    threads: 8
     params:
         threads = 8,
         validation_study = "{study}"
@@ -1286,6 +1412,9 @@ rule extract_singlem_read_names_default:
     input: singlem = "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv",
     output: reads = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default_names.txt" 
     conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/extract_singlem_read_names.R"
 
 rule extract_singlem_reads_default:
@@ -1294,6 +1423,9 @@ rule extract_singlem_reads_default:
         fq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
     output: "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default.fq",
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     shell:'''
     scripts/extract-aaseq-matches.py {input.names} {input.fq} > {output}
     '''
@@ -1302,6 +1434,9 @@ rule extract_singlem_read_names_16s:
     input: singlem = "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv",
     output: reads = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s_names.txt" 
     conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/extract_singlem_read_names.R"
 
 rule extract_singlem_reads_16s:
@@ -1309,6 +1444,9 @@ rule extract_singlem_reads_16s:
         names = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s_names.txt",
         fq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
     output: "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s.fq",
+    resources:
+        mem_mb = 8000
+    threads: 1
     conda: "envs/sourmash.yml"
     shell:'''
     scripts/extract-aaseq-matches.py {input.names} {input.fq} > {output}
@@ -1319,6 +1457,9 @@ rule combine_singlem_reads_per_lib:
         expand("outputs/sgc_genome_queries_singlem_reads/{{library}}/{gather_genome}_otu_default.fq", gather_genome = GATHER_GENOMES),
         expand("outputs/sgc_genome_queries_singlem_reads/{{library}}/{gather_genome}_otu_16s.fq", gather_genome = GATHER_GENOMES)
     output: "outputs/sgc_genome_queries_singlem_reads/{library}_singlem_reads.fq"
+    resources:
+        mem_mb = 8000
+    threads: 1
     shell:'''
     cat {input} > {output}
     '''
@@ -1327,6 +1468,9 @@ rule compute_signatures_singlem:
     input: "outputs/sgc_genome_queries_singlem_reads/{library}_singlem_reads.fq"
     output: "outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000
+    threads: 1
     shell:'''
     sourmash compute -k 31 --scaled 2000 -o {output} --track-abundance {input} || touch {output} 
     '''
@@ -1339,6 +1483,9 @@ rule diginorm_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
     output: "outputs/nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
     conda: "envs/env.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     normalize-by-median.py -k 20 -C 20 -M 16e9 --gzip -o {output} {input}
     '''
@@ -1346,6 +1493,9 @@ rule diginorm_nbhd_reads:
 rule cat_diginorm_nbhd_reads:
     input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.fa.gz", library = LIBRARIES)
     output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
+    resources:
+        mem_mb = 8000
+    threads: 1
     shell:'''
     cat {input} > {output}
     '''
@@ -1362,6 +1512,9 @@ rule compare_signatures_cosine:
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
     output: "outputs/comp/all_filt_comp_cosine.csv"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 32000
+    threads: 8
     shell:'''
     sourmash compare -k 31 -p 8 --csv {output} {input}
     '''
@@ -1371,6 +1524,9 @@ rule compare_signatures_jaccard:
         expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES),
     output: "outputs/comp/all_filt_comp_jaccard.csv"
     conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 32000
+    threads: 8
     shell:'''
     sourmash compare --ignore-abundance -k 31 -p 8 --csv {output} {input}
     '''
@@ -1383,6 +1539,9 @@ rule permanova_jaccard:
     output: 
         perm = "outputs/comp/all_filt_permanova_jaccard.csv"
     conda: "envs/vegan.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     script: "scripts/run_permanova.R"
 
 rule permanova_cosine:
@@ -1393,6 +1552,9 @@ rule permanova_cosine:
     output: 
         perm = "outputs/comp/all_filt_permanova_cosine.csv"
     conda: "envs/vegan.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     script: "scripts/run_permanova.R"
 
 rule plot_comp_jaccard:
@@ -1403,6 +1565,9 @@ rule plot_comp_jaccard:
         study = "outputs/comp/study_plt_all_filt_jaccard.pdf",
         diagnosis = "outputs/comp/diagnosis_plt_all_filt_jaccard.pdf"
     conda: "envs/ggplot.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/plot_comp.R"
 
 rule plot_comp_cosine:
@@ -1413,6 +1578,9 @@ rule plot_comp_cosine:
         study = "outputs/comp/study_plt_all_filt_cosine.pdf",
         diagnosis = "outputs/comp/diagnosis_plt_all_filt_cosine.pdf"
     conda: "envs/ggplot.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
     script: "scripts/plot_comp.R"
 
 ########################################################
@@ -1422,6 +1590,9 @@ rule plot_comp_cosine:
 rule install_complexupset:
     output: complexupset = "Rmd_figures/complexupset_installed.txt"
     conda: "envs/rmd.yml"
+    resources: 
+        mem_mb = 1000
+    threads: 1
     script: "scripts/install_complexupset.R"
 
 #rule make_figures:
@@ -1441,6 +1612,9 @@ rule install_complexupset:
 #        gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
 #    output: "snakemake_figure_rmd.html"
 #    conda: "envs/rmd.yml"
+#    resources:
+#        mem_mb = 16000
+#    threads: 1
 #    script: "snakemake_figure_rmd.Rmd"  
 
 
@@ -1461,6 +1635,9 @@ rule actually_make_figures:
         gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
     output: "figures_rmd.html"
     conda: "envs/rmd.yml"
+    resources:
+        mem_mb = 16000
+    threads: 1
     shell:'''
     Rscript -e "rmarkdown::render('figures_rmd.Rmd')"
     '''
