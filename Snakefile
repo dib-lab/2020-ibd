@@ -279,6 +279,9 @@ rule split_paired_reads_abundtrim:
         R1 = "outputs/abundtrim_split/{library}_R1.abundtrim.fq.gz",
         R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz"
     conda: "envs/env.yml"
+    threads: 1
+    resources:
+        mem_mb=4000
     shell:'''
     split-paired-reads.py -0 {output.O} -1 {output.R1} -2 {output.R2} --gzip {input}    
     '''
@@ -289,9 +292,11 @@ rule singlem_default_abundtrim:
         R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz"
     output: "outputs/abundtrim_singlem/{library}_otu_default.csv"
     conda: "envs/singlem.yml"
-    params: threads = 2
+    threads: 2
+    resources:
+        mem_mb=4000
     shell: '''
-    singlem pipe --forward {input.R1} --reverse {input.R2} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 #|| touch {output}
+    singlem pipe --forward {input.R1} --reverse {input.R2} --otu_table {output} --output_extras --threads {threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 #|| touch {output}
     touch {output} # creates output file for runs with no seq matches
     '''
 
@@ -301,11 +306,13 @@ rule singlem_16s_abundtrim_R1:
         pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
     output: "outputs/abundtrim_singlem/{library}_otu_16s_R1.csv"
     conda: "envs/singlem.yml"
+    threads: 2
+    resources:
+        mem_mb=4000
     params: 
-        threads = 2,
         pkg_dir = "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
     shell: '''
-    singlem pipe --sequences {input.R1} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 # || touch {output}
+    singlem pipe --sequences {input.R1} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 # || touch {output}
     touch {output}
     '''
 
@@ -315,11 +322,13 @@ rule singlem_16s_abundtrim_R2:
         pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
     output: "outputs/abundtrim_singlem/{library}_otu_16s_R2.csv"
     conda: "envs/singlem.yml"
+    threads: 2
+    resources:
+        mem_mb=4000
     params: 
-        threads = 2,
         pkg_dir = "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg"
     shell: '''
-    singlem pipe --sequences {input.R2} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {params.threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 # || touch {output}
+    singlem pipe --sequences {input.R2} --singlem_packages {params.pkg_dir} --otu_table {output} --output_extras --threads {threads} --filter_minimum_nucleotide 36 --min_orf_length 36 --filter_minimum_protein 12 # || touch {output}
     touch {output}
     '''
 
@@ -330,12 +339,18 @@ rule combine_singlem_abundtrim:
         s16_R2 = expand("outputs/abundtrim_singlem/{library}_otu_16s_R2.csv", library = LIBRARIES)
     output: res = "outputs/abundtrim_singlem/combined.tsv"
     conda: "envs/tidy.yml"
+    threads: 1
+    resources:
+        mem_mb=16000
     script: "scripts/parse_singlem_abundtrim.R"
 
 rule singlem_to_counts_abuntrim:
     input:  res = "outputs/abundtrim_singlem/combined.tsv"
     output: counts = "outputs/abundtrim_singlem/singlem_counts.tsv"
     conda: "envs/tidy.yml"
+    threads: 1
+    resources:
+        mem_mb=16000
     script: "scripts/make_singlem_counts_abundtrim.R"
 
 rule singlem_abundtrim_install_pomona:
@@ -343,6 +358,9 @@ rule singlem_abundtrim_install_pomona:
     output:
         pomona = "outputs/abundtrim_singlem_vita_rf/pomona_install.txt"
     conda: 'envs/rf.yml'
+    threads: 1
+    resources:
+        mem_mb=1000
     script: "scripts/install_pomona.R"
 
 rule singlem_abundtrim_var_sel_rf:
@@ -354,6 +372,9 @@ rule singlem_abundtrim_var_sel_rf:
         vita_rf = "outputs/abundtrim_singlem_vita_rf/{study}_vita_rf.RDS",
         vita_vars = "outputs/abundtrim_singlem_vita_rf/{study}_vita_vars.txt",
         ibd_filt = "outputs/abundtrim_singlem_vita_rf/{study}_ibd_filt.csv"
+    threads: 6
+    resources:
+        mem_mb=32000
     params: 
         threads = 6,
         validation_study = "{study}"
@@ -373,6 +394,9 @@ rule singlem_abundtrim_loo_validation:
         training_confusion = 'outputs/abundtrim_singlem_optimal_rf/{study}_training_confusion.pdf',
         validation_accuracy = 'outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv',
         validation_confusion = 'outputs/abundtrim_singlem_optimal_rf/{study}_validation_confusion.pdf'
+    threads: 6
+    resources:
+        mem_mb=8000
     params:
         threads = 6,
         validation_study = "{study}"
@@ -386,6 +410,9 @@ rule singlem_abundtrim_loo_validation:
 rule get_greater_than_1_filt_sigs:
     input: expand("outputs/sigs/{library}.sig", library = LIBRARIES) 
     output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
+    threads: 1
+    resources:
+        mem_mb=64000
     run:
         # Determine the number of hashes, the number of unique hashes, and the number of
         # hashes that occur once across 605 gut metagenomes. Calculated for a scaled of 2k. 
@@ -422,6 +449,9 @@ rule calc_total_hashes_sigs:
     """
     input: expand("outputs/sigs/{library}.sig", library = LIBRARIES)
     output: "outputs/filt_sig_hashes/count_total_hashes.txt"
+    threads: 1
+    resources:
+        mem_mb=32000
     run:
         files = input
         all_mins = set()
@@ -441,6 +471,9 @@ rule convert_greater_than_1_hashes_to_sig:
     input: "outputs/filt_sig_hashes/greater_than_one_count_hashes.txt"
     output: "outputs/filt_sig_hashes/greater_than_one_count_hashes.sig"
     conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=1000
     shell:'''
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name greater_than_one_count_hashes --filename {input} {input}
     '''
@@ -451,6 +484,9 @@ rule filter_signatures_to_greater_than_1_hashes:
         sigs = "outputs/sigs/{library}.sig"
     output: "outputs/filt_sigs/{library}_filt.sig"
     conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=1000
     shell:'''
     sourmash sig intersect -o {output} -A {input.sigs} -k 31 {input.sigs} {input.filt_sig}
     '''
@@ -459,6 +495,9 @@ rule name_filtered_sigs:
     input: "outputs/filt_sigs/{library}_filt.sig"
     output: "outputs/filt_sigs_named/{library}_filt_named.sig"
     conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=1000
     shell:'''
     sourmash sig rename -o {output} -k 31 {input} {wildcards.library}_filt
     '''
@@ -467,6 +506,9 @@ rule describe_filtered_sigs:
     input: expand("outputs/filt_sigs_named/{library}_filt_named.sig", library = LIBRARIES)
     output: "outputs/filt_sigs_named/sig_describe_filt_named_sig.csv"
     conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=1000
     shell:'''
     sourmash signature describe --csv {output} {input}
     '''
@@ -475,6 +517,9 @@ rule convert_greater_than_1_signatures_to_csv:
     input: "outputs/filt_sigs_named/{library}_filt_named.sig"
     output: "outputs/filt_sigs_named_csv/{library}_filt_named.csv"
     conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=2000
     shell:'''
     python scripts/sig_to_csv.py {input} {output}
     '''
@@ -484,11 +529,17 @@ rule make_hash_abund_table_long_normalized:
         expand("outputs/filt_sigs_named_csv/{library}_filt_named.csv", library = LIBRARIES)
     output: csv = "outputs/hash_tables/normalized_abund_hashes_long.csv"
     conda: 'envs/r.yml'
+    threads: 1
+    resources:
+        mem_mb=64000
     script: "scripts/normalized_hash_abund_long.R"
 
 rule make_hash_abund_table_wide:
     input: "outputs/hash_tables/normalized_abund_hashes_long.csv"
     output: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
+    threads: 1
+    resources:
+        mem_mb=300000
     run:
         import pandas as pd
         import feather
@@ -510,6 +561,9 @@ rule install_pomona:
     output:
         pomona = "outputs/vita_rf/pomona_install.txt"
     conda: 'envs/rf.yml'
+    threads: 1
+    resources:
+        mem_mb=1000
     script: "scripts/install_pomona.R"
 
 rule vita_var_sel_rf:
@@ -598,9 +652,6 @@ rule loo_validation_seed:
     script: "scripts/tune_rf_seed.R"
 
 
-############################################
-## Predictive hash characterization - gather
-############################################
 ############################################
 ## Predictive hash characterization - gather
 ############################################
