@@ -788,7 +788,6 @@ rule plot_at_least_5_of_6_sigs:
     sourmash plot --pdf --labels --output-dir {params.out_dir} {input} 
     '''
 
-# TR TODO: WRITTEN TO HAVE SEPARATE SIGS AS INPUT; ALL SIGS IN LIST NOW.
 rule create_hash_genome_map_at_least_5_of_6_vita_vars:
     input:
         sigs = "outputs/gather/at_least_5_studies_vita_vars.matches",
@@ -798,15 +797,14 @@ rule create_hash_genome_map_at_least_5_of_6_vita_vars:
         mem_mb = 8000
     threads: 1
     run:
-        files = input.sigs
-         # load in all signatures that had gather matches and generate a list of all hashes 
+        sigfp = open(file, 'rt')
+        siglist = list(sourmash.signature.load_signatures(sigfp))
+        # load in all signatures that had gather matches and generate a list of all hashes 
         all_mins = []
-        for file in files:
-            sigfp = open(file, 'rt')
-            siglist = list(signature.load_signatures(sigfp))
-            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
-            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
-            all_mins += mins # load all minhashes into a list
+        for i,sig in enumerate(siglist):
+            sig_tmp = siglist[i]
+            mins = sig_tmp.minhash.get_mins()
+            all_mins += mins
 
         # make all_mins a set
         all_mins = set(all_mins)
@@ -1127,6 +1125,8 @@ rule at_least_5_of_6_gather_pangenome_sigs:
     sourmash gather -o {output.csv} --scaled 2000 -k 31 --threshold-bp 0 {input.sig} {input.db} 
     '''
 
+# TR this might need to be updated to use *.matches instead of a list of sigs. 
+# See above code for implementation in rule create_hash_genome_map_at_least_5_of_6_vita_vars
 rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
     input:
         sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
