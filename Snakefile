@@ -1767,17 +1767,68 @@ rule diginorm_nbhd_reads:
     normalize-by-median.py -k 20 -C 20 -M 16e9 --gzip -o {output} {input}
     '''
 
-rule cat_diginorm_nbhd_reads:
-    input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.gz", library = LIBRARIES)
-    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.gz"
-    resources:
+# commented out bc concatenating diginormed reads led to really poor assembly.
+#rule cat_diginorm_nbhd_reads:
+#    input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.gz", library = LIBRARIES)
+#    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.gz"
+#    resources:
+#        mem_mb = 8000
+#    threads: 1
+#    shell:'''
+#    cat {input} > {output}
+#    '''
+
+# TR TODO: UPDATE MEGAHIT TO USE PAIRED-END READS
+rule megahit:
+    input: "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.gz"
+    output: "outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa"
+    conda: 'envs/assembly.yml'
+    resources: 
         mem_mb = 8000
-    threads: 1
+    threads: 2
     shell:'''
-    cat {input} > {output}
+    megahit -r {input} -t {threads} --min-contig-len 500 \
+        --out-dir {wildcards.library}_{wildcards.gather_genome}_megahit \
+        --out-prefix {wildcards.library}_{wildcards.gather_genome}
+    mv  {wildcards.library}_{wildcards.gather_genome}_megahit/{wildcards.library}_{wildcards.gather_genome}.contigs.fa {output}
+    rm -rf {wildcards.library}_{wildcards.gather_genome}_megahit
     '''
 
-# TR TODO: ADD MEGAHIT ASSEMBLE, ANNOTATE, CDHIT, SALMON
+# calculate percent of reads from each nbhd that map
+
+rule index:
+    input: genome = "megahit/{library}/{gather_genome}.contigs.fa"
+    output:  "megahit/{library}/{gather_genome}.contigs.fa.bwt"
+    conda: "envs/assembly.yml"
+    resources: mem_mb = 8000
+    threads: 1
+    shell:'''
+    bwa index {input}
+    '''
+
+rule bwa:
+    input: 
+        indx =  "megahit/{library}/{gather_genome}.contigs.fa.bwt",
+        genome = "megahit/{library}/{gather_genome}.contigs.fa",
+        reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+    output: "bwa/{library}/{gather_genome}.bam"
+    conda: "envs/assembly.yml"
+    resources: mem_mb = 3000
+    threads: 2
+    shell:'''
+    bwa mem -t {threads} {input.genome} {input.reads} | samtools sort -o {output} - || touch {output}
+    ''' 
+
+rule samtools_flagstat:
+    input: "bwa/{library}/{gather_genome}.bam"
+    output: "bwa/{library}/{gather_genome}.flagstat"
+    conda: "envs/assembly.yml"
+    resources: mem_mb = 2000
+    threads: 1
+    shell:'''
+    samtools flagstat {input} > {output} - || touch {output}
+    '''
+
 
 
 ########################################
