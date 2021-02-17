@@ -1057,7 +1057,6 @@ rule untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
-# TR TODO: FIGURE OUT NEW SGC FILE ENDINGS
 # TR TODO: UPDATE SPACEGRAPHCATS ENV
 rule spacegraphcats_gather_matches:
     input: 
@@ -1065,7 +1064,7 @@ rule spacegraphcats_gather_matches:
         conf = "inputs/sgc_conf/{library}_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz",
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz",
         "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.contigs.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
@@ -1123,7 +1122,7 @@ rule spacegraphcats_multifasta:
 # use default contig sigs output by sgc to start. 
 
 rule calc_sig_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz"
     output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     params: name = lambda wildcards: wildcards.library + "_" + wildcards.gather_genome
     conda: "envs/sourmash.yml"
@@ -1446,9 +1445,8 @@ rule eggnog_multifasta_query_genes:
 ## SingleM Ribosomal gene abundance validation: SGC NBHDS
 ###########################################################
 
-# TR TODO: UPDATE INPUT NAMES BASED ON NEW SGC OUTPUT
 rule rename_sgc_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz"
     output: "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz"
     resources:
         mem_mb = 4000
@@ -1759,8 +1757,8 @@ rule singlem_kmer_loo_validation:
 ##############################################
 
 rule diginorm_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
-    output: "outputs/nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz"
+    output: "outputs/nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.gz"
     conda: "envs/env.yml"
     resources:
         mem_mb = 16000
@@ -1770,8 +1768,8 @@ rule diginorm_nbhd_reads:
     '''
 
 rule cat_diginorm_nbhd_reads:
-    input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.fa.gz", library = LIBRARIES)
-    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.fa.gz"
+    input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.gz", library = LIBRARIES)
+    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.gz"
     resources:
         mem_mb = 8000
     threads: 1
