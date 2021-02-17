@@ -1780,7 +1780,7 @@ rule diginorm_nbhd_reads:
 
 # TR TODO: UPDATE MEGAHIT TO USE PAIRED-END READS
 rule megahit:
-    input: "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.gz"
+    input: "outputs/nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.gz"
     output: "outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa"
     conda: 'envs/assembly.yml'
     resources: 
@@ -1797,8 +1797,8 @@ rule megahit:
 # calculate percent of reads from each nbhd that map
 
 rule index:
-    input: genome = "megahit/{library}/{gather_genome}.contigs.fa"
-    output:  "megahit/{library}/{gather_genome}.contigs.fa.bwt"
+    input: genome = "outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa"
+    output:  "outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa.bwt"
     conda: "envs/assembly.yml"
     resources: mem_mb = 8000
     threads: 1
@@ -1806,12 +1806,13 @@ rule index:
     bwa index {input}
     '''
 
+# TR TODO: UPDATE TO PAIRED END
 rule bwa:
     input: 
-        indx =  "megahit/{library}/{gather_genome}.contigs.fa.bwt",
-        genome = "megahit/{library}/{gather_genome}.contigs.fa",
-        reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
-    output: "bwa/{library}/{gather_genome}.bam"
+        indx =  "outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa.bwt",
+        genome = "outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa",
+        reads =  "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz"
+    output: "outputs/nbhd_reads_diginorm_megahit_bwa/{library}/{gather_genome}.bam"
     conda: "envs/assembly.yml"
     resources: mem_mb = 3000
     threads: 2
@@ -1820,8 +1821,8 @@ rule bwa:
     ''' 
 
 rule samtools_flagstat:
-    input: "bwa/{library}/{gather_genome}.bam"
-    output: "bwa/{library}/{gather_genome}.flagstat"
+    input: "outputs/nbhd_reads_diginorm_megahit_bwa/{library}/{gather_genome}.bam"
+    output: "outputs/nbhd_reads_diginorm_megahit_bwa/{library}/{gather_genome}.flagstat"
     conda: "envs/assembly.yml"
     resources: mem_mb = 2000
     threads: 1
@@ -1829,7 +1830,75 @@ rule samtools_flagstat:
     samtools flagstat {input} > {output} - || touch {output}
     '''
 
+# check alignment to single assembly first; 
+# then use prokka to predict ORFs, 
+# cdhit ORF sequences,
+# and align all reads to pangenome sequence. 
+rule prokka_megahit:
+    output: 
+        ffn = 'outputs/nbhd_reads_diginorm_megahit_prokka/{library}/{gather_genome}.ffn',
+        faa = 'outputs/nbhd_reads_diginorm_megahit_prokka/{library}/{gather_genome}.faa'
+    input: 'outputs/nbhd_reads_diginorm_megahit/{library}/{gather_genome}.contigs.fa'
+    conda: 'envs/assembly.yml'
+    resources: mem_mb = 4000
+    threads: 2
+    params: 
+        output_folder = lambda wildcards: 'prokka/' + wildcards.library
+    shell:'''
+    prokka {input} --outdir {params.output_folder} --prefix {wildcards.gather_genome} --metagenome --force --locustag {wildcards.library} --cpus {threads} || touch {output.ffn}
+    touch {output.faa}
+    '''
 
+rule cat_prokka:
+    input: expand('outputs/nbhd_reads_diginorm_megahit_prokka/{library}/{{gather_genome}}.ffn', library = LIBRARIES)
+    output: 'outputs/nbhd_reads_diginorm_megahit_cat_prokka/{gather_genome}.ffn'
+    resources: mem_mb = 2000
+    threads: 1
+    shell:'''
+    cat {input} > {output}
+    '''
+
+rule cdhit:
+    input: 'outputs/nbhd_reads_diginorm_megahit_cat_prokka/{gather_genome}.ffn'
+    output: 'outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit/{gather_genome}.cdhit.ffn'
+    conda: 'envs/assembly.yml'
+    resources: mem_mb = 16000
+    threads: 2
+    shell:'''
+    cd-hit-est -i {input} -o {output} -c 0.9 -n 8 -d 200 -M 15500 -T {threads}
+    '''
+
+rule index_cdhit:
+    input: genome = "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit/{gather_genome}.cdhit.ffn"
+    output:  "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit/{gather_genome}.cdhit.ffn.bwt"
+    conda: "envs/assembly.yml"
+    resources: mem_mb = 2000
+    threads: 1
+    shell:'''
+    bwa index {input}
+    '''
+
+# TR TODO: UPDATE TO PAIRED-END?
+rule bwa_cdhit:
+    input: 
+        indx =  "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit/{gather_genome}.cdhit.ffn.bwt",
+        genome = "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit/{gather_genome}.cdhit.ffn",
+        reads =  "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz"
+    output: "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit_bwa/{library}/{gather_genome}.bam"
+    conda: "envs/assembly.yml"
+    threads: 2
+    resources: mem_mb = 2000
+    shell:'''
+    bwa mem -t {threads} {input.genome} {input.reads} | samtools sort -o {output} -
+    ''' 
+
+rule flagstat_cdhit:
+    input: "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit_bwa/{library}/{gather_genome}.bam"
+    output: "outputs/nbhd_reads_diginorm_megahit_cat_prokka_cdhit_bwa/{library}/{gather_genome}.flagstat"
+    conda: "envs/assembly.yml"
+    shell:'''
+    samtools flagstat {input} > {output}
+    '''
 
 ########################################
 ## PCoA
