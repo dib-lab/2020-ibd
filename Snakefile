@@ -924,9 +924,9 @@ rule at_least_5_of_6_sig:
    input: "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
    output: "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
    conda: "envs/sourmash.yml"
-    resources:
+   resources:
         mem_mb = 2000
-    threads: 1
+   threads: 1
    shell:'''
    python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
    '''
