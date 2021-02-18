@@ -810,7 +810,7 @@ rule vita_var_sel_rf_seed:
         ibd_filt = "outputs/vita_rf_seed/{study}_ibd_filt_seed{seed}.csv"
     resources:
         mem_mb=64000,
-        time_min=12960
+        runtime=12960
     threads: 32
     params: 
         threads = 32,
@@ -833,7 +833,7 @@ rule loo_validation_seed:
         validation_confusion = 'outputs/optimal_rf_seed/{study}_validation_confusion_seed{seed}.pdf'
     resources:
         mem_mb = 16000,
-        time_min=2880
+        runtime=2880
     threads: 20
     params:
         threads = 20,
