@@ -809,7 +809,8 @@ rule vita_var_sel_rf_seed:
         vita_vars = "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt",
         ibd_filt = "outputs/vita_rf_seed/{study}_ibd_filt_seed{seed}.csv"
     resources:
-         mem_mb=64000
+        mem_mb=64000,
+        time_min=12960
     threads: 32
     params: 
         threads = 32,
@@ -831,7 +832,8 @@ rule loo_validation_seed:
         validation_accuracy = 'outputs/optimal_rf_seed/{study}_validation_acc_seed{seed}.csv',
         validation_confusion = 'outputs/optimal_rf_seed/{study}_validation_confusion_seed{seed}.pdf'
     resources:
-        mem_mb = 16000
+        mem_mb = 16000,
+        time_min=2880
     threads: 20
     params:
         threads = 20,
@@ -1057,7 +1059,6 @@ rule untar_gather_match_genomes:
     tar xf {input} -C {params.outdir}
     '''
 
-# TR TODO: UPDATE SPACEGRAPHCATS ENV
 rule spacegraphcats_gather_matches:
     input: 
         query = "outputs/gather_matches_loso/{gather_genome}.gz", 
