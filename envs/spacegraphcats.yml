@@ -3,18 +3,17 @@ channels:
     - bioconda
     - defaults
 dependencies:
-    - bcalm=2.2.1
-    - snakemake-minimal=5.8.1
-    - cython=0.29.14
+    - bcalm=2.2.3
+    - snakemake-minimal=5.20.1
     - screed=1.0.1
-    - sourmash=3.1.0
     - khmer=3.0.0a3
-    - pandas=0.25.3
     - numpy=1.17.3
     - pytest=5.3.2
     - sortedcontainers=2.1.0
-    - mypy=0.750
+    - click=7.1.2
+    - pyflakes
+    - bbhash>=0.5.4
     - pip
     - pip:
-      - https://github.com/dib-lab/pybbhash/archive/spacegraphcats.zip
+      - sourmash==4.0.0a3
       - git+https://github.com/spacegraphcats/spacegraphcats@master
