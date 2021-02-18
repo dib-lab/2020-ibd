@@ -1595,7 +1595,7 @@ rule singlem_loo_validation:
     conda: 'envs/tuneranger.yml'
     script: "scripts/singlem_tune_rf.R"
 
-rule extract_singlem_read_names_default:
+rule extract_singlem_read_names_default_sgc:
     input: singlem = "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_default.csv",
     output: reads = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default_names.txt" 
     conda: "envs/tidy.yml"
@@ -1604,7 +1604,7 @@ rule extract_singlem_read_names_default:
     threads: 1
     script: "scripts/extract_singlem_read_names.R"
 
-rule extract_singlem_reads_default:
+rule extract_singlem_reads_default_sgc:
     input: 
         names = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_default_names.txt",
         fq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
@@ -1617,7 +1617,7 @@ rule extract_singlem_reads_default:
     scripts/extract-aaseq-matches.py {input.names} {input.fq} > {output}
     '''
 
-rule extract_singlem_read_names_16s:
+rule extract_singlem_read_names_16s_sgc:
     input: singlem = "outputs/sgc_genome_queries_singlem/{library}/{gather_genome}_otu_16s.csv",
     output: reads = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s_names.txt" 
     conda: "envs/tidy.yml"
@@ -1626,7 +1626,7 @@ rule extract_singlem_read_names_16s:
     threads: 1
     script: "scripts/extract_singlem_read_names.R"
 
-rule extract_singlem_reads_16s:
+rule extract_singlem_reads_16s_sgc:
     input: 
         names = "outputs/sgc_genome_queries_singlem_reads/{library}/{gather_genome}_otu_16s_names.txt",
         fq = "outputs/sgc_genome_queries_renamed/{library}/{gather_genome}_renamed.fastq.gz",
@@ -1639,7 +1639,7 @@ rule extract_singlem_reads_16s:
     scripts/extract-aaseq-matches.py {input.names} {input.fq} > {output}
     '''
 
-rule combine_singlem_reads_per_lib:
+rule combine_singlem_reads_per_lib_sgc:
     input:
         expand("outputs/sgc_genome_queries_singlem_reads/{{library}}/{gather_genome}_otu_default.fq", gather_genome = GATHER_GENOMES),
         expand("outputs/sgc_genome_queries_singlem_reads/{{library}}/{gather_genome}_otu_16s.fq", gather_genome = GATHER_GENOMES)
@@ -1653,7 +1653,7 @@ rule combine_singlem_reads_per_lib:
 
 ## run random forests on signatures of singlem output ###########################
   
-rule compute_signatures_singlem:
+rule compute_signatures_singlem_sgc:
     input: "outputs/sgc_genome_queries_singlem_reads/{library}_singlem_reads.fq"
     output: "outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig"
     conda: "envs/sourmash.yml"
@@ -1664,7 +1664,7 @@ rule compute_signatures_singlem:
     sourmash compute -k 31 --scaled 2000 -o {output} --track-abundance {input} || touch {output} 
     '''
 
-rule convert_greater_than_1_signatures_to_csv_singlem:
+rule convert_greater_than_1_signatures_to_csv_singlem_sgc:
     input: "outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig"
     output: "outputs/sgc_genome_queries_singlem_kmer_csv/{library}_singlem_reads.csv"
     conda: 'envs/sourmash.yml'
@@ -1675,7 +1675,7 @@ rule convert_greater_than_1_signatures_to_csv_singlem:
     python scripts/sig_to_csv.py {input} {output} || touch {output}
     '''
 
-rule make_hash_abund_table_long_normalized_singlem:
+rule make_hash_abund_table_long_normalized_singlem_sgc:
     input: 
         expand("outputs/sgc_genome_queries_singlem_kmer_csv/{library}_singlem_reads.csv", library = LIBRARIES)
     output: csv = "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_long.csv"
@@ -1685,7 +1685,7 @@ rule make_hash_abund_table_long_normalized_singlem:
     threads: 1
     script: "scripts/normalized_hash_abund_long_singlem.R"
 
-rule make_hash_abund_table_wide_singlem:
+rule make_hash_abund_table_wide_singlem_sgc:
     input: "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_long.csv"
     output: "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather"
     resources: 
@@ -1703,7 +1703,7 @@ rule make_hash_abund_table_wide_singlem:
         ibd_wide.columns = ibd_wide.columns.astype(str)
         ibd_wide.to_feather(str(output)) 
 
-rule singlem_kmer_install_pomona:
+rule singlem_kmer_install_pomona_sgc:
     input: "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather"
     output:
         pomona = "outputs/sgc_genome_queries_singlem_kmer_vita_rf/pomona_install.txt"
@@ -1713,7 +1713,7 @@ rule singlem_kmer_install_pomona:
     threads: 1
     script: "scripts/install_pomona.R"
 
-rule singlem_kmer_vita_var_sel_rf:
+rule singlem_kmer_vita_var_sel_rf_sgc:
     input:
         info = "inputs/working_metadata.tsv", 
         feather = "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather",
@@ -1731,7 +1731,7 @@ rule singlem_kmer_vita_var_sel_rf:
     conda: 'envs/rf.yml'
     script: "scripts/singlem_kmer_vita_rf.R"
 
-rule singlem_kmer_loo_validation:
+rule singlem_kmer_loo_validation_sgc:
     input: 
         ibd_filt = 'outputs/sgc_genome_queries_singlem_kmer_vita_rf/{study}_ibd_filt.csv',
         info = 'inputs/working_metadata.tsv',
