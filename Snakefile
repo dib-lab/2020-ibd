@@ -501,7 +501,7 @@ rule compute_signatures_singlem:
     sourmash compute -k 31 --scaled 2000 -o {output} --track-abundance {input} || touch {output} 
     '''
 
-rule convert_greater_than_1_signatures_to_csv:
+rule convert_greater_than_1_signatures_to_csv_abundtrim:
     input: "outputs/abundtrim_singlem_sigs/{library}_singlem_reads.sig"
     output: "outputs/abundtrim_singlem_kmer_csv/{library}_singlem_reads.csv"
     conda: 'envs/sourmash.yml'
