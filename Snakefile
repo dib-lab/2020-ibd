@@ -1664,7 +1664,7 @@ rule compute_signatures_singlem:
     sourmash compute -k 31 --scaled 2000 -o {output} --track-abundance {input} || touch {output} 
     '''
 
-rule convert_greater_than_1_signatures_to_csv:
+rule convert_greater_than_1_signatures_to_csv_singlem:
     input: "outputs/sgc_genome_queries_singlem_sigs/{library}_singlem_reads.sig"
     output: "outputs/sgc_genome_queries_singlem_kmer_csv/{library}_singlem_reads.csv"
     conda: 'envs/sourmash.yml'
@@ -1675,7 +1675,7 @@ rule convert_greater_than_1_signatures_to_csv:
     python scripts/sig_to_csv.py {input} {output} || touch {output}
     '''
 
-rule make_hash_abund_table_long_normalized:
+rule make_hash_abund_table_long_normalized_singlem:
     input: 
         expand("outputs/sgc_genome_queries_singlem_kmer_csv/{library}_singlem_reads.csv", library = LIBRARIES)
     output: csv = "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_long.csv"
@@ -1685,7 +1685,7 @@ rule make_hash_abund_table_long_normalized:
     threads: 1
     script: "scripts/normalized_hash_abund_long_singlem.R"
 
-rule make_hash_abund_table_wide:
+rule make_hash_abund_table_wide_singlem:
     input: "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_long.csv"
     output: "outputs/sgc_genome_queries_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather"
     resources: 
