@@ -809,7 +809,7 @@ rule vita_var_sel_rf_seed:
         vita_vars = "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt",
         ibd_filt = "outputs/vita_rf_seed/{study}_ibd_filt_seed{seed}.csv"
     resources:
-        mem_mb=128000,
+        mem_mb=256000,
         runtime=12960
     threads: 32
     params: 
