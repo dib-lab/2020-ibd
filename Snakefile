@@ -7,7 +7,7 @@ import glob
 import os
 from collections import Counter
 
-SEED = [2, 3, 4, 5, 6]
+SEED = [1, 2, 3, 4, 5, 6]
 
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
@@ -48,7 +48,6 @@ rule all:
         "outputs/comp/diagnosis_plt_all_filt_cosine.pdf",
         # VARIABLE SELECTION & RF OUTPUTS:
         "outputs/filt_sig_hashes/count_total_hashes.txt",
-        expand('outputs/optimal_rf/{study}_optimal_rf.RDS', study = STUDY),
         expand('outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS', study = STUDY, seed = SEED),
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
@@ -747,63 +746,18 @@ rule make_hash_abund_table_wide:
 rule install_pomona:
     input: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
     output:
-        pomona = "outputs/vita_rf/pomona_install.txt"
+        pomona = "outputs/vita_rf_seed/pomona_install.txt"
     conda: 'envs/rf.yml'
     threads: 1
     resources:
         mem_mb=1000
     script: "scripts/install_pomona.R"
 
-rule vita_var_sel_rf:
-    input:
-        info = "inputs/working_metadata.tsv", 
-        feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
-        pomona = "outputs/vita_rf/pomona_install.txt"
-    output:
-        vita_rf = "outputs/vita_rf/{study}_vita_rf.RDS",
-        vita_vars = "outputs/vita_rf/{study}_vita_vars.txt",
-        ibd_filt = "outputs/vita_rf/{study}_ibd_filt.csv"
-    resources:
-         mem_mb=64000
-    threads: 32
-    params: 
-        threads = 32,
-        validation_study = "{study}"
-    conda: 'envs/rf.yml'
-    script: "scripts/vita_rf.R"
-
-rule loo_validation:
-    input: 
-        ibd_filt = 'outputs/vita_rf/{study}_ibd_filt.csv',
-        info = 'inputs/working_metadata.tsv',
-        eval_model = 'scripts/function_evaluate_model.R',
-        ggconfusion = 'scripts/ggplotConfusionMatrix.R'
-    output: 
-        recommended_pars = 'outputs/optimal_rf/{study}_rec_pars.tsv',
-        optimal_rf = 'outputs/optimal_rf/{study}_optimal_rf.RDS',
-        training_accuracy = 'outputs/optimal_rf/{study}_training_acc.csv',
-        training_confusion = 'outputs/optimal_rf/{study}_training_confusion.pdf',
-        validation_accuracy = 'outputs/optimal_rf/{study}_validation_acc.csv',
-        validation_confusion = 'outputs/optimal_rf/{study}_validation_confusion.pdf'
-    resources:
-        mem_mb = 16000
-    threads: 20
-    params:
-        threads = 20,
-        validation_study = "{study}"
-    conda: 'envs/tuneranger.yml'
-    script: "scripts/tune_rf.R"
-
-
-########################################################################
-## Random forests & optimization -- validate results by switching seeds
-########################################################################
-
 rule vita_var_sel_rf_seed:
     input:
         info = "inputs/working_metadata.tsv", 
         feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
-        pomona = "outputs/vita_rf/pomona_install.txt"
+        pomona = "outputs/vita_rf_seed/pomona_install.txt"
     output:
         vita_rf = "outputs/vita_rf_seed/{study}_vita_rf_seed{seed}.RDS",
         vita_vars = "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt",
@@ -847,8 +801,8 @@ rule loo_validation_seed:
 ############################################
 
 rule convert_vita_vars_to_sig:
-    input: "outputs/vita_rf/{study}_vita_vars.txt"
-    output: "outputs/vita_rf/{study}_vita_vars.sig"
+    input: "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt"
+    output: "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig"
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 1000
@@ -859,16 +813,16 @@ rule convert_vita_vars_to_sig:
 
 rule gather_vita_vars_genbank:
     input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
         db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
         db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
         db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
-        csv="outputs/gather/{study}_vita_vars_genbank.csv",
-        matches="outputs/gather/{study}_vita_vars_genbank.matches",
-        un="outputs/gather/{study}_vita_vars_genbank.un"
+        csv="outputs/gather/{study}_vita_vars_genbank_seed{seed}.csv",
+        matches="outputs/gather/{study}_vita_vars_genbank_seed{seed}.matches",
+        un="outputs/gather/{study}_vita_vars_genbank_seed{seed}.un"
     conda: 'envs/sourmash.yml'
     resources:
         mem_mb = 128000
@@ -879,16 +833,16 @@ rule gather_vita_vars_genbank:
 
 rule gather_vita_vars_refseq:
     input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db1="/home/irber/sourmash_databases/outputs/sbt/refseq-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/refseq-viral-x1e6-k31.sbt.zip",
         db3="/home/irber/sourmash_databases/outputs/sbt/refseq-archaea-x1e6-k31.sbt.zip",
         db4="/home/irber/sourmash_databases/outputs/sbt/refseq-fungi-x1e6-k31.sbt.zip",
         db5="/home/irber/sourmash_databases/outputs/sbt/refseq-protozoa-x1e6-k31.sbt.zip",
     output: 
-        csv="outputs/gather/{study}_vita_vars_refseq.csv",
-        matches="outputs/gather/{study}_vita_vars_refseq.matches",
-        un="outputs/gather/{study}_vita_vars_refseq.un"
+        csv="outputs/gather/{study}_vita_vars_refseq_seed{seed}.csv",
+        matches="outputs/gather/{study}_vita_vars_refseq_seed{seed}.matches",
+        un="outputs/gather/{study}_vita_vars_refseq_seed{seed}.un"
     conda: 'envs/sourmash.yml'
     resources:
         mem_mb = 128000
