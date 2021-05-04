@@ -50,8 +50,8 @@ rule all:
         "outputs/filt_sig_hashes/count_total_hashes.txt",
         expand('outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS', study = STUDY, seed = SEED),
         # VARIABLE CHARACTERIZATION OUTPUTS:
-        expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
-        expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
+        expand("outputs/gather/{study}_vita_vars_refseq_seed{seed}.csv", study = STUDY, seed = SEED),
+        expand("outputs/gather/{study}_vita_vars_genbank_seed{seed}.csv", study = STUDY, seed = SEED),
         "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
         # SPACEGRAPHCATS OUTPUTS:
         expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
