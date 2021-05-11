@@ -67,10 +67,10 @@ rule all:
         "figures_rmd.html",
         "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
         # SINGLEM OUTPUTS:
-        expand('outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
+        expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         expand('outputs/sgc_genome_queries_singlem_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY),
-        expand('outputs/abundtrim_singlem_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY)
+        expand('outputs/singlem_abundtrim_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY)
 
 ########################################
 ## PREPROCESSING
@@ -290,7 +290,7 @@ rule singlem_default_abundtrim:
     input: 
         R1 = "outputs/abundtrim_split/{library}_R1.abundtrim.fq.gz",
         R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz"
-    output: "outputs/abundtrim_singlem/{library}_otu_default.csv"
+    output: "outputs/singlem_abundtrim/{library}_otu_default.csv"
     conda: "envs/singlem.yml"
     threads: 2
     resources:
@@ -304,7 +304,7 @@ rule singlem_16s_abundtrim_R1:
     input: 
         R1 = "outputs/abundtrim_split/{library}_R1.abundtrim.fq.gz",
         pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
-    output: "outputs/abundtrim_singlem/{library}_otu_16s_R1.csv"
+    output: "outputs/singlem_abundtrim/{library}_otu_16s_R1.csv"
     conda: "envs/singlem.yml"
     threads: 2
     resources:
@@ -320,7 +320,7 @@ rule singlem_16s_abundtrim_R2:
     input: 
         R2 = "outputs/abundtrim_split/{library}_R2.abundtrim.fq.gz",
         pkg =  "inputs/singlem/4.40.2013_08_greengenes_97_otus.with_euks.spkg/CONTENTS.json"
-    output: "outputs/abundtrim_singlem/{library}_otu_16s_R2.csv"
+    output: "outputs/singlem_abundtrim/{library}_otu_16s_R2.csv"
     conda: "envs/singlem.yml"
     threads: 2
     resources:
@@ -334,10 +334,10 @@ rule singlem_16s_abundtrim_R2:
 
 rule combine_singlem_abundtrim:
     input:
-        default = expand("outputs/abundtrim_singlem/{library}_otu_default.csv", library = LIBRARIES),
-        s16_R1 = expand("outputs/abundtrim_singlem/{library}_otu_16s_R1.csv", library = LIBRARIES),
-        s16_R2 = expand("outputs/abundtrim_singlem/{library}_otu_16s_R2.csv", library = LIBRARIES)
-    output: res = "outputs/abundtrim_singlem/combined.tsv"
+        default = expand("outputs/singlem_abundtrim/{library}_otu_default.csv", library = LIBRARIES),
+        s16_R1 = expand("outputs/singlem_abundtrim/{library}_otu_16s_R1.csv", library = LIBRARIES),
+        s16_R2 = expand("outputs/singlem_abundtrim/{library}_otu_16s_R2.csv", library = LIBRARIES)
+    output: res = "outputs/singlem_abundtrim/combined.tsv"
     conda: "envs/tidy.yml"
     threads: 1
     resources:
@@ -345,8 +345,8 @@ rule combine_singlem_abundtrim:
     script: "scripts/parse_singlem_abundtrim.R"
 
 rule singlem_to_counts_abuntrim:
-    input:  res = "outputs/abundtrim_singlem/combined.tsv"
-    output: counts = "outputs/abundtrim_singlem/singlem_counts.tsv"
+    input:  res = "outputs/singlem_abundtrim/combined.tsv"
+    output: counts = "outputs/singlem_abundtrim/singlem_counts.tsv"
     conda: "envs/tidy.yml"
     threads: 1
     resources:
@@ -354,9 +354,9 @@ rule singlem_to_counts_abuntrim:
     script: "scripts/make_singlem_counts_abundtrim.R"
 
 rule singlem_abundtrim_install_pomona:
-    input: "outputs/abundtrim_singlem/combined.tsv"
+    input: "outputs/singlem_abundtrim/combined.tsv"
     output:
-        pomona = "outputs/abundtrim_singlem_vita_rf/pomona_install.txt"
+        pomona = "outputs/singlem_abundtrim_vita_rf/pomona_install.txt"
     conda: 'envs/rf.yml'
     threads: 1
     resources:
@@ -366,12 +366,12 @@ rule singlem_abundtrim_install_pomona:
 rule singlem_abundtrim_var_sel_rf:
     input:
         info = "inputs/working_metadata.tsv", 
-        counts = "outputs/abundtrim_singlem/singlem_counts.tsv",
-        pomona = "outputs/abundtrim_singlem_vita_rf/pomona_install.txt"
+        counts = "outputs/singlem_abundtrim/singlem_counts.tsv",
+        pomona = "outputs/singlem_abundtrim_vita_rf/pomona_install.txt"
     output:
-        vita_rf = "outputs/abundtrim_singlem_vita_rf/{study}_vita_rf.RDS",
-        vita_vars = "outputs/abundtrim_singlem_vita_rf/{study}_vita_vars.txt",
-        ibd_filt = "outputs/abundtrim_singlem_vita_rf/{study}_ibd_filt.csv"
+        vita_rf = "outputs/singlem_abundtrim_vita_rf/{study}_vita_rf.RDS",
+        vita_vars = "outputs/singlem_abundtrim_vita_rf/{study}_vita_vars.txt",
+        ibd_filt = "outputs/singlem_abundtrim_vita_rf/{study}_ibd_filt.csv"
     threads: 6
     resources:
         mem_mb=32000
@@ -383,17 +383,17 @@ rule singlem_abundtrim_var_sel_rf:
 
 rule singlem_abundtrim_loo_validation:
     input: 
-        ibd_filt = 'outputs/abundtrim_singlem_vita_rf/{study}_ibd_filt.csv',
+        ibd_filt = 'outputs/singlem_abundtrim_vita_rf/{study}_ibd_filt.csv',
         info = 'inputs/working_metadata.tsv',
         eval_model = 'scripts/function_evaluate_model.R',
         ggconfusion = 'scripts/ggplotConfusionMatrix.R'
     output: 
-        recommended_pars = 'outputs/abundtrim_singlem_optimal_rf/{study}_rec_pars.tsv',
-        optimal_rf = 'outputs/abundtrim_singlem_optimal_rf/{study}_optimal_rf.RDS',
-        training_accuracy = 'outputs/abundtrim_singlem_optimal_rf/{study}_training_acc.csv',
-        training_confusion = 'outputs/abundtrim_singlem_optimal_rf/{study}_training_confusion.pdf',
-        validation_accuracy = 'outputs/abundtrim_singlem_optimal_rf/{study}_validation_acc.csv',
-        validation_confusion = 'outputs/abundtrim_singlem_optimal_rf/{study}_validation_confusion.pdf'
+        recommended_pars = 'outputs/singlem_abundtrim_optimal_rf/{study}_rec_pars.tsv',
+        optimal_rf = 'outputs/singlem_abundtrim_optimal_rf/{study}_optimal_rf.RDS',
+        training_accuracy = 'outputs/singlem_abundtrim_optimal_rf/{study}_training_acc.csv',
+        training_confusion = 'outputs/singlem_abundtrim_optimal_rf/{study}_training_confusion.pdf',
+        validation_accuracy = 'outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv',
+        validation_confusion = 'outputs/singlem_abundtrim_optimal_rf/{study}_validation_confusion.pdf'
     threads: 6
     resources:
         mem_mb=8000
@@ -408,8 +408,8 @@ rule singlem_abundtrim_loo_validation:
 ######### default all
 
 rule extract_singlem_read_names_default_abundtrim:
-    input: singlem = "outputs/abundtrim_singlem/{library}_otu_default.csv",
-    output: reads = "outputs/abundtrim_singlem_reads/{library}_otu_default_read_names.txt" 
+    input: singlem = "outputs/singlem_abundtrim/{library}_otu_default.csv",
+    output: reads = "outputs/singlem_abundtrim_reads/{library}_otu_default_read_names.txt" 
     conda: "envs/tidy.yml"
     resources:
         mem_mb = 8000
@@ -418,9 +418,9 @@ rule extract_singlem_read_names_default_abundtrim:
 
 rule extract_singlem_reads_default:
     input: 
-        names = "outputs/abundtrim_singlem_reads/{library}_otu_default_read_names.txt",
+        names = "outputs/singlem_abundtrim_reads/{library}_otu_default_read_names.txt",
         fq = "outputs/abundtrim/{library}.abundtrim.fq.gz",
-    output: "outputs/abundtrim_singlem_reads/{library}_otu_default.fq",
+    output: "outputs/singlem_abundtrim_reads/{library}_otu_default.fq",
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 8000
@@ -431,8 +431,8 @@ rule extract_singlem_reads_default:
 
 ####### 16s R1
 rule extract_singlem_read_names_16s_R1_abundtrim:
-    input: singlem = "outputs/abundtrim_singlem/{library}_otu_16s_R1.csv",
-    output: reads = "outputs/abundtrim_singlem_reads/{library}_otu_16s_R1_read_names.txt" 
+    input: singlem = "outputs/singlem_abundtrim/{library}_otu_16s_R1.csv",
+    output: reads = "outputs/singlem_abundtrim_reads/{library}_otu_16s_R1_read_names.txt" 
     conda: "envs/tidy.yml"
     resources:
         mem_mb = 8000
@@ -441,9 +441,9 @@ rule extract_singlem_read_names_16s_R1_abundtrim:
 
 rule extract_singlem_reads_16s_R1_abundtrim:
     input: 
-        names = "outputs/abundtrim_singlem_reads/{library}_otu_16s_R1_read_names.txt",
+        names = "outputs/singlem_abundtrim_reads/{library}_otu_16s_R1_read_names.txt",
         fq = "outputs/abundtrim/{library}.abundtrim.fq.gz",
-    output: "outputs/abundtrim_singlem_reads/{library}_otu_16s_R1.fq",
+    output: "outputs/singlem_abundtrim_reads/{library}_otu_16s_R1.fq",
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 8000
@@ -455,8 +455,8 @@ rule extract_singlem_reads_16s_R1_abundtrim:
 ######### 16 R2
 
 rule extract_singlem_read_names_16s_R2_abundtrim:
-    input: singlem = "outputs/abundtrim_singlem/{library}_otu_16s_R2.csv",
-    output: reads = "outputs/abundtrim_singlem_reads/{library}_otu_16s_R2_read_names.txt" 
+    input: singlem = "outputs/singlem_abundtrim/{library}_otu_16s_R2.csv",
+    output: reads = "outputs/singlem_abundtrim_reads/{library}_otu_16s_R2_read_names.txt" 
     conda: "envs/tidy.yml"
     resources:
         mem_mb = 8000
@@ -465,9 +465,9 @@ rule extract_singlem_read_names_16s_R2_abundtrim:
 
 rule extract_singlem_reads_16s_R2_abundtrim:
     input: 
-        names = "outputs/abundtrim_singlem_reads/{library}_otu_16s_R2_read_names.txt",
+        names = "outputs/singlem_abundtrim_reads/{library}_otu_16s_R2_read_names.txt",
         fq = "outputs/abundtrim/{library}.abundtrim.fq.gz",
-    output: "outputs/abundtrim_singlem_reads/{library}_otu_16s_R2.fq",
+    output: "outputs/singlem_abundtrim_reads/{library}_otu_16s_R2.fq",
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 8000
@@ -478,10 +478,10 @@ rule extract_singlem_reads_16s_R2_abundtrim:
 
 rule combine_singlem_reads_per_lib_abundtrim:
     input:
-        "outputs/abundtrim_singlem_reads/{library}_otu_default.fq",
-        "outputs/abundtrim_singlem_reads/{library}_otu_16s_R1.fq",
-        "outputs/abundtrim_singlem_reads/{library}_otu_16s_R2.fq",
-    output: "outputs/abundtrim_singlem_reads/{library}_singlem_reads.fq"
+        "outputs/singlem_abundtrim_reads/{library}_otu_default.fq",
+        "outputs/singlem_abundtrim_reads/{library}_otu_16s_R1.fq",
+        "outputs/singlem_abundtrim_reads/{library}_otu_16s_R2.fq",
+    output: "outputs/singlem_abundtrim_reads/{library}_singlem_reads.fq"
     resources:
         mem_mb = 8000
     threads: 1
@@ -490,8 +490,8 @@ rule combine_singlem_reads_per_lib_abundtrim:
     '''
 
 rule compute_signatures_singlem:
-    input: "outputs/abundtrim_singlem_reads/{library}_singlem_reads.fq"
-    output: "outputs/abundtrim_singlem_sigs/{library}_singlem_reads.sig"
+    input: "outputs/singlem_abundtrim_reads/{library}_singlem_reads.fq"
+    output: "outputs/singlem_abundtrim_sigs/{library}_singlem_reads.sig"
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 1000
@@ -501,8 +501,8 @@ rule compute_signatures_singlem:
     '''
 
 rule convert_greater_than_1_signatures_to_csv_abundtrim:
-    input: "outputs/abundtrim_singlem_sigs/{library}_singlem_reads.sig"
-    output: "outputs/abundtrim_singlem_kmer_csv/{library}_singlem_reads.csv"
+    input: "outputs/singlem_abundtrim_sigs/{library}_singlem_reads.sig"
+    output: "outputs/singlem_abundtrim_kmer_csv/{library}_singlem_reads.csv"
     conda: 'envs/sourmash.yml'
     resources: 
         mem_mb=1000
@@ -513,8 +513,8 @@ rule convert_greater_than_1_signatures_to_csv_abundtrim:
 
 rule make_hash_abund_table_long_normalized_abundtrim:
     input: 
-        expand("outputs/abundtrim_singlem_kmer_csv/{library}_singlem_reads.csv", library = LIBRARIES)
-    output: csv = "outputs/abundtrim_singlem_kmer_hash_tables/normalized_abund_hashes_long.csv"
+        expand("outputs/singlem_abundtrim_kmer_csv/{library}_singlem_reads.csv", library = LIBRARIES)
+    output: csv = "outputs/singlem_abundtrim_kmer_hash_tables/normalized_abund_hashes_long.csv"
     conda: 'envs/r.yml'
     resources: 
         mem_mb=16000
@@ -522,8 +522,8 @@ rule make_hash_abund_table_long_normalized_abundtrim:
     script: "scripts/normalized_hash_abund_long_singlem.R"
 
 rule make_hash_abund_table_wide_abundtrim:
-    input: "outputs/abundtrim_singlem_kmer_hash_tables/normalized_abund_hashes_long.csv"
-    output: "outputs/abundtrim_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather"
+    input: "outputs/singlem_abundtrim_kmer_hash_tables/normalized_abund_hashes_long.csv"
+    output: "outputs/singlem_abundtrim_kmer_hash_tables/normalized_abund_hashes_wide.feather"
     resources: 
         mem_mb=32000
     threads: 1
@@ -540,9 +540,9 @@ rule make_hash_abund_table_wide_abundtrim:
         ibd_wide.to_feather(str(output)) 
 
 rule singlem_kmer_install_pomona_abundtrim:
-    input: "outputs/abundtrim_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather"
+    input: "outputs/singlem_abundtrim_kmer_hash_tables/normalized_abund_hashes_wide.feather"
     output:
-        pomona = "outputs/abundtrim_singlem_kmer_vita_rf/pomona_install.txt"
+        pomona = "outputs/singlem_abundtrim_kmer_vita_rf/pomona_install.txt"
     conda: 'envs/rf.yml'
     resources: 
         mem_mb=1000
@@ -552,12 +552,12 @@ rule singlem_kmer_install_pomona_abundtrim:
 rule singlem_kmer_vita_var_sel_rf_abundtrim:
     input:
         info = "inputs/working_metadata.tsv", 
-        feather = "outputs/abundtrim_singlem_kmer_hash_tables/normalized_abund_hashes_wide.feather",
-        pomona = "outputs/abundtrim_singlem_kmer_vita_rf/pomona_install.txt"
+        feather = "outputs/singlem_abundtrim_kmer_hash_tables/normalized_abund_hashes_wide.feather",
+        pomona = "outputs/singlem_abundtrim_kmer_vita_rf/pomona_install.txt"
     output:
-        vita_rf = "outputs/abundtrim_singlem_kmer_vita_rf/{study}_vita_rf.RDS",
-        vita_vars = "outputs/abundtrim_singlem_kmer_vita_rf/{study}_vita_vars.txt",
-        ibd_filt = "outputs/abundtrim_singlem_kmer_vita_rf/{study}_ibd_filt.csv"
+        vita_rf = "outputs/singlem_abundtrim_kmer_vita_rf/{study}_vita_rf.RDS",
+        vita_vars = "outputs/singlem_abundtrim_kmer_vita_rf/{study}_vita_vars.txt",
+        ibd_filt = "outputs/singlem_abundtrim_kmer_vita_rf/{study}_ibd_filt.csv"
     resources: 
         mem_mb=16000
     threads: 4
@@ -569,17 +569,17 @@ rule singlem_kmer_vita_var_sel_rf_abundtrim:
 
 rule singlem_kmer_loo_validation:
     input: 
-        ibd_filt = 'outputs/abundtrim_singlem_kmer_vita_rf/{study}_ibd_filt.csv',
+        ibd_filt = 'outputs/singlem_abundtrim_kmer_vita_rf/{study}_ibd_filt.csv',
         info = 'inputs/working_metadata.tsv',
         eval_model = 'scripts/function_evaluate_model.R',
         ggconfusion = 'scripts/ggplotConfusionMatrix.R'
     output: 
-        recommended_pars = 'outputs/abundtrim_singlem_kmer_optimal_rf/{study}_rec_pars.tsv',
-        optimal_rf = 'outputs/abundtrim_singlem_kmer_optimal_rf/{study}_optimal_rf.RDS',
-        training_accuracy = 'outputs/abundtrim_singlem_kmer_optimal_rf/{study}_training_acc.csv',
-        training_confusion = 'outputs/abundtrim_singlem_kmer_optimal_rf/{study}_training_confusion.pdf',
-        validation_accuracy = 'outputs/abundtrim_singlem_kmer_optimal_rf/{study}_validation_acc.csv',
-        validation_confusion = 'outputs/abundtrim_singlem_kmer_optimal_rf/{study}_validation_confusion.pdf'
+        recommended_pars = 'outputs/singlem_abundtrim_kmer_optimal_rf/{study}_rec_pars.tsv',
+        optimal_rf = 'outputs/singlem_abundtrim_kmer_optimal_rf/{study}_optimal_rf.RDS',
+        training_accuracy = 'outputs/singlem_abundtrim_kmer_optimal_rf/{study}_training_acc.csv',
+        training_confusion = 'outputs/singlem_abundtrim_kmer_optimal_rf/{study}_training_confusion.pdf',
+        validation_accuracy = 'outputs/singlem_abundtrim_kmer_optimal_rf/{study}_validation_acc.csv',
+        validation_confusion = 'outputs/singlem_abundtrim_kmer_optimal_rf/{study}_validation_confusion.pdf'
     resources: 
         mem_mb=4000
     threads: 4
