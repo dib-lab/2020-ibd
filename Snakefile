@@ -7,7 +7,7 @@ import glob
 import os
 from collections import Counter
 
-SEED = [2, 3, 4, 5, 6]
+SEED = [1, 2, 3, 4, 5, 6]
 
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
@@ -48,11 +48,10 @@ rule all:
         "outputs/comp/diagnosis_plt_all_filt_cosine.pdf",
         # VARIABLE SELECTION & RF OUTPUTS:
         "outputs/filt_sig_hashes/count_total_hashes.txt",
-        expand('outputs/optimal_rf/{study}_optimal_rf.RDS', study = STUDY),
         expand('outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS', study = STUDY, seed = SEED),
         # VARIABLE CHARACTERIZATION OUTPUTS:
-        expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
-        expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
+        expand("outputs/gather/{study}_vita_vars_refseq_seed{seed}.csv", study = STUDY, seed = SEED),
+        expand("outputs/gather/{study}_vita_vars_genbank_seed{seed}.csv", study = STUDY, seed = SEED),
         "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
         # SPACEGRAPHCATS OUTPUTS:
         expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
@@ -747,63 +746,18 @@ rule make_hash_abund_table_wide:
 rule install_pomona:
     input: "outputs/hash_tables/normalized_abund_hashes_wide.feather"
     output:
-        pomona = "outputs/vita_rf/pomona_install.txt"
+        pomona = "outputs/vita_rf_seed/pomona_install.txt"
     conda: 'envs/rf.yml'
     threads: 1
     resources:
         mem_mb=1000
     script: "scripts/install_pomona.R"
 
-rule vita_var_sel_rf:
-    input:
-        info = "inputs/working_metadata.tsv", 
-        feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
-        pomona = "outputs/vita_rf/pomona_install.txt"
-    output:
-        vita_rf = "outputs/vita_rf/{study}_vita_rf.RDS",
-        vita_vars = "outputs/vita_rf/{study}_vita_vars.txt",
-        ibd_filt = "outputs/vita_rf/{study}_ibd_filt.csv"
-    resources:
-         mem_mb=64000
-    threads: 32
-    params: 
-        threads = 32,
-        validation_study = "{study}"
-    conda: 'envs/rf.yml'
-    script: "scripts/vita_rf.R"
-
-rule loo_validation:
-    input: 
-        ibd_filt = 'outputs/vita_rf/{study}_ibd_filt.csv',
-        info = 'inputs/working_metadata.tsv',
-        eval_model = 'scripts/function_evaluate_model.R',
-        ggconfusion = 'scripts/ggplotConfusionMatrix.R'
-    output: 
-        recommended_pars = 'outputs/optimal_rf/{study}_rec_pars.tsv',
-        optimal_rf = 'outputs/optimal_rf/{study}_optimal_rf.RDS',
-        training_accuracy = 'outputs/optimal_rf/{study}_training_acc.csv',
-        training_confusion = 'outputs/optimal_rf/{study}_training_confusion.pdf',
-        validation_accuracy = 'outputs/optimal_rf/{study}_validation_acc.csv',
-        validation_confusion = 'outputs/optimal_rf/{study}_validation_confusion.pdf'
-    resources:
-        mem_mb = 16000
-    threads: 20
-    params:
-        threads = 20,
-        validation_study = "{study}"
-    conda: 'envs/tuneranger.yml'
-    script: "scripts/tune_rf.R"
-
-
-########################################################################
-## Random forests & optimization -- validate results by switching seeds
-########################################################################
-
 rule vita_var_sel_rf_seed:
     input:
         info = "inputs/working_metadata.tsv", 
         feather = "outputs/hash_tables/normalized_abund_hashes_wide.feather",
-        pomona = "outputs/vita_rf/pomona_install.txt"
+        pomona = "outputs/vita_rf_seed/pomona_install.txt"
     output:
         vita_rf = "outputs/vita_rf_seed/{study}_vita_rf_seed{seed}.RDS",
         vita_vars = "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt",
@@ -847,8 +801,8 @@ rule loo_validation_seed:
 ############################################
 
 rule convert_vita_vars_to_sig:
-    input: "outputs/vita_rf/{study}_vita_vars.txt"
-    output: "outputs/vita_rf/{study}_vita_vars.sig"
+    input: "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt"
+    output: "outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig"
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 1000
@@ -859,16 +813,16 @@ rule convert_vita_vars_to_sig:
 
 rule gather_vita_vars_genbank:
     input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
         db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
         db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
         db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
-        csv="outputs/gather/{study}_vita_vars_genbank.csv",
-        matches="outputs/gather/{study}_vita_vars_genbank.matches",
-        un="outputs/gather/{study}_vita_vars_genbank.un"
+        csv="outputs/gather/{study}_vita_vars_genbank_seed{seed}.csv",
+        matches="outputs/gather/{study}_vita_vars_genbank_seed{seed}.matches",
+        un="outputs/gather/{study}_vita_vars_genbank_seed{seed}.un"
     conda: 'envs/sourmash.yml'
     resources:
         mem_mb = 128000
@@ -879,16 +833,16 @@ rule gather_vita_vars_genbank:
 
 rule gather_vita_vars_refseq:
     input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db1="/home/irber/sourmash_databases/outputs/sbt/refseq-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/refseq-viral-x1e6-k31.sbt.zip",
         db3="/home/irber/sourmash_databases/outputs/sbt/refseq-archaea-x1e6-k31.sbt.zip",
         db4="/home/irber/sourmash_databases/outputs/sbt/refseq-fungi-x1e6-k31.sbt.zip",
         db5="/home/irber/sourmash_databases/outputs/sbt/refseq-protozoa-x1e6-k31.sbt.zip",
     output: 
-        csv="outputs/gather/{study}_vita_vars_refseq.csv",
-        matches="outputs/gather/{study}_vita_vars_refseq.matches",
-        un="outputs/gather/{study}_vita_vars_refseq.un"
+        csv="outputs/gather/{study}_vita_vars_refseq_seed{seed}.csv",
+        matches="outputs/gather/{study}_vita_vars_refseq_seed{seed}.matches",
+        un="outputs/gather/{study}_vita_vars_refseq_seed{seed}.un"
     conda: 'envs/sourmash.yml'
     resources:
         mem_mb = 128000
@@ -908,8 +862,8 @@ rule at_least_5_of_6_hashes:
     R script that takes as input the output vita vars,
     intersects the vars, and writes out to text file
     """
-    input: expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY)
-    output: at_least_5 = "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
+    input: expand("outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt", study = STUDY, seed = SEED)
+    output: at_least_5 = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.txt"
     conda: 'envs/ggplot.yml'
     resources:
         mem_mb = 2000
@@ -921,8 +875,8 @@ rule at_least_5_of_6_sig:
    """
    convert output of at_least_5_of_6_hashes to signature
    """
-   input: "outputs/vita_rf/at_least_5_studies_vita_vars.txt"
-   output: "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
+   input: "outputs/vita_rf_seed/at_least_5_studies_vita_vars.txt"
+   output: "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
    conda: "envs/sourmash.yml"
    resources:
         mem_mb = 2000
@@ -937,7 +891,7 @@ rule at_least_5_of_6_gather:
     at least 5 of 6 models
     """
     input:
-        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
         db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
         db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
@@ -1103,7 +1057,7 @@ rule spacegraphcats_multifasta:
         queries = expand('outputs/gather_matches_loso_prokka/{gather_genome}.ffn', gather_genome = GATHER_GENOMES),
         conf = "inputs/sgc_conf/{library}_r1_multifasta_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz",
-        sig = "outputs/vita_rf/at_least_5_studies_vita_vars.sig"
+        sig = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
     output: "outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv"
     params: 
         outdir = "outputs/sgc_genome_queries",
@@ -1158,7 +1112,7 @@ rule index_sig_nbhd_reads:
 
 rule gather_vita_vars_study_against_nbhd_read_sigs:
     input:
-        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
         db = "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
     output: 
         csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
@@ -1239,7 +1193,7 @@ rule index_sgc_pangenome_sigs:
 
 rule gather_vita_vars_study_against_sgc_pangenome_sigs:
     input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
     output: 
         csv="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv",
@@ -1254,7 +1208,7 @@ rule gather_vita_vars_study_against_sgc_pangenome_sigs:
 
 rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
     input:
-        sig="outputs/vita_rf/{study}_vita_vars.sig",
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db0 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
         db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
@@ -1262,8 +1216,8 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
         db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
         db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
     output: 
-        csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv",
-        un="outputs/sgc_pangenome_gather/{study}_vita_vars_all.un"
+        csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all_seed{seed}.csv",
+        un="outputs/sgc_pangenome_gather/{study}_vita_vars_all_seed{seed}.un"
     conda: 'envs/sourmash.yml'
     resources:
         mem_mb = 16000
@@ -1278,7 +1232,7 @@ rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
     at least 5 of 6 models
     """
     input:
-        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
         db0 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
         db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
         db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
@@ -1301,7 +1255,7 @@ rule at_least_5_of_6_gather_pangenome_sigs:
     at least 5 of 6 models
     """
     input:
-        sig="outputs/vita_rf/at_least_5_studies_vita_vars.sig",
+        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
         db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
     output: 
         csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
@@ -2021,7 +1975,7 @@ rule actually_make_figures:
         complexupset="Rmd_figures/complexupset_installed.txt",
         acc = expand("outputs/optimal_rf/{study}_{tv}_acc.csv", study = STUDY, tv = ['training', 'validation']), 
         optimal_rf = expand("outputs/optimal_rf/{study}_optimal_rf.RDS", study = STUDY),
-        vita_rf = expand("outputs/vita_rf/{study}_vita_vars.txt", study = STUDY),
+        vita_rf = expand("outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt", study = STUDY, seed = SEED),
         sgc_pangenome_gather_only = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         sgc_pangenome_gather_all_db = expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
         gather_all_db = expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
