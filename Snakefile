@@ -52,7 +52,8 @@ rule all:
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_refseq_seed{seed}.csv", study = STUDY, seed = SEED),
         expand("outputs/gather/{study}_vita_vars_genbank_seed{seed}.csv", study = STUDY, seed = SEED),
-        "outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
+        expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
+        #"outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
         # SPACEGRAPHCATS OUTPUTS:
         expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
@@ -61,8 +62,8 @@ rule all:
         # PANGENOME SIGS
         "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
-        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
-        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
+        #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
+        #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
         "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
         "figures_rmd.html",
         "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
@@ -831,6 +832,26 @@ rule gather_vita_vars_genbank:
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
+rule gather_vita_vars_gtdb:
+    input:
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
+        db1="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic-reps.k31.sbt.zip",
+        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
+        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
+        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
+        
+    output: 
+        csv="outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv",
+        matches="outputs/gather/{study}_vita_vars_gtdb_seed{seed}.matches",
+        un="outputs/gather/{study}_vita_vars_gtdb_seed{seed}.un"
+    conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 128000
+    threads: 1
+    shell:'''
+    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
+    '''
+
 rule gather_vita_vars_refseq:
     input:
         sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
@@ -1078,7 +1099,7 @@ rule spacegraphcats_multifasta:
 
 rule calc_sig_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.gz"
-    output: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+    output: "outputs/nbhd_reads_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     params: name = lambda wildcards: wildcards.library + "_" + wildcards.gather_genome
     conda: "envs/sourmash.yml"
     resources:
@@ -1089,7 +1110,7 @@ rule calc_sig_nbhd_reads:
     '''
 
 rule nbhd_read_sig_to_csv:
-    input: "outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
+    input: "outputs/nbhd_reads_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig"
     output: "outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv"
     conda: 'envs/sourmash.yml'
     resources:
@@ -1100,7 +1121,7 @@ rule nbhd_read_sig_to_csv:
     '''
 
 rule index_sig_nbhd_reads:
-    input: expand("outputs/nbhd_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
+    input: expand("outputs/nbhds_read_sigs/{library}/{gather_genome}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
     output: "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
     conda: "envs/sourmash.yml"
     resources:
@@ -1113,7 +1134,7 @@ rule index_sig_nbhd_reads:
 rule gather_vita_vars_study_against_nbhd_read_sigs:
     input:
         sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
-        db = "outputs/nbhd_read_sigs_gather/nbhd_read_sigs.sbt.json"
+        db = "outputs/nbhd_reads_sigs_gather/nbhd_read_sigs.sbt.json"
     output: 
         csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
         un="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.un"
@@ -1149,13 +1170,15 @@ rule rename_sgc_pangenome_sigs:
 
 rule compare_sgc_pangenome_sigs:
     input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
-    output: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
+    output: 
+        comp="outputs/sgc_pangenome_compare/pangenome_compare.comp",
+        csv="outputs/sgc_pangenome_compare/pangenome_compare.csv"
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 16000
     threads: 1
     shell:'''
-    sourmash compare -o {output} --ignore-abundance {input}
+    sourmash compare -o {output.comp} --csv {output.csv} --ignore-abundance {input}
     '''
 
 rule plot_sgc_pangenome_sigs:
@@ -1167,17 +1190,6 @@ rule plot_sgc_pangenome_sigs:
     threads: 1
     shell:'''
     sourmash plot --labels {input}
-    '''
-
-rule compare_sgc_pangenome_sigs_csv:
-    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
-    output: "outputs/sgc_pangenome_compare/pangenome_compare.csv"
-    conda: "envs/sourmash.yml"
-    resources:
-        mem_mb = 16000
-    threads: 1
-    shell:'''
-    sourmash compare --csv {output} --ignore-abundance {input}
     '''
 
 rule index_sgc_pangenome_sigs:
@@ -1196,8 +1208,8 @@ rule gather_vita_vars_study_against_sgc_pangenome_sigs:
         sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
         db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
     output: 
-        csv="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.csv",
-        un="outputs/gather_sgc_pangenome/{study}_vita_vars_pangenome.un"
+        csv="outputs/gather_sgc_pangenome/{study}_vita_vars_seed{seed}_pangenome.csv",
+        un="outputs/gather_sgc_pangenome/{study}_vita_vars_seed{seed}_pangenome.un"
     conda: 'envs/sourmash.yml'
     resources:
         mem_mb = 16000
@@ -1272,7 +1284,7 @@ rule at_least_5_of_6_gather_pangenome_sigs:
 rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
     input:
         sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
-        gather="outputs/gather_sgc_pangenome/at_least_5_studies_vita_vars_pangenome.csv",
+        gather="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
     output: "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv"
     resources:
         mem_mb = 16000
@@ -1721,17 +1733,6 @@ rule diginorm_nbhd_reads:
     shell:'''
     normalize-by-median.py -k 20 -C 20 -M 16e9 --gzip -o {output} {input}
     '''
-
-# commented out bc concatenating diginormed reads led to really poor assembly.
-#rule cat_diginorm_nbhd_reads:
-#    input: expand("outputs/nbhd_reads_diginorm/{library}/{{gather_genome}}.cdgb_ids.reads.diginorm.gz", library = LIBRARIES)
-#    output: "outputs/nbhd_reads_diginorm_cat/{gather_genome}.cdbg_ids.reads.diginorm.gz"
-#    resources:
-#        mem_mb = 8000
-#    threads: 1
-#    shell:'''
-#    cat {input} > {output}
-#    '''
 
 # TR TODO: UPDATE MEGAHIT TO USE PAIRED-END READS
 rule megahit:
