@@ -57,14 +57,10 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
-        "outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
         #expand("outputs/nbhd_reads_corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
         # PANGENOME SIGS
-        "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
-        "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
         #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
         #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
-        "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
         "figures_rmd.html",
         "outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
         # SINGLEM OUTPUTS:
@@ -874,146 +870,6 @@ rule gather_vita_vars_refseq:
 
 # TR TODO: SUMMARIZE TO SPECIES
 
-###################################################
-# Predictive hash characterization -- shared hashes
-###################################################
-
-rule at_least_5_of_6_hashes:
-    """
-    R script that takes as input the output vita vars,
-    intersects the vars, and writes out to text file
-    """
-    input: expand("outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.txt", study = STUDY, seed = SEED)
-    output: at_least_5 = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.txt"
-    conda: 'envs/ggplot.yml'
-    resources:
-        mem_mb = 2000
-    threads: 1
-    script: 'scripts/at_least_5_studies.R'
-
-
-rule at_least_5_of_6_sig:
-   """
-   convert output of at_least_5_of_6_hashes to signature
-   """
-   input: "outputs/vita_rf_seed/at_least_5_studies_vita_vars.txt"
-   output: "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
-   conda: "envs/sourmash.yml"
-   resources:
-        mem_mb = 2000
-   threads: 1
-   shell:'''
-   python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name at_least_5_models --filename {input} {input}
-   '''
-
-rule at_least_5_of_6_gather:
-    """
-    run gather on the signature that contains hashes from
-    at least 5 of 6 models
-    """
-    input:
-        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
-        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
-        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
-        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
-        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
-        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
-    output: 
-        csv="outputs/gather/at_least_5_studies_vita_vars.csv",
-        matches="outputs/gather/at_least_5_studies_vita_vars.matches",
-        un="outputs/gather/at_least_5_studies_vita_vars.un"
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 128000
-    threads: 1
-    shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
-    '''
-
-rule compare_at_least_5_of_6_sigs:
-    input: "outputs/gather/at_least_5_studies_vita_vars.matches",
-    output: "outputs/comp_loso/comp_jaccard"
-    conda: "envs/sourmash.yml"
-    resources:
-        mem_mb = 16000
-    threads: 1
-    shell:''' 
-    sourmash compare --ignore-abundance -k 31 -o {output} {input}
-    '''
-
-rule plot_at_least_5_of_6_sigs:
-    input: "outputs/comp_loso/comp_jaccard"
-    output: "outputs/comp_loso/comp_jaccard.matrix.pdf"
-    params: out_dir = "outputs/comp_loso"
-    conda: "envs/sourmash.yml"
-    resources:
-        mem_mb = 8000
-    threads: 1
-    shell:'''
-    sourmash plot --pdf --labels --output-dir {params.out_dir} {input} 
-    '''
-
-rule create_hash_genome_map_at_least_5_of_6_vita_vars:
-    input:
-        sigs = "outputs/gather/at_least_5_studies_vita_vars.matches",
-        gather = "outputs/gather/at_least_5_studies_vita_vars.csv",
-    output: "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv"
-    resources:
-        mem_mb = 8000
-    threads: 1
-    run:
-        sigfp = open(file, 'rt')
-        siglist = list(sourmash.signature.load_signatures(sigfp))
-        # load in all signatures that had gather matches and generate a list of all hashes 
-        all_mins = []
-        for i,sig in enumerate(siglist):
-            sig_tmp = siglist[i]
-            mins = sig_tmp.minhash.get_mins()
-            all_mins += mins
-
-        # make all_mins a set
-        all_mins = set(all_mins)
-
-        # read in the gather matches as a dataframe
-        gather_matches = pd.read_csv(input.gather)
-
-        # loop through gather matches. For each match, read in it's
-        # signature and generate an intersection of its hashes and all of 
-        # the hashes that matched to gather. 
-        # Then, remove those hashes from the all_mins list, and repeat
-        sig_dict = {}
-        all_sig_df = pd.DataFrame(columns=['level_0', '0'])
-        for index, row in gather_matches.iterrows():
-            sig = row["name"]
-            # edit the name to match the signature names
-            sig = str(sig)
-            sig = sig.split('/')[-1]
-            sig = sig.split(" ")[0]
-            sig = sig + ".sig"
-            sig = "outputs/gather_matches_loso_sigs/" + sig
-            # load in signature
-            sigfp = open(sig, 'rt')
-            siglist = list(signature.load_signatures(sigfp))
-            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
-            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
-            mins = set(mins)
-            # intersect all_mins list with mins from current signature
-            intersect_mins = mins.intersection(all_mins)
-            # add hashes owned by the signature to a dictionary 
-            sig_dict[sig] = intersect_mins
-            # convert into a dataframe
-            sig_df = pd.DataFrame.from_dict(sig_dict,'index').stack().reset_index(level=0)
-            # combine dfs
-            all_sig_df = pd.concat([all_sig_df, sig_df], sort = False)
-            # subtract intersect_mins from all_mins
-            all_mins = all_mins - mins
-
-        all_sig_df.columns = ['sig', 'tmp', 'hash']
-        all_sig_df = all_sig_df.drop(['tmp'], axis = 1)
-        all_sig_df = all_sig_df.drop_duplicates(keep = "first")
-        all_sig_df.to_csv(str(output))
-
-
 #############################################
 # Spacegraphcats Genome Queries
 #############################################
@@ -1078,7 +934,7 @@ rule spacegraphcats_multifasta:
         queries = expand('outputs/gather_matches_loso_prokka/{gather_genome}.ffn', gather_genome = GATHER_GENOMES),
         conf = "inputs/sgc_conf/{library}_r1_multifasta_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz",
-        sig = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
+        #sig = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
     output: "outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv"
     params: 
         outdir = "outputs/sgc_genome_queries",
@@ -1131,20 +987,20 @@ rule index_sig_nbhd_reads:
     sourmash index -k 31 {output} --traverse-directory outputs/nbhd_read_sigs
     '''
 
-rule gather_vita_vars_study_against_nbhd_read_sigs:
-    input:
-        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
-        db = "outputs/nbhd_reads_sigs_gather/nbhd_read_sigs.sbt.json"
-    output: 
-        csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
-        un="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.un"
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 32000
-    threads: 1
-    shell:'''
-    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 --threshold-bp 0 -k 31 {input.sig} {input.db}
-    '''
+#rule gather_vita_vars_study_against_nbhd_read_sigs:
+#    input:
+#        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
+#        db = "outputs/nbhd_reads_sigs_gather/nbhd_read_sigs.sbt.json"
+#    output: 
+#        csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
+#        un="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.un"
+#    conda: 'envs/sourmash.yml'
+#    resources:
+#        mem_mb = 32000
+#    threads: 1
+#    shell:'''
+#    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 --threshold-bp 0 -k 31 {input.sig} {input.db}
+#    '''
 
 rule merge_sgc_sigs_to_pangenome:
     input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{gather_genome}}.gz.contigs.sig", library = LIBRARIES)
@@ -1237,113 +1093,6 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
-
-rule at_least_5_of_6_gather_pangenome_sigs_plus_all_dbs:
-    """
-    run gather on the signature that contains hashes from
-    at least 5 of 6 models
-    """
-    input:
-        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
-        db0 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
-        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
-        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
-        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
-        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
-        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
-    output: 
-        csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_all.csv",
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 128000
-    threads: 1
-    shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
-    '''
-
-rule at_least_5_of_6_gather_pangenome_sigs:
-    """
-    run gather on the signature that contains hashes from
-    at least 5 of 6 models
-    """
-    input:
-        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
-        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
-    output: 
-        csv="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 16000
-    threads: 1
-    shell:'''
-    sourmash gather -o {output.csv} --scaled 2000 -k 31 --threshold-bp 0 {input.sig} {input.db} 
-    '''
-
-# TR this might need to be updated to use *.matches instead of a list of sigs. 
-# See above code for implementation in rule create_hash_genome_map_at_least_5_of_6_vita_vars
-rule create_hash_genome_map_at_least_5_of_6_vita_vars_pangenome:
-    input:
-        sigs = expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES),
-        gather="outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome_tbp0.csv",
-    output: "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv"
-    resources:
-        mem_mb = 16000
-    threads: 1
-    run:
-        import re
-        files = input.sigs
-         # load in all signatures that had gather matches and generate a list of all hashes 
-        all_mins = []
-        for file in files:
-            sigfp = open(file, 'rt')
-            siglist = list(signature.load_signatures(sigfp))
-            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
-            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
-            all_mins += mins # load all minhashes into a list
-
-        # make all_mins a set
-        all_mins = set(all_mins)
-
-        # read in the gather matches as a dataframe
-        gather_matches = pd.read_csv(input.gather)
-
-        # loop through pangenome sigs in the order that they occurred as
-        # gather matches. For each match, read in it's
-        # signature and generate an intersection of its hashes and all of 
-        # the hashes that matched to gather. 
-        # Then, remove those hashes from the all_mins list, and repeat
-        sig_dict = {}
-        all_sig_df = pd.DataFrame(columns=['level_0', '0'])
-        for index, row in gather_matches.iterrows():
-            sig = row["name"]
-            # edit the name to match the signature names
-            sig = str(sig)
-            sig = sig.split('/')[-1]
-            sig = sig.split(" ")[0]
-            sig = re.sub("pangenome", "", sig)
-            sig = sig + "renamed.sig"
-            sig = "outputs/sgc_pangenome_sigs/" + sig
-            # load in signature
-            sigfp = open(sig, 'rt')
-            siglist = list(signature.load_signatures(sigfp))
-            loaded_sig = siglist[0] # sigs are from the sbt, only one sig in each (k=31)
-            mins = loaded_sig.minhash.get_mins() # Get the minhashes 
-            mins = set(mins)
-            # intersect all_mins list with mins from current signature
-            intersect_mins = mins.intersection(all_mins)
-            # add hashes owned by the signature to a dictionary 
-            sig_dict[sig] = intersect_mins
-            # convert into a dataframe
-            sig_df = pd.DataFrame.from_dict(sig_dict,'index').stack().reset_index(level=0)
-            # combine dfs
-            all_sig_df = pd.concat([all_sig_df, sig_df], sort = False)
-            # subtract intersect_mins from all_mins
-            all_mins = all_mins - mins
-
-        all_sig_df.columns = ['sig', 'tmp', 'hash']
-        all_sig_df = all_sig_df.drop(['tmp'], axis = 1)
-        all_sig_df = all_sig_df.drop_duplicates(keep = "first")
-        all_sig_df.to_csv(str(output))
 
 ##############################################
 ## Query by multifasta eggnog gene annotation
@@ -1982,10 +1731,6 @@ rule actually_make_figures:
         gather_all_db = expand("outputs/gather/{study}_vita_vars_all.csv", study = STUDY),
         gather_genbank = expand("outputs/gather/{study}_vita_vars_genbank.csv", study = STUDY),
         gather_refseq = expand("outputs/gather/{study}_vita_vars_refseq.csv", study = STUDY),
-        hash_to_gather_map_loso = "outputs/gather_matches_loso_hash_map/hash_to_genome_map_at_least_5_studies.csv",
-        hash_to_gather_map_pangenome = "outputs/sgc_pangenome_gather/hash_to_genome_map_at_least_5_studies_pangenome.csv",
-        lca = "inputs/at_least_5_studies_vita_vars_gather_all_lca.csv",
-        gather_pangenome_vita = "outputs/sgc_pangenome_gather/at_least_5_studies_vita_vars_pangenome.csv"
     output: "figures_rmd.html"
     conda: "envs/rmd.yml"
     resources:
