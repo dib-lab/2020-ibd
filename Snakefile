@@ -828,6 +828,16 @@ rule gather_vita_vars_gtdb:
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
     '''
 
+rule gather_gtdb_rep_to_shared_assemblies:
+    input:  gather="outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv",  
+    output: gather_grist = "outputs/gather/gather_vita_vars_gtdb_shared_assemblies.csv"
+    conda: "envs/tidy.yml"
+    resources:
+        mem_mb = 8000
+    threads: 1
+    script: "scripts/gather_gtdb_rep_to_shared_assemblies.R"
+
+
 # TR TODO: SUMMARIZE TO SPECIES
 
 #############################################
