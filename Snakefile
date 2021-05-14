@@ -808,26 +808,6 @@ rule convert_vita_vars_to_sig:
     python scripts/hashvals-to-signature.py -o {output} -k 31 --scaled 2000 --name vita_vars --filename {input} {input}
     '''
 
-rule gather_vita_vars_genbank:
-    input:
-        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
-        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
-        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
-        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
-        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
-        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
-    output: 
-        csv="outputs/gather/{study}_vita_vars_genbank_seed{seed}.csv",
-        matches="outputs/gather/{study}_vita_vars_genbank_seed{seed}.matches",
-        un="outputs/gather/{study}_vita_vars_genbank_seed{seed}.un"
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 128000
-    threads: 1
-    shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
-    '''
-
 rule gather_vita_vars_gtdb:
     input:
         sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
@@ -846,26 +826,6 @@ rule gather_vita_vars_gtdb:
     threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
-    '''
-
-rule gather_vita_vars_refseq:
-    input:
-        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
-        db1="/home/irber/sourmash_databases/outputs/sbt/refseq-bacteria-x1e6-k31.sbt.zip",
-        db2="/home/irber/sourmash_databases/outputs/sbt/refseq-viral-x1e6-k31.sbt.zip",
-        db3="/home/irber/sourmash_databases/outputs/sbt/refseq-archaea-x1e6-k31.sbt.zip",
-        db4="/home/irber/sourmash_databases/outputs/sbt/refseq-fungi-x1e6-k31.sbt.zip",
-        db5="/home/irber/sourmash_databases/outputs/sbt/refseq-protozoa-x1e6-k31.sbt.zip",
-    output: 
-        csv="outputs/gather/{study}_vita_vars_refseq_seed{seed}.csv",
-        matches="outputs/gather/{study}_vita_vars_refseq_seed{seed}.matches",
-        un="outputs/gather/{study}_vita_vars_refseq_seed{seed}.un"
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 128000
-    threads: 1
-    shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
     '''
 
 # TR TODO: SUMMARIZE TO SPECIES
