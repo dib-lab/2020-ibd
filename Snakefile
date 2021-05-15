@@ -5,6 +5,7 @@ from sourmash import signature
 import sourmash
 import glob
 import os
+import csv
 from collections import Counter
 
 SEED = [1, 2, 3, 4, 5, 6]
@@ -14,14 +15,42 @@ SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
 STUDY = m['study_accession'].unique().tolist()
 
-# this variable is output after random forests. 
-# Specifying this variable can be avoided by using checkpoints,
-# but this makes the DAG take forever to solve. 
-# this step requires user input anyway to download the matching
-# random forest genomes, so specifying this variable manually is a 
-# compromise. 
-GATHER_GENOMES = ["ERS235530_10.fna", "ERS235531_43.fna", "ERS235603_16.fna", 
-           "XieH_2016__YSZC12003_37172__bin.63.fa", "ZeeviD_2015__PNP_Main_232__bin.27.fa"]
+class Checkpoint_GatherResults:
+    """
+    Define a class a la genome-grist to simplify file specification
+    from checkpoint (e.g. solve for {acc} wildcard). This approach
+    is documented at this url: 
+    http://ivory.idyll.org/blog/2021-snakemake-checkpoints.html
+    """
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def get_genome_accs(self):
+        gather_csv = f'outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv'
+        assert os.path.exists(gather_csv)
+
+        genome_accs = []
+        with open(gather_csv, 'rt') as fp:
+           r = csv.DictReader(fp)
+           for row in r:
+               acc = row['name'].split(' ')[0]
+               genome_accs.append(acc)
+        print(f'loaded {len(genome_accs)} accessions from {gather_csv}.')
+
+        return genome_accs
+
+    def __call__(self, w):
+        global checkpoints
+
+        # wait for the results of 'gather_gtdb_rep_to_shared_assemblies'; 
+        # this will trigger exception until that rule has been run.
+        checkpoints.gather_gtdb_rep_to_shared_assemblies.get(**w)
+
+        # parse accessions in gather output file
+        genome_accs = self.get_genome_accs()
+
+        p = expand(self.pattern, acc=genome_accs, **w)
+        return p
 
 rule all:
     input:
@@ -35,9 +64,11 @@ rule all:
         expand('outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS', study = STUDY, seed = SEED),
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
-        #"outputs/gather_matches_hash_map/hash_to_genome_map_gather_all.csv",
         # SPACEGRAPHCATS OUTPUTS:
-        expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        #Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"),
+        expand("outputs/sgc_conf/{library}_k31_r1_conf.yml", library = LIBRARIES),
+        #Checkpoint_GatherResults(expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.cdbg_ids.reads.gz", library = LIBRARIES)),
+        #expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
         # PANGENOME SIGS
         #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
@@ -45,10 +76,10 @@ rule all:
         #"figures_rmd.html",
         #"outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
         # SINGLEM OUTPUTS:
-        expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
+        #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_sgc_genome_queries_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY),
-        expand('outputs/singlem_abundtrim_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY)
+        #expand('outputs/singlem_abundtrim_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY)
 
 ########################################
 ## PREPROCESSING
@@ -809,7 +840,8 @@ rule gather_vita_vars_gtdb:
     sourmash gather -o {output.csv} --threshold-bp 0 --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db1} {input.db2} {input.db3} {input.db4}
     '''
 
-rule gather_gtdb_rep_to_shared_assemblies:
+# make this a checkpoint to interact with class Checkpoint_GatherResults
+checkpoint gather_gtdb_rep_to_shared_assemblies:
     input:  gather=expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED) 
     output: gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv"
     conda: "envs/tidy.yml"
@@ -822,6 +854,8 @@ rule gather_gtdb_rep_to_shared_assemblies:
 # TR TODO: SUMMARIZE TO SPECIES
 # see: sandbox/test_gather_lineage_summarize/README.sh
 
+
+
 #############################################
 # Spacegraphcats Genome Queries
 #############################################
@@ -830,31 +864,35 @@ rule gather_gtdb_rep_to_shared_assemblies:
 # circumventing a bug in genome grist that prevents using the target
 # download gather genomes. The sgc conf file is a dummy file -- it will be
 # written to outputs/sgc, but the conf file has the wrong catlas bases.
-checkpoint download_shared_assemblies:
+rule download_shared_assemblies:
     input: 
         gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
-        conf = ""
-    output: directory("genbank_genomes")
+        conf = "inputs/genome-grist-conf.yml"
+    output: "genbank_genomes/{acc}_genomic.fna.gz"
     conda: "envs/genome-grist.yml"
     resources:
         mem_mb = 8000
     threads: 1
     shell:'''
-    genome-grist run conf.yml --until make_sgc_conf
+    genome-grist run {input.conf} --until make_sgc_conf
     '''
 
-def aggregate_download_shared_assemblies:
-    checkpoint_output = checkpoints.download_shared_assemblies.get(**wildcards).output[0]  
-    file_names = expand("genbank_genomes/{genome}_genomic.fna.gz", 
-                        genome = glob_wildcards(os.path.join(checkpoint_output, "{genome}_genomic.fna.gz")).genome)
-    return file_names
+# keep old checkpoint solving rule for now...replaced by class Checkpoint_GatherResults.
+# I don't feel like writing a bunch of functions to define the outputs of the different
+# branches of the workflow that use the shared assemblies...so I used Checkpoint_GatherResults
+# instead. Shrug.
+#def aggregate_download_shared_assemblies:
+#    checkpoint_output = checkpoints.download_shared_assemblies.get(**wildcards).output[0]  
+#    file_names = expand("genbank_genomes/{acc}_genomic.fna.gz", 
+#                        genome = glob_wildcards(os.path.join(checkpoint_output, "{acc}_genomic.fna.gz")).acc)
+#    return file_names
 
 rule make_sgc_conf_files:
     input:
-        csv = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv"
-        queries = "genbank_genomes/{acc}_genomic.fna.gz",
+        csv = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
+        queries = Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"),
     output:
-        conf = "outputs/sgc_conf/{library}_k31_r1.conf"
+        conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml"
     run:
         query_list = "\n- ".join(input.queries)
         with open(output.conf, 'wt') as fp:
@@ -870,12 +908,12 @@ search:
 
 rule spacegraphcats_shared_assemblies:
     input: 
-        query = "outputs/gather_matches_loso/{gather_genome}.gz", 
-        conf = "inputs/sgc_conf/{library}_r1_conf.yml",
+        queries = "genbank_genomes/{acc}_genomic.fna.gz", 
+        conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}.gz.cdbg_ids.reads.gz",
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}.gz.contigs.sig"
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.cdbg_ids.reads.gz",
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.contigs.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     resources:
@@ -897,7 +935,7 @@ rule prokka_gather_match_genomes:
     params: 
         outdir = 'outputs/gather_shared_assemblies_prokka/',
         prefix = lambda wildcards: wildcards.acc,
-        gzip = lambda wildcards: "outputs/gather_shared_assemblies/" + wildcards.acc + "_genome.fna"
+        gzip = lambda wildcards: "outputs/gather_shared_assemblies/" + wildcards.acc + "_genomic.fna"
     shell:'''
     gunzip {input}
     prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {threads} --centre X --compliant
@@ -907,24 +945,23 @@ rule prokka_gather_match_genomes:
     '''
 
 # TR TODO: UPDATE ENV? 
-# TR TODO: UPDATE INPUT FOR CHECKPOINT
-#rule spacegraphcats_multifasta:
-#    input:
-#        queries = expand('outputs/gather_matches_loso_prokka/{acc}.ffn', gather_genome = GATHER_GENOMES),
-#        conf = "inputs/sgc_conf/{library}_r1_multifasta_conf.yml",
-#        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz",
-#        #sig = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
-#    output: "outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv"
-#    params: 
-#        outdir = "outputs/sgc_genome_queries",
-#        #out = lambda wildcards: wildcards.library + "_k31_r1_multifasta/query-results.csv"
-#    conda: "envs/spacegraphcats_multifasta.yml"
-#    resources:
-#        mem_mb = 32000
-#    threads: 1
-#    shell:'''
-#    python -m spacegraphcats {input.conf} multifasta_query --nolock --outdir {params.outdir}
-#    '''
+rule spacegraphcats_multifasta:
+    input:
+        queries = Checkpoint_GatherResults('outputs/gather_matches_loso_prokka/{acc}.ffn'),
+        conf = "inputs/sgc_conf/{library}_r1_multifasta_conf.yml",
+        reads = "outputs/abundtrim/{library}.abundtrim.fq.gz",
+        #sig = "outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig"
+    output: "outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv"
+    params: 
+        outdir = "outputs/sgc_genome_queries",
+        #out = lambda wildcards: wildcards.library + "_k31_r1_multifasta/query-results.csv"
+    conda: "envs/spacegraphcats_multifasta.yml"
+    resources:
+        mem_mb = 32000
+    threads: 1
+    shell:'''
+    python -m spacegraphcats {input.conf} multifasta_query --nolock --outdir {params.outdir}
+    '''
 
 ##############################################
 ## Pangenome signature/variable importance
@@ -955,17 +992,16 @@ rule nbhd_read_sig_to_csv:
     python scripts/sig_to_csv.py {input} {output}
     '''
 
-# TR TODO: UPDATE INPUT TO CHECKPOINT
-#rule index_sig_nbhd_reads:
-#    input: expand("outputs/nbhds_read_sigs/{library}/{acc}.cdbg_ids.reads.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
-#    output: "outputs/nbhd_reads_sigs_gather/nbhd_reads_sigs.sbt.json"
-#    conda: "envs/sourmash.yml"
-#    resources:
-#        mem_mb = 2000
-#    threads: 1
-#    shell:'''
-#    sourmash index -k 31 {output} --traverse-directory outputs/nbhd_read_sigs
-#    '''
+rule index_sig_nbhd_reads:
+    input: Checkpoint_GatherResults(expand("outputs/nbhds_read_sigs/{library}/{{acc}}.cdbg_ids.reads.sig", library = LIBRARIES))
+    output: "outputs/nbhd_reads_sigs_gather/nbhd_reads_sigs.sbt.json"
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 2000
+    threads: 1
+    shell:'''
+    sourmash index -k 31 {output} --traverse-directory outputs/nbhd_read_sigs
+    '''
 
 #rule gather_vita_vars_study_against_nbhd_read_sigs:
 #    input:
