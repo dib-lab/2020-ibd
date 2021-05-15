@@ -5,4 +5,4 @@ channels:
 dependencies:
     - pip
     - pip:
-      - genome-grist=0.7
+      - genome-grist==0.7
