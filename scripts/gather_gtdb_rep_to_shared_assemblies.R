@@ -2,6 +2,7 @@ library(dplyr)
 library(readr)
 library(tidyr)
 library(purrr)
+library(rjson)
 
 # read in gtdb derep + genbank protozoa, fungi, viral gather results.
 # subset to assemblies identified in all models. 
