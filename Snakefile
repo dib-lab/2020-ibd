@@ -843,6 +843,7 @@ rule gather_vita_vars_gtdb:
 checkpoint gather_gtdb_rep_to_shared_assemblies:
     input:  
         gather=expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
+        gather_matches=expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.matches", study = STUDY, seed = SEED),
         varimp=expand("outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS", study = STUDY, seed = SEED)
     output: 
         gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",

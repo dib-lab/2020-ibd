@@ -58,7 +58,7 @@ write_csv(gather_dummy_all, snakemake@output[["gather_all_shared"]])
 # shared assemblies are present in all models; read in smallest set
 # reads in signatures of matches and generates a hash:assembly dataframe
 # sig_json <- fromJSON(file = "outputs/gather/SRP057027_vita_vars_gtdb_seed6.matches")
-sig_json <- fromJSON(file = unlist(snakemake@input[["gather"]], use.names = F)[1])
+sig_json <- fromJSON(file = unlist(snakemake@input[["gather_matches"]], use.names = F)[1])
 hash_to_assembly <- lapply(sig_json, data.frame, stringsAsFactors = FALSE)
 hash_to_assembly <- bind_rows(hash_to_assembly)
 
@@ -95,13 +95,15 @@ varimp <- left_join(varimp, hash_to_assembly_shared_assemblies, by = c("hash" ="
 varimp <- varimp %>%
   mutate(accession = gsub("\\..*", "", name))
 # retain only assemblies that have > 1% of variable importance
-top_imp_genomes <- name_imp %>%
+top_imp_genomes <- varimp %>% 
+  group_by(name) %>%
+  summarize(total_all_model_norm_imp = sum(all_model_norm_imp)) %>%
   filter(total_all_model_norm_imp >= 0.01) 
 
 # this is sort of cheating, but remove the assemblies that I know become <1%
 # after running charcoal to remove contamination
 gather_dummy_top <- gather_dummy_all %>%
-  filter(name %in% top_imp_genomes$name)
+  filter(name %in% top_imp_genomes$name) %>%
   filter(! name %in% c("GCA_002893375.1 Cyclospora cayetanensis strain=CDC:HCVA02:15, ASM289337v1"))
 
 write_csv(gather_dummy_top, snakemake@output[["gather_grist"]])
