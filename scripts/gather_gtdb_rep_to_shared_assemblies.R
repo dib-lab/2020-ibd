@@ -49,7 +49,7 @@ gather_dummy_all <- gather_files %>%
                        "GCA_002893405.1 Cyclospora cayetanensis strain=CDC:HCFL47:13, ASM289340v1",
                        "GCA_003057635.1 Cyclospora cayetanensis strain=CDC:HCTX205:15, ASM305763v1"))
 
-write_csv(gather_dummy_all, snakemake@outputs[["gather_all_shared"]])
+write_csv(gather_dummy_all, snakemake@output[["gather_all_shared"]])
 
 
 # filter based on variable importance -------------------------------------
@@ -103,4 +103,4 @@ gather_dummy_top <- gather_dummy_all %>%
   filter(name %in% top_imp_genomes$name)
   filter(! name %in% c("GCA_002893375.1 Cyclospora cayetanensis strain=CDC:HCVA02:15, ASM289337v1"))
 
-write_csv(gather_dummy_top, snakemake@outputs[["gather_grist"]])
+write_csv(gather_dummy_top, snakemake@output[["gather_grist"]])
