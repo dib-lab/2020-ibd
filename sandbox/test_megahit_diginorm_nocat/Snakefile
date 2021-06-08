@@ -26,8 +26,10 @@ GATHER_GENOMES = ["ERS235530_10.fna", "ERS235531_43.fna", "ERS235603_16.fna",
 
 rule all:
     input: 
-        #expand("bwa/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        #expand("bwa_cdhit/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        #expand("bwa_diginorm/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        #expand("bwa_nbhd_reads/{library}/{gather_genome}.flagstat", library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("bwa_cdhit_diginorm/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
+        expand("bwa_cdhit_nbhd_reads/{library}/{gather_genome}.flagstat",library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("corncob/{gather_genome}_sig_ccs.tsv", gather_genome = GATHER_GENOMES),
         expand("cdhit/{gather_genome}.cdhit.faa", gather_genome = GATHER_GENOMES),
         expand("corncob/{gather_genome}_sig_ccs.ffn", gather_genome = GATHER_GENOMES), 
@@ -39,8 +41,9 @@ rule all:
         "checkm/uc_down/completeness.tsv",
         "checkm/pangenome/completeness.tsv",
         expand("eggnog/{gather_genome}.emapper.annotations", gather_genome = GATHER_GENOMES), 
-        expand('gene_rf/{study}_validation_acc.csv', study = STUDY)
- 
+        expand('gene_rf_w_singlem/{study}_validation_acc.csv', study = STUDY),
+        "megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.un.csv"
+
 rule megahit:
     input: "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
     output: "megahit/{library}/{gather_genome}.contigs.fa"
@@ -53,34 +56,89 @@ rule megahit:
     rm -rf {wildcards.library}_{wildcards.gather_genome}_megahit
     '''
 
-rule index:
-    input: genome = "megahit/{library}/{gather_genome}.contigs.fa"
-    output:  "megahit/{library}/{gather_genome}.contigs.fa.bwt"
-    conda: "env.yml"
+rule compute_megahit_sig:
+    input: "megahit/{library}/{gather_genome}.contigs.fa"
+    output: "megahit_sigs/{library}/{gather_genome}.contigs.sig"
+    conda: "../../envs/sourmash.yml"
+    params: 
+        name = lambda wildcards: wildcards.library + "_" + wildcards.gather_genome
     shell:'''
-    bwa index {input}
+    sourmash compute -k 21,31,51 --scaled 2000 --merge {params.name} -o {output} {input}
     '''
 
-rule bwa:
+rule index_megahit_sigs:
+    input: expand("megahit_sigs/{library}/{gather_genome}.contigs.sig", library = LIBRARIES, gather_genome = GATHER_GENOMES)
+    output: "megahit_gather/megahit.sbt.json"
+    conda: "../../envs/sourmash.yml"
+    shell:'''
+    sourmash index -k 31 -o {output} megahit --traverse-directory megahit_sigs
+    '''
+
+rule megahit_gather:
     input: 
-        indx =  "megahit/{library}/{gather_genome}.contigs.fa.bwt",
-        genome = "megahit/{library}/{gather_genome}.contigs.fa",
-        reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
-    output: "bwa/{library}/{gather_genome}.bam"
-    conda: "env.yml"
+        db="megahit_gather/megahit.sbt.json",
+        sig = "../../outputs/vita_rf/at_least_5_studies_vita_vars.sig"
+    output: 
+        csv="megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.csv",
+        un="megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.un"
+    conda: "../../envs/sourmash.yml"
     shell:'''
-    bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} - || touch {output}
-    ''' 
-
-
-rule samtools_flagstat:
-    input: "bwa/{library}/{gather_genome}.bam"
-    output: "bwa/{library}/{gather_genome}.flagstat"
-    conda: "env.yml"
-    shell:'''
-    samtools flagstat {input} > {output} - || touch {output}
+    sourmash gather -o {output.csv} --output-unassigned {output.un} {input.sig} {input.db}
     '''
 
+rule convert_megahit_un_to_csv:
+    input: "megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.un"
+    output: "megahit_gather/at_least_5_vita_vars_vs_megahit_assemblies_tbp0.un.csv"
+    conda: "../../envs/sourmash.yml"
+    shell:'''
+    python scripts/sig_to_csv_noabund.py {input} {output}
+    '''
+
+#rule index:
+#    input: genome = "megahit/{library}/{gather_genome}.contigs.fa"
+#    output:  "megahit/{library}/{gather_genome}.contigs.fa.bwt"
+#    conda: "env.yml"
+#    shell:'''
+#    bwa index {input}
+#    '''
+
+#rule bwa_diginorm:
+#    input: 
+#        indx =  "megahit/{library}/{gather_genome}.contigs.fa.bwt",
+#        genome = "megahit/{library}/{gather_genome}.contigs.fa",
+#        reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
+#    output: "bwa_diginorm/{library}/{gather_genome}.bam"
+#    conda: "env.yml"
+#    shell:'''
+#    bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} - # || touch {output}
+#    ''' 
+
+#rule samtools_flagstat_diginorm:
+#    input: "bwa_diginorm/{library}/{gather_genome}.bam"
+#    output: "bwa_diginorm/{library}/{gather_genome}.flagstat"
+#    conda: "env.yml"
+#    shell:'''
+#    samtools flagstat {input} > {output} - # || touch {output}
+#    '''
+
+#rule bwa_nbhd_reads:
+#    input: 
+#        indx =  "megahit/{library}/{gather_genome}.contigs.fa.bwt",
+#        genome = "megahit/{library}/{gather_genome}.contigs.fa",
+#        reads =  "../../outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+#    output: "bwa_nbhd_reads/{library}/{gather_genome}.bam"
+#    conda: "env.yml"
+#    shell:'''
+#    bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} - # || touch {output}
+#    ''' 
+
+#rule samtools_flagstat_nbhd_reads:
+#    input: "bwa_nbhd_reads/{library}/{gather_genome}.bam"
+#    output: "bwa_nbhd_reads/{library}/{gather_genome}.flagstat"
+#    conda: "env.yml"
+#    shell:'''
+#    samtools flagstat {input} > {output} - # || touch {output}
+#    '''
 
 # check alignment to single assembly first; 
 # then use prokka to predict ORFs, 
@@ -122,24 +180,44 @@ rule index_cdhit:
     bwa index {input}
     '''
 
-rule bwa_cdhit:
+rule bwa_cdhit_diginorm:
     input: 
         indx =  "cdhit/{gather_genome}.cdhit.ffn.bwt",
         genome = "cdhit/{gather_genome}.cdhit.ffn",
         reads =  "nbhd_reads_diginorm/{library}/{gather_genome}.cdgb_ids.reads.diginorm.fa.gz"
-    output: "bwa_cdhit/{library}/{gather_genome}.bam"
+    output: "bwa_cdhit_diginorm/{library}/{gather_genome}.bam"
     conda: "env.yml"
     shell:'''
     bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} -
     ''' 
 
-rule flagstat_cdhit:
-    input: "bwa_cdhit/{library}/{gather_genome}.bam"
-    output: "bwa_cdhit/{library}/{gather_genome}.flagstat"
+rule flagstat_cdhit_diginorm:
+    input: "bwa_cdhit_diginorm/{library}/{gather_genome}.bam"
+    output: "bwa_cdhit_diginorm/{library}/{gather_genome}.flagstat"
     conda: "env.yml"
     shell:'''
     samtools flagstat {input} > {output}
     '''
+
+rule bwa_cdhit_nbhd_reads:
+    input: 
+        indx =  "cdhit/{gather_genome}.cdhit.ffn.bwt",
+        genome = "cdhit/{gather_genome}.cdhit.ffn",
+        reads =  "../../outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{gather_genome}.gz.cdbg_ids.reads.fa.gz"
+    output: "bwa_cdhit_nbhd_reads/{library}/{gather_genome}.bam"
+    conda: "env.yml"
+    shell:'''
+    bwa mem -t 2 {input.genome} {input.reads} | samtools sort -o {output} -
+    ''' 
+
+rule flagstat_cdhit_nbhd_reads:
+    input: "bwa_cdhit_nbhd_reads/{library}/{gather_genome}.bam"
+    output: "bwa_cdhit_nbhd_reads/{library}/{gather_genome}.flagstat"
+    conda: "env.yml"
+    shell:'''
+    samtools flagstat {input} > {output}
+    '''
+
 ##############################################################
 
 rule salmon_index:
@@ -450,7 +528,7 @@ rule gene_vita_var_sel_rf:
 
 rule loo_validation:
     input: 
-        vsd_filt = 'gene_rf/{study}_filt.csv',
+        ibd_filt = 'gene_rf/{study}_filt.csv',
         info = '../../inputs/working_metadata.tsv',
         eval_model = '../../scripts/function_evaluate_model.R',
         ggconfusion = '../../scripts/ggplotConfusionMatrix.R'
@@ -463,7 +541,59 @@ rule loo_validation:
         validation_confusion = 'gene_rf/{study}_validation_confusion.pdf'
     params:
         threads = 16,
+        validation_study = lambda wildcards: wildcards.study 
+    conda: '../../envs/tuneranger.yml'
+    script: "../../scripts/tune_rf.R"
+
+############################################################
+## Random forests on pangenome gene abundances and singlem
+############################################################
+
+rule make_gene_counts_with_singlem:
+    input: tximport = expand("tximport/{gather_genome}_counts_raw.tsv", gather_genome = GATHER_GENOMES),
+           singlem = "../../outputs/sgc_genome_queries_singlem/singlem_counts.tsv"
+    output: vsd = "gene_rf_w_singlem/vsd_counts_all.tsv"
+    conda: "../../envs/deseq.yml"
+    script: "scripts/combine_singlem_tximport_vsd.R"
+
+rule install_pomona_singlem:
+    input: "gene_rf_w_singlem/vsd_counts_all.tsv"
+    output:
+        pomona = "gene_rf_w_singlem/pomona_install.txt"
+    conda: '../../envs/rf.yml'
+    script: "../../scripts/install_pomona.R"
+
+rule gene_vita_var_sel_rf_w_singlem:
+    input:
+        info = "../../inputs/working_metadata.tsv", 
+        vsd = "gene_rf_w_singlem/vsd_counts_all.tsv",
+        pomona = "gene_rf_w_singlem/pomona_install.txt"
+    output:
+        vita_rf = "gene_rf_w_singlem/{study}_vita_rf.RDS",
+        vita_vars = "gene_rf_w_singlem/{study}_vita_vars.txt",
+        vsd_filt = "gene_rf_w_singlem/{study}_filt.csv"
+    params: 
+        threads = 16,
         validation_study = "{study}"
+    conda: '../../envs/rf.yml'
+    script: "scripts/gene_vita_rf.R"
+
+rule loo_validation_w_singlem:
+    input: 
+        ibd_filt = 'gene_rf_w_singlem/{study}_filt.csv',
+        info = '../../inputs/working_metadata.tsv',
+        eval_model = '../../scripts/function_evaluate_model.R',
+        ggconfusion = '../../scripts/ggplotConfusionMatrix.R'
+    output: 
+        recommended_pars = 'gene_rf_w_singlem/{study}_rec_pars.tsv',
+        optimal_rf = 'gene_rf_w_singlem/{study}_optimal_rf.RDS',
+        training_accuracy = 'gene_rf_w_singlem/{study}_training_acc.csv',
+        training_confusion = 'gene_rf_w_singlem/{study}_training_confusion.pdf',
+        validation_accuracy = 'gene_rf_w_singlem/{study}_validation_acc.csv',
+        validation_confusion = 'gene_rf_w_singlem/{study}_validation_confusion.pdf'
+    params:
+        threads = 16,
+        validation_study = lambda wildcards: wildcards.study 
     conda: '../../envs/tuneranger.yml'
     script: "../../scripts/tune_rf.R"
 

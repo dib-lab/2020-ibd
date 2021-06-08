@@ -49,9 +49,7 @@ gather_dummy_all <- gather_files %>%
                        "GCA_002893405.1 Cyclospora cayetanensis strain=CDC:HCFL47:13, ASM289340v1",
                        "GCA_003057635.1 Cyclospora cayetanensis strain=CDC:HCTX205:15, ASM305763v1"))
 
-# select Eukaryotic representative species for 
-
-write_csv(gather_dummy_all, snakemake@outputs[["gather_all_s"]])
+write_csv(gather_dummy_all, snakemake@outputs[["gather_all_shared"]])
 
 
 # filter based on variable importance -------------------------------------

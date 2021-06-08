@@ -827,7 +827,6 @@ rule gather_vita_vars_gtdb:
         db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
         db3="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
         db4="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
-        
     output: 
         csv="outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv",
         matches="outputs/gather/{study}_vita_vars_gtdb_seed{seed}.matches",
@@ -842,8 +841,12 @@ rule gather_vita_vars_gtdb:
 
 # make this a checkpoint to interact with class Checkpoint_GatherResults
 checkpoint gather_gtdb_rep_to_shared_assemblies:
-    input:  gather=expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED) 
-    output: gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv"
+    input:  
+        gather=expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
+        varimp=expand("outputs/optimal_rf_seed/{study}_optimal_rf_seed{seed}.RDS", study = STUDY, seed = SEED)
+    output: 
+        gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
+        gather_all_shared = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies_all.gather.csv"
     conda: "envs/tidy.yml"
     resources:
         mem_mb = 8000
