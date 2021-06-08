@@ -77,7 +77,7 @@ read_varimp <- function(path_optimal_rf){
                        study = study)
   varimp <- separate(varimp, col = study, into = c("study", "seed"), sep = "_")
   rownames(varimp) <- seq(1:nrow(varimp))
-  varimp$hash <- as.numeric(varimp$hash)
+  varimp$hash <- as.numeric(as.character(varimp$hash))
   # add a column where varimp is normalized by the total var imp
   # e.g., divide by the sum of all variable importances
   # this will make all variable importance measures sum to 1
@@ -94,8 +94,10 @@ varimp <- unlist(snakemake@input[["varimp"]], use.names = F) %>%
 varimp <- left_join(varimp, hash_to_assembly_shared_assemblies, by = c("hash" ="signatures.mins"))
 varimp <- varimp %>%
   mutate(accession = gsub("\\..*", "", name))
+
 # retain only assemblies that have > 1% of variable importance
-top_imp_genomes <- varimp %>% 
+top_imp_genomes <- varimp %>%
+  filter(!is.na(accession)) %>% 
   group_by(name) %>%
   summarize(total_all_model_norm_imp = sum(all_model_norm_imp)) %>%
   filter(total_all_model_norm_imp >= 0.01) 
