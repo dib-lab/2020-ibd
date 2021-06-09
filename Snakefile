@@ -854,11 +854,27 @@ checkpoint gather_gtdb_rep_to_shared_assemblies:
     threads: 1
     script: "scripts/gather_gtdb_rep_to_shared_assemblies.R"
 
+rule generate_shared_assembly_lineages:
+    input:
+        gather = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
+        db_lineages = "/group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv"
+    output: lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv"
+    conda: "envs/tidy.yml"
+    resources: 
+        mem_mb = 8000
+    threads: 1
+    script: "scripts/generate_shared_assembly_lineages.R"
 
-# TR TODO: SUMMARIZE TO SPECIES
-# see: sandbox/test_gather_lineage_summarize/README.sh
-
-
+rule generate_shared_assembly_lineages_all:
+    input:
+        gather = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies_all.gather.csv", 
+        db_lineages = "/group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv"
+    output: lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies_all.gather.csv"
+    conda: "envs/tidy.yml"
+    resources: 
+        mem_mb = 8000
+    threads: 1
+    script: "scripts/generate_shared_assembly_lineages.R"
 
 #############################################
 # Spacegraphcats Genome Queries
@@ -891,12 +907,42 @@ rule download_shared_assemblies:
 #                        genome = glob_wildcards(os.path.join(checkpoint_output, "{acc}_genomic.fna.gz")).acc)
 #    return file_names
 
+rule generate_charcoal_genome_list:
+    input:  Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz")
+    output: "inputs/charcoal.genome-list.txt"
+    threads: 1
+    resources:
+        mem_mb=500
+    shell:'''
+    ls genbank_genomes > {output} 
+    '''
+
+rule charcoal_decontaminate_shared_assemblies:
+    input:
+        genomes = "genbank_genomes/{acc}_genomic.fna.gz"
+        genome_list = "inputs/charcoal.genome-list.txt",
+        conf = "inputs/charcoal-conf.yml",
+        genome_lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv",
+        db="/group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip",
+        db_lineages="/group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv"
+    output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
+    resources:
+        mem_mb = 128000
+    threads: 16
+    conda: "envs/charcoal.yml"
+    shell:'''
+    python -m charcoal run {input.conf} -j {threads} all_clean_contigs
+    '''
+    
 rule make_sgc_conf_files:
     input:
         csv = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
-        queries = Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"),
+        queries = Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"),
     output:
         conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml"
+    resources:
+        mem_mb = 500
+    threads: 1
     run:
         query_list = "\n- ".join(input.queries)
         with open(output.conf, 'wt') as fp:
@@ -912,7 +958,7 @@ search:
 
 rule spacegraphcats_shared_assemblies:
     input: 
-        queries = "genbank_genomes/{acc}_genomic.fna.gz", 
+        queries = "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz", 
         conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
