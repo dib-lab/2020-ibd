@@ -1,5 +1,6 @@
 library(dplyr)
 library(readr)
+library(tidyr)
 
 # read in gather csv for shared assemblies and db lineages.
 # join together and output. 
