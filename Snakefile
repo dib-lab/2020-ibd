@@ -914,12 +914,12 @@ rule generate_charcoal_genome_list:
     resources:
         mem_mb=500
     shell:'''
-    ls genbank_genomes > {output} 
+    ls genbank_genomes/*fna.gz > {output} 
     '''
 
 rule charcoal_decontaminate_shared_assemblies:
     input:
-        genomes = "genbank_genomes/{acc}_genomic.fna.gz"
+        genomes = "genbank_genomes/{acc}_genomic.fna.gz",
         genome_list = "inputs/charcoal.genome-list.txt",
         conf = "inputs/charcoal-conf.yml",
         genome_lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv",
