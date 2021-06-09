@@ -952,6 +952,7 @@ input_sequences:
 - outputs/abundtrim/{wildcards.library}.abundtrim.fq.gz
 ksize: 31
 radius: 1
+paired_reads: true
 search:
 - {query_list}
 """, file=fp)
