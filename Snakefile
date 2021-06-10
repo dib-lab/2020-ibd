@@ -65,9 +65,8 @@ rule all:
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
         # SPACEGRAPHCATS OUTPUTS:
-        #Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"),
-        expand("outputs/sgc_conf/{library}_k31_r1_conf.yml", library = LIBRARIES),
-        #Checkpoint_GatherResults(expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.cdbg_ids.reads.gz", library = LIBRARIES)),
+        #expand("outputs/sgc_conf/{library}_k31_r1_conf.yml", library = LIBRARIES),
+        Checkpoint_GatherResults(expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.cdbg_ids.reads.gz", library = LIBRARIES)),
         #expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
         # PANGENOME SIGS
@@ -894,7 +893,7 @@ rule download_shared_assemblies:
         mem_mb = 8000
     threads: 1
     shell:'''
-    genome-grist run {input.conf} --until make_sgc_conf
+    genome-grist run {input.conf} --until make_sgc_conf --nolock
     '''
 
 # keep old checkpoint solving rule for now...replaced by class Checkpoint_GatherResults.
@@ -908,30 +907,52 @@ rule download_shared_assemblies:
 #    return file_names
 
 rule generate_charcoal_genome_list:
-    input:  Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz")
-    output: "inputs/charcoal.genome-list.txt"
+    input:  "genbank_genomes/{acc}_genomic.fna.gz"
+    output: "outputs/charcoal_conf/{acc}.genome-list.txt"
     threads: 1
     resources:
         mem_mb=500
     shell:'''
-    ls genbank_genomes/*fna.gz > {output} 
+    echo $(basename {input}) > {output} 
     '''
+
+rule generate_charcoal_conf_file:
+    input: "genbank_genomes/{acc}_genomic.fna.gz"
+    output: conf = "outputs/charcoal_conf/{acc}-conf.yml"
+    resources:
+        mem_mb = 500
+    threads: 1
+    run:
+        with open(output.conf, 'wt') as fp:
+           print(f"""\
+output_dir: /home/tereiter/github/2020-ibd/outputs/charcoal/
+genome_list: /home/tereiter/github/2020-ibd/outputs/charcoal_conf/{wildcards.acc}.genome-list.txt
+genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
+provided_lineages: /home/tereiter/github/2020-ibd/outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv
+match_rank: order
+gather_db:
+ - /group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip
+lineages_csv: /group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv 
+""", file=fp)
 
 rule charcoal_decontaminate_shared_assemblies:
     input:
+        #genomes = Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"),
+        #genome_list = "inputs/charcoal.genome-list.txt",
+        #conf = "inputs/charcoal-conf.yml",
         genomes = "genbank_genomes/{acc}_genomic.fna.gz",
-        genome_list = "inputs/charcoal.genome-list.txt",
-        conf = "inputs/charcoal-conf.yml",
+        genome_list = "outputs/charcoal_conf/{acc}.genome-list.txt",
+        conf = "outputs/charcoal_conf/{acc}-conf.yml",
         genome_lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv",
         db="/group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip",
         db_lineages="/group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv"
     output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
     resources:
         mem_mb = 128000
-    threads: 16
+    threads: 1
     conda: "envs/charcoal.yml"
     shell:'''
-    python -m charcoal run {input.conf} -j {threads} all_clean_contigs
+    python -m charcoal run {input.conf} -j {threads} all_clean_contigs --nolock
     '''
     
 rule make_sgc_conf_files:
@@ -971,7 +992,7 @@ rule spacegraphcats_shared_assemblies:
         mem_mb = 64000
     threads: 1
     shell:'''
-    spacegraphcats {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+    python -m spacegraphcats run {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
 
 rule prokka_gather_match_genomes:
