@@ -66,7 +66,7 @@ rule all:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
         # SPACEGRAPHCATS OUTPUTS:
         #expand("outputs/sgc_conf/{library}_k31_r1_conf.yml", library = LIBRARIES),
-        Checkpoint_GatherResults(expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.cdbg_ids.reads.gz", library = LIBRARIES)),
+        expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES),
         #expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
         # PANGENOME SIGS
@@ -980,12 +980,13 @@ search:
 
 rule spacegraphcats_shared_assemblies:
     input: 
-        queries = "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz", 
+        queries = Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"), 
         conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.cdbg_ids.reads.gz",
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.contigs.sig"
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.cdbg_ids.reads.gz",
+        #"outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.contigs.sig"
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     resources:
