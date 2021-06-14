@@ -10,3 +10,5 @@ dependencies:
     - pip
     - mamba
     - sourmash>=4.1.1,<5
+    - pip:
+      - git+https://github.com/dib-lab/charcoal@latest
