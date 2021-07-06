@@ -1,0 +1,4 @@
+sample:
+- gather_vita_vars_gtdb_shared_assemblies
+outdir: outputs
+metagenome_trim_memory: 1e9

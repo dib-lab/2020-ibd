@@ -7,7 +7,8 @@ library(tuneRanger)
 source(snakemake@input[['eval_model']])
 source(snakemake@input[['ggconfusion']])
 
-set.seed(1)
+seed <- as.numeric(snakemake@wildcards[['seed']])
+set.seed(seed)
 
 ibd_filt <- read_csv(snakemake@input[['ibd_filt']])
 ibd_filt <- as.data.frame(ibd_filt)
@@ -82,7 +83,7 @@ optimal_rf <- ranger(
   data            = ibd_novalidation,
   sample.fraction = res$recommended.pars$sample.fraction,
   min.node.size   = res$recommended.pars$min.node.size,
-  seed            = 1,
+  seed            = seed,
   importance      = 'impurity'
 )
 

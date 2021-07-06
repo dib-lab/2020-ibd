@@ -1,0 +1,11 @@
+channels:
+ - conda-forge
+ - bioconda
+ - defaults
+dependencies:
+ - bwa=0.7.17
+ - samtools=1.10
+ - megahit=1.2.9
+ - cd-hit=4.8.1
+ - salmon=1.2.1
+ - prokka=1.14.6

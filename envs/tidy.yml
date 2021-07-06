@@ -9,3 +9,4 @@ dependencies:
    - r-purrr=0.3.4 
    - r-tidyr=1.1.1
    - r-stringr=1.4.0
+   - r-rjson=0.2.20

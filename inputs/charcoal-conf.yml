@@ -1,0 +1,27 @@
+# location for all generated files
+output_dir: ../outputs/charcoal/
+
+# list of genome filenames to decontaminate
+genome_list: inputs/charcoal.genome-list.txt
+
+# directory in which genome filenames live
+genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
+
+# (optional) list of lineages for input genomes. comment out or leave
+# blank if none.
+provided_lineages: ../outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv
+
+# match_rank is the rank _above_ which cross-lineage matches are considered
+# contamination. e.g. if set to 'superkingdom', then Archaeal matches in
+# Bacterial genomes will be contamination, but nothing else.
+#
+# values can be superkingdom, phylum, class, order, family, or genus.
+match_rank: order
+
+# sourmash query databases for contamination (SBTs, LCAs, or signatures)
+gather_db:
+ - /group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip
+# - /group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic.k31.sbt.zip
+
+# lineages CSV (see `sourmash lca index`) for signatures in query databases
+lineages_csv: /group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv 

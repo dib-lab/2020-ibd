@@ -56,10 +56,10 @@ saveRDS(vsd_vita, snakemake@output[["vita_rf"]])
 
 ## write predictive hashes
 var <- vsd_vita$var                 # separate out selected predictive hashes
-var <- gsub("X", "", var)           # remove the X from the beginning of hashes
 write.table(var, snakemake@output[['vita_vars']],
             quote = F, col.names = F, row.names = F)
 
 ## filter to predictive hashes and write to fie
+colnames(vsd) <- make.names(colnames(vsd)) # fix vsd colnames
 vsd_filt <- vsd[ , colnames(vsd) %in% var] # subset vsd to hashes in vsd_vita
 write.csv(vsd_filt, snakemake@output[['vsd_filt']], quote = F)
