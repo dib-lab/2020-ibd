@@ -990,25 +990,25 @@ rule spacegraphcats_shared_assemblies:
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     resources:
-        mem_mb = 64000
+        mem_mb = 100000
     threads: 1
     shell:'''
     python -m spacegraphcats run {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
     '''
 
-rule prokka_gather_match_genomes:
+rule prokka_shared_assemblies:
     output: 
-        ffn = 'outputs/gather_shared_assemblies_prokka/{acc}.ffn',
-        faa = 'outputs/gather_shared_assemblies_prokka/{acc}.faa'
-    input: 'genbank_genomes/{acc}_genomic.fna.gz'
+        ffn = 'outputs/prokka_shared_assemblies/{acc}.ffn',
+        faa = 'outputs/prokka_shared_assemblies/{acc}.faa'
+    input: 'outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz'
     conda: 'envs/prokka.yml'
     resources:
         mem_mb = 8000
     threads: 2
     params: 
-        outdir = 'outputs/gather_shared_assemblies_prokka/',
+        outdir = 'outputs/prokka_shared_assemblies/',
         prefix = lambda wildcards: wildcards.acc,
-        gzip = lambda wildcards: "outputs/gather_shared_assemblies/" + wildcards.acc + "_genomic.fna"
+        gzip = lambda wildcards: "outputs/charcoal/" + wildcards.acc + "_genomic.fna.gz.clean.fa.gz"
     shell:'''
     gunzip {input}
     prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {threads} --centre X --compliant
