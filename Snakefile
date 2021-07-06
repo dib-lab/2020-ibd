@@ -894,6 +894,7 @@ rule download_shared_assemblies:
     threads: 1
     shell:'''
     genome-grist run {input.conf} --until make_sgc_conf --nolock
+    touch {output}
     '''
 
 # keep old checkpoint solving rule for now...replaced by class Checkpoint_GatherResults.
@@ -907,52 +908,64 @@ rule download_shared_assemblies:
 #    return file_names
 
 rule generate_charcoal_genome_list:
-    input:  "genbank_genomes/{acc}_genomic.fna.gz"
-    output: "outputs/charcoal_conf/{acc}.genome-list.txt"
+    input:  ancient(Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"))
+    output: "outputs/charcoal_conf/charcoal.genome-list.txt"
     threads: 1
     resources:
         mem_mb=500
     shell:'''
-    echo $(basename {input}) > {output} 
+    ls genbank_genomes/*gz | xargs -n 1 basename > {output} 
     '''
 
-rule generate_charcoal_conf_file:
-    input: "genbank_genomes/{acc}_genomic.fna.gz"
-    output: conf = "outputs/charcoal_conf/{acc}-conf.yml"
-    resources:
-        mem_mb = 500
-    threads: 1
-    run:
-        with open(output.conf, 'wt') as fp:
-           print(f"""\
-output_dir: /home/tereiter/github/2020-ibd/outputs/charcoal/
-genome_list: /home/tereiter/github/2020-ibd/outputs/charcoal_conf/{wildcards.acc}.genome-list.txt
-genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
-provided_lineages: /home/tereiter/github/2020-ibd/outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv
-match_rank: order
-gather_db:
- - /group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip
-lineages_csv: /group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv 
-""", file=fp)
+# vestige of running charcoal on each genome individually; running charcoal this way
+# is a bad idea bc charcoal produces a file for the full run (that I think is used in
+# decontamination?) that would be overwritten with each run. This means charcoal can't
+# be run in parallel, and if it is, who knows what problems may arise. 
+#rule generate_charcoal_conf_file:
+#    input: "genbank_genomes/{acc}_genomic.fna.gz"
+#    output: conf = "outputs/charcoal_conf/{acc}-conf.yml"
+#    resources:
+#        mem_mb = 500
+#    threads: 1
+#    run:
+#        with open(output.conf, 'wt') as fp:
+#           print(f"""\
+#output_dir: /home/tereiter/github/2020-ibd/outputs/charcoal/
+#genome_list: /home/tereiter/github/2020-ibd/outputs/charcoal_conf/{wildcards.acc}.genome-list.txt
+#genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
+#provided_lineages: /home/tereiter/github/2020-ibd/outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv
+#match_rank: order
+#gather_db:
+# - /group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip
+#lineages_csv: /group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv 
+#""", file=fp)
 
 rule charcoal_decontaminate_shared_assemblies:
     input:
-        #genomes = Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"),
-        #genome_list = "inputs/charcoal.genome-list.txt",
-        #conf = "inputs/charcoal-conf.yml",
-        genomes = "genbank_genomes/{acc}_genomic.fna.gz",
-        genome_list = "outputs/charcoal_conf/{acc}.genome-list.txt",
-        conf = "outputs/charcoal_conf/{acc}-conf.yml",
+        genomes = ancient(Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz")),
+        genome_list = "outputs/charcoal_conf/charcoal.genome-list.txt",
+        conf = "inputs/charcoal-conf.yml",
+        #genomes = "genbank_genomes/{acc}_genomic.fna.gz",
+        #genome_list = "outputs/charcoal_conf/{acc}.genome-list.txt",
+        #conf = "outputs/charcoal_conf/{acc}-conf.yml",
         genome_lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv",
         db="/group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip",
         db_lineages="/group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv"
-    output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
+    #output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
+    output: "outputs/charcoal/stage1_hitlist.csv"
     resources:
         mem_mb = 128000
-    threads: 1
+    threads: 8
     conda: "envs/charcoal.yml"
     shell:'''
-    python -m charcoal run {input.conf} -j {threads} all_clean_contigs --nolock
+    python -m charcoal run {input.conf} -j {threads} all_clean_contigs --nolock --latency-wait 15 --rerun-incomplete -k
+    '''
+
+rule touch_decontaminated_shared_assemblies:
+    input: "outputs/charcoal/stage1_hitlist.csv"
+    output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
+    shell:'''
+    touch {output}
     '''
     
 rule make_sgc_conf_files:

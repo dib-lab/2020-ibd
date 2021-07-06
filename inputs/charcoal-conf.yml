@@ -2,7 +2,7 @@
 output_dir: /home/tereiter/github/2020-ibd/outputs/charcoal/
 
 # list of genome filenames to decontaminate
-genome_list: /home/tereiter/github/2020-ibd/inputs/charcoal.genome-list.txt
+genome_list: /home/tereiter/github/2020-ibd/outputs/charcoal_conf/charcoal.genome-list.txt
 
 # directory in which genome filenames live
 genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
