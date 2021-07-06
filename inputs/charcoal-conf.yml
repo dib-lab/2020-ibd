@@ -1,15 +1,15 @@
 # location for all generated files
-output_dir: ../outputs/charcoal/
+output_dir: /home/tereiter/github/2020-ibd/outputs/charcoal/
 
 # list of genome filenames to decontaminate
-genome_list: inputs/charcoal.genome-list.txt
+genome_list: /home/tereiter/github/2020-ibd/inputs/charcoal.genome-list.txt
 
 # directory in which genome filenames live
 genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
 
 # (optional) list of lineages for input genomes. comment out or leave
 # blank if none.
-provided_lineages: ../outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv
+provided_lineages: /home/tereiter/github/2020-ibd/outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv
 
 # match_rank is the rank _above_ which cross-lineage matches are considered
 # contamination. e.g. if set to 'superkingdom', then Archaeal matches in
