@@ -963,7 +963,7 @@ rule charcoal_decontaminate_shared_assemblies:
 
 rule touch_decontaminated_shared_assemblies:
     input: "outputs/charcoal/stage1_hitlist.csv"
-    output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
+    output: ancient("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz")
     shell:'''
     touch {output}
     '''
@@ -971,7 +971,7 @@ rule touch_decontaminated_shared_assemblies:
 rule make_sgc_conf_files:
     input:
         csv = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
-        queries = Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"),
+        queries = ancient(Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz")),
     output:
         conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml"
     resources:
@@ -993,7 +993,7 @@ search:
 
 rule spacegraphcats_shared_assemblies:
     input: 
-        queries = Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"), 
+        queries = ancient(Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz")), 
         conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml",
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
