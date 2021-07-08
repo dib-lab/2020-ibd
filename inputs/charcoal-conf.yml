@@ -25,3 +25,4 @@ gather_db:
 
 # lineages CSV (see `sourmash lca index`) for signatures in query databases
 lineages_csv: /group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv 
+strict: 1
