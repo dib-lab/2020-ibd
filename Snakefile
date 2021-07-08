@@ -952,18 +952,23 @@ rule charcoal_decontaminate_shared_assemblies:
         db="/group/ctbrowngrp/gtdb/databases/gtdb-rs202.genomic.k31.zip",
         db_lineages="/group/ctbrowngrp/gtdb/gtdb-rs202.taxonomy.csv"
     #output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
-    output: "outputs/charcoal/stage1_hitlist.csv"
+    output: 
+        hitlist="outputs/charcoal/stage1_hitlist.csv",
+        clean_finished="outputs/charcoal/clean_finished.txt"
     resources:
         mem_mb = 128000
     threads: 8
     conda: "envs/charcoal.yml"
     shell:'''
-    python -m charcoal run {input.conf} -j {threads} all_clean_contigs --nolock --latency-wait 15 --rerun-incomplete -k
+    python -m charcoal run {input.conf} -j {threads} clean --nolock --latency-wait 15 --rerun-incomplete
+    touch {output.clean_finished}
     '''
 
 rule touch_decontaminated_shared_assemblies:
-    input: "outputs/charcoal/stage1_hitlist.csv"
-    output: ancient("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz")
+    input: 
+        "outputs/charcoal/stage1_hitlist.csv",
+        "outputs/charcoal/clean_finished.txt"
+    output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
     shell:'''
     touch {output}
     '''
@@ -994,7 +999,7 @@ search:
 rule spacegraphcats_shared_assemblies:
     input: 
         queries = ancient(Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz")), 
-        conf = "outputs/sgc_conf/{library}_k31_r1_conf.yml",
+        conf = ancient("outputs/sgc_conf/{library}_k31_r1_conf.yml"),
         reads = "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output:
         "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
