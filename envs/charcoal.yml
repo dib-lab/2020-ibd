@@ -9,6 +9,6 @@ dependencies:
     - click>=7,<8
     - pip
     - mamba
-    - sourmash>=4.1.1,<5
+    - sourmash>=4.2.0,<5
     - pip:
-      - git+https://github.com/dib-lab/charcoal@latest
+      - git+https://github.com/dib-lab/charcoal@patch-targets
