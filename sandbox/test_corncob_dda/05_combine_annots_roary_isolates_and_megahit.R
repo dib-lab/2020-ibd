@@ -4,7 +4,8 @@ library(tidyr)
 setwd("~/github/2020-ibd/sandbox")
 
 eggnog <- read_tsv("test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/megahit_and_isolates_eggnog/pan_genome_reference.emapper.annotations", skip = 3) %>%
-  rename(query_name = `#query_name`)
+  rename(query_name = `#query_name`) %>%
+  mutate(query_name = gsub("_1", "", query_name))
 cdbg_annot <- read_csv("test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/rgnv_nbhd_diginorm_hardtrim_piece_size_k31_r10_multifasta_roary_isolates_and_metagenomes/multifasta.cdbg_annot.csv") %>%
   separate(record_name, into = c("record_id", "tmp"), remove = F, sep = " ") %>%
   select(-tmp)
