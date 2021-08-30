@@ -1,0 +1,6 @@
+channels:
+ - conda-forge
+ - bioconda
+ - defaults
+dependencies:
+ - ntcard=1.2.2

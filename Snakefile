@@ -265,6 +265,28 @@ rule multiqc_fastp:
     multiqc {params.indir} -o {params.outdir} 
     '''
 
+rule count_kmers_ntcard:
+    input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
+    output: 
+        fstat = "outputs/ntcard/{library}.fstat",
+        freq = "outputs/ntcard/{library}.freq"
+    conda: 'envs/ntcard.yml'
+    threads: 4
+    resources:
+        mem_mb=4000
+    shell:'''
+    ntcard -k31 -c2000 -t 4 -o {output.freq} {input} &> {output.fstat}
+    '''
+
+rule format_ntcard_kmer_count:
+    input: fstat = "outputs/ntcard/{library}.fstat",
+    output: tsv = 'outputs/ntcard/all_kmer_count.tsv'
+    conda: "envs/tidy.yml"
+    threads: 1
+    resources:
+        mem_mb=4000
+    script: "scripts/format_ntcard_kmer_count.R"
+
 rule compute_signatures:
     input: "outputs/abundtrim/{library}.abundtrim.fq.gz"
     output: "outputs/sigs/{library}.sig"
@@ -1008,10 +1030,10 @@ rule spacegraphcats_shared_assemblies:
     params: outdir = "outputs/sgc_genome_queries"
     conda: "envs/spacegraphcats.yml"
     resources:
-        mem_mb = 100000
+        mem_mb = 500000
     threads: 1
     shell:'''
-    python -m spacegraphcats run {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir}  
+    python -m spacegraphcats run {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir} --rerun-incomplete 
     '''
 
 rule prokka_shared_assemblies:
