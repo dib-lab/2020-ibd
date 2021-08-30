@@ -995,7 +995,7 @@ rule touch_decontaminated_shared_assemblies:
     touch {output}
     '''
     
-rule make_sgc_conf_files:
+rule make_sgc_genome_query_conf_files:
     input:
         csv = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
         queries = ancient(Checkpoint_GatherResults("outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz")),
@@ -1035,6 +1035,64 @@ rule spacegraphcats_shared_assemblies:
     shell:'''
     python -m spacegraphcats run {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir} --rerun-incomplete 
     '''
+
+rule touch_spacegraphcats_shared_assemblies:
+    input: 
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
+    output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
+    resources:
+        mem_mb = 500
+    threads: 1
+    shell:'''
+    ls {output}
+    '''
+
+rule diginorm_spacegraphcats_shared_assemblies:
+    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
+    output: "outputs/sgc_genome_queries_diginorm/{acc}.diginorm.fa.gz"
+    resources:
+        mem_mb = 164000
+    threads: 1
+    envs: "envs/envs.yml"
+    shell:'''
+    cat {input} | normalize-by-median.py -k 20 -C 20 -M 164e9 --gzip -o {output} -
+    '''
+
+rule hardtrim_spacegraphcats_shared_assemblies:
+    input: "outputs/sgc_genome_queries_diginorm/{acc}.diginorm.fa.gz"
+    output: "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz"
+    resources:
+        mem_mb = 164000
+    threads: 1
+    envs: "envs/envs.yml"
+    shell:'''
+    trim-low-abund.py -C 4 -M 20e9 -k 31 {input} --gzip -o {output}
+    '''
+
+rule make_sgc_pangenome_conf_files:
+    input:
+        reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
+        ref_genes = "",
+        ref_sig = ""
+    output:
+        conf = "outputs/sgc_conf_multifasta/{acc}_r10_conf.yml"
+    resources:
+        mem_mb = 500
+    threads: 1
+    run:
+        query_list = "\n- ".join(input.queries)
+        with open(output.conf, 'wt') as fp:
+           print(f"""\
+catlas_base: {wildcards.acc}
+input_sequences:
+- {input.reads}
+radius: 10
+paired_reads: true
+multifasta_reference:
+- {input.ref_genes}
+multifasta_scaled: 2000
+multifasta_query_sig: {input.ref_sig}
+""", file=fp)
 
 rule prokka_shared_assemblies:
     output: 
