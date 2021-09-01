@@ -910,14 +910,14 @@ rule download_shared_assemblies:
     input: 
         gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
         conf = "inputs/genome-grist-conf.yml"
-    output: "genbank_genomes/{acc}_genomic.fna.gz"
+    output: "outputs/genbank_genomes_shared_assemblies/{acc}_genomic.fna.gz"
     conda: "envs/genome-grist.yml"
     resources:
         mem_mb = 8000
     threads: 1
     shell:'''
     genome-grist run {input.conf} --until make_sgc_conf --nolock
-    touch {output}
+    mv genbank_genomes/ outputs/genbank_genomes_shared_assemblies
     '''
 
 # keep old checkpoint solving rule for now...replaced by class Checkpoint_GatherResults.
@@ -931,13 +931,13 @@ rule download_shared_assemblies:
 #    return file_names
 
 rule generate_charcoal_genome_list:
-    input:  ancient(Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz"))
+    input:  ancient(Checkpoint_GatherResults("outputs/genbank_genomes_shared_assemblies/{acc}_genomic.fna.gz"))
     output: "outputs/charcoal_conf/charcoal.genome-list.txt"
     threads: 1
     resources:
         mem_mb=500
     shell:'''
-    ls genbank_genomes/*gz | xargs -n 1 basename > {output} 
+    ls outputs/genbank_genomes_shared_assemblies/*gz | xargs -n 1 basename > {output} 
     '''
 
 # vestige of running charcoal on each genome individually; running charcoal this way
@@ -965,7 +965,7 @@ rule generate_charcoal_genome_list:
 
 rule charcoal_decontaminate_shared_assemblies:
     input:
-        genomes = ancient(Checkpoint_GatherResults("genbank_genomes/{acc}_genomic.fna.gz")),
+        genomes = ancient(Checkpoint_GatherResults("outputs/genbank_genomes_shared_assemblies/{acc}_genomic.fna.gz")),
         genome_list = "outputs/charcoal_conf/charcoal.genome-list.txt",
         conf = "inputs/charcoal-conf.yml",
         #genomes = "genbank_genomes/{acc}_genomic.fna.gz",

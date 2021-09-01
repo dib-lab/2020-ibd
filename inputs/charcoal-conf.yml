@@ -5,7 +5,7 @@ output_dir: /home/tereiter/github/2020-ibd/outputs/charcoal/
 genome_list: /home/tereiter/github/2020-ibd/outputs/charcoal_conf/charcoal.genome-list.txt
 
 # directory in which genome filenames live
-genome_dir: /home/tereiter/github/2020-ibd/genbank_genomes
+genome_dir: /home/tereiter/github/2020-ibd/outputs/genbank_genomes_shared_assemblies
 
 # (optional) list of lineages for input genomes. comment out or leave
 # blank if none.
