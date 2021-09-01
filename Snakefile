@@ -67,6 +67,7 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #expand("outputs/sgc_conf/{library}_k31_r1_conf.yml", library = LIBRARIES),
         expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES),
+        Checkpoint_GatherResults("outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz")
         #expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
         #expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
         # PANGENOME SIGS
@@ -1053,7 +1054,7 @@ rule diginorm_spacegraphcats_shared_assemblies:
     resources:
         mem_mb = 164000
     threads: 1
-    envs: "envs/envs.yml"
+    conda: "envs/env.yml"
     shell:'''
     cat {input} | normalize-by-median.py -k 20 -C 20 -M 164e9 --gzip -o {output} -
     '''
@@ -1062,9 +1063,9 @@ rule hardtrim_spacegraphcats_shared_assemblies:
     input: "outputs/sgc_genome_queries_diginorm/{acc}.diginorm.fa.gz"
     output: "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz"
     resources:
-        mem_mb = 164000
+        mem_mb = 24000
     threads: 1
-    envs: "envs/envs.yml"
+    conda: "envs/env.yml"
     shell:'''
     trim-low-abund.py -C 4 -M 20e9 -k 31 {input} --gzip -o {output}
     '''
