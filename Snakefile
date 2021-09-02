@@ -1299,7 +1299,11 @@ rule spacegraphcats_pangenome_catlas_build_with_checkpoints:
     python -Werror -m spacegraphcats.catlas.catlas {params.cdbg_dir} {params.catlas_dir} {params.radius}
     '''
 
-rule spacegraphcats_pangenome_catlas_
+rule spacegraphcats_pangenome_catlas_dom_graph:
+    shell:'''
+    # need to generalize/implement 02_visualize_sgc.ipynb
+    '''
+
 # TR TODO: UPDATE ENV? 
 rule spacegraphcats_pangenome_catlas_multifasta_annotate:
     input:
@@ -1323,20 +1327,34 @@ rule spacegraphcats_pangenome_catlas_multifasta_annotate:
 
 rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
     input:
-    output:
-    conda:
-    resources:
+        cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
+        catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
+    output: "outputs/sgc_pangenome_catlases/{acc}_k31_r10/cdbg_to_pieces.csv"
+    conda: "envs/spacegraphcats.yml"
+    resources: mem_mb = 16000
     threads: 1
     params:
-        cdbg_dir=
-        catlas_dir=
+        cdbg_dir = lambda wildcards: "outputs/sgc_pangenome_catlases/" + wildcards.acc + "_k31" ,
+        catlas_dir = lambda wildcards: "outputs/sgc_pangenome_catlases/" + wildcards.acc + "_k31_r10", 
     shell:'''
     scripts/cdbg_to_pieces.py {params.cdbg_dir} {params.catlas_dir}
     '''
 
+# TR TODO: update rule if/when can specify output dir and file prefix
+# TR TODO: update env to PR 303, or update sgc latest if merged
 rule spacegraphcats_pangenome_catlas_estimate_abundances:
+    input:
+        cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
+        catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
+        reads = expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
+    output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz.dom_abund.csv"
+    conda: "envs/spacegraphcats.yml"
+    resources: mem_mb = 64000
+    threads: 1
+    params:
+        catlas_dir = lambda wildcards: "outputs/sgc_pangenome_catlases/" + wildcards.acc + "_k31_r10", 
     shell:'''
-    ~/github/spacegraphcats/scripts/count-dominator-abundance.py rgnv_nbhd_diginorm_hardtrim_k31_r10/ ../../rgnv_sgc_original_results/*gz
+    ~/github/spacegraphcats/scripts/count-dominator-abundance.py {params.catlas_dir} {input.reads}
     '''
 
 ##############################################
