@@ -52,6 +52,49 @@ class Checkpoint_GatherResults:
         p = expand(self.pattern, acc=genome_accs, **w)
         return p
 
+# this class creates a mapping between acc:roary_acc,
+# so it might just autosolve the connection between those wildcards
+# and run the right things. If not, I guess try and make a dictionary
+# in this class and use it somehow somewhere?
+# dictionary would go in `with open(prefetch_csv` and init a dict 
+# that would be available outside the class
+class Checkpoint_RoaryPrefetchResults:
+    """
+    Define a class a la genome-grist to simplify file specification
+    from checkpoint (e.g. solve for {roary_acc} wildcard). This approach
+    is documented at this url:
+    http://ivory.idyll.org/blog/2021-snakemake-checkpoints.html
+    """
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def get_roary_accs(self, acc): 
+        prefetch_csv = f'outputs/roary_prefetch/{acc}_prefetch_filtered.csv'
+        assert os.path.exists(prefetch_csv)
+
+        roary_accs = []
+        with open(prefetch_csv, 'rt') as fp:
+           r = csv.DictReader(fp)
+           for row in r:
+               roary_acc = row['match_name'].split(' ')[0]
+               roary_accs.append(roary_acc)
+        print(f'loaded {len(roary_accs)} accessions from {prefetch_csv}.')
+
+        return roary_accs
+
+    def __call__(self, w):
+        global checkpoints
+
+        # wait for the results of 'touch_roary_filter_prefetch...';
+        # this will trigger exception until that rule has been run.
+        checkpoints.touch_roary_filter_prefetch_shared_assemblies_vs_refseq.get(**w)
+
+        # parse accessions in gather output file
+        roary_accs = self.get_roary_accs(**w) # w.accs has a hard time getting passed in here
+
+        p = expand(self.pattern, roary_acc=roary_accs, **w)
+        return p
+
 rule all:
     input:
         # SOURMASH COMPARE OUTPUTS:
@@ -163,10 +206,10 @@ rule adapter_trim_files:
         r2 = 'inputs/cat/{library}_2.fastq.gz',
         adapters = 'inputs/adapters2.fa'
     output:
-        r1 = 'outputs/trim/{library}_R1.trim.fq.gz',
-        r2 = 'outputs/trim/{library}_R2.trim.fq.gz',
-        o1 = 'outputs/trim/{library}_o1.trim.fq.gz',
-        o2 = 'outputs/trim/{library}_o2.trim.fq.gz'
+        r1 = temp('outputs/trim/{library}_R1.trim.fq.gz'),
+        r2 = temp('outputs/trim/{library}_R2.trim.fq.gz'),
+        o1 = temp('outputs/trim/{library}_o1.trim.fq.gz'),
+        o2 = temp('outputs/trim/{library}_o2.trim.fq.gz')
     conda: 'envs/env.yml'
     threads: 1
     resources:
@@ -183,8 +226,8 @@ rule cutadapt_files:
         r1 = 'outputs/trim/{library}_R1.trim.fq.gz',
         r2 = 'outputs/trim/{library}_R2.trim.fq.gz',
     output:
-        r1 = 'outputs/cut/{library}_R1.cut.fq.gz',
-        r2 = 'outputs/cut/{library}_R2.cut.fq.gz',
+        r1 = temp('outputs/cut/{library}_R1.cut.fq.gz'),
+        r2 = temp('outputs/cut/{library}_R2.cut.fq.gz'),
     conda: 'envs/env2.yml'
     threads: 1
     resources:
@@ -1006,7 +1049,7 @@ rule spacegraphcats_shared_assemblies:
 
 rule touch_spacegraphcats_shared_assemblies:
     input: 
-        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv"
+        "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv",
     output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
     resources:
         mem_mb = 500
@@ -1166,7 +1209,7 @@ rule roary_prokka:
 rule roary:
     input: 
         gff1 = Checkpoint_RoaryPrefetchResults('outputs/roary_prokka/{{acc}}/{roary_acc}.gff'),
-        dummy = "outputs/roary_prefetch/.{acc}_roary_dummy.txt"
+        dummy = "outputs/roary_prefetch/.{acc}_roary_dummy.txt",
         gff2 = expand('outputs/sgc_genome_queries_megahit_prokka/{library}_{{acc}}.gff', library = LIBRARIES)
     output: 'outputs/roary/{acc}/pan_genome_reference.fa'
     conda: 'envs/roary.yml'
@@ -1225,7 +1268,7 @@ rule diginorm_spacegraphcats_shared_assemblies:
     threads: 1
     conda: "envs/env.yml"
     shell:'''
-    cat {input} | normalize-by-median.py -k 20 -C 20 -M 164e9 --gzip -o {output} -
+    zcat {input} | normalize-by-median.py -k 20 -C 20 -M 164e9 --gzip -o {output} -
     '''
 
 rule hardtrim_spacegraphcats_shared_assemblies:
@@ -1345,7 +1388,7 @@ rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
 rule spacegraphcats_pangenome_catlas_estimate_abundances:
     input:
         cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
-        catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
+        catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv",
         reads = expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
     output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz.dom_abund.csv"
     conda: "envs/spacegraphcats.yml"
