@@ -108,16 +108,8 @@ rule all:
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
         # SPACEGRAPHCATS OUTPUTS:
-        #expand("outputs/sgc_conf/{library}_k31_r1_conf.yml", library = LIBRARIES),
-        expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES),
-        Checkpoint_GatherResults("outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz")
-        #expand("outputs/nbhd_reads_sigs_csv/{library}/{gather_genome}.cdbg_ids.reads.csv", library = LIBRARIES, gather_genome = GATHER_GENOMES),
-        #expand("outputs/sgc_genome_queries/{library}_k31_r1_multifasta/query-results.csv", library = LIBRARIES),
-        # PANGENOME SIGS
-        #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_all.csv", study = STUDY),
-        #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_pangenome.csv", study = STUDY),
-        #"figures_rmd.html",
-        #"outputs/gather_matches_loso_multifasta/all-multifasta-query-results.emapper.annotations",
+        #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES),
+        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv")
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1062,200 +1054,200 @@ rule touch_spacegraphcats_shared_assemblies:
 ## Prepare multifasta reference annotation gene sets
 ####################################################
 
-rule sgc_genome_queries_repair:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
-    output:
-        pair="outputs/sgc_genome_queries_repaired/{library}_{acc}.repaired.fq.gz",
-        single="outputs/sgc_genome_queries_repaired/{library}_{acc}.orphaned.fq.gz"
-    threads: 1
-    resources: mem_mb = 4000
-    conda: "envs/bbmap.yml"
-    shell:'''
-    repair.sh in1={input} out={output.pair} outs={output.single} repair
-    '''
-    
-rule sgc_genome_queries_megahit:
-    input: "outputs/sgc_genome_queries_repaired/{library}_{acc}.repaired.fq.gz"
-    output: "outputs/sgc_genome_queries_megahit/{library}_{acc}.contigs.fa"
-    threads: 2
-    resources: mem_mb = 8000
-    conda: 'envs/megahit.yml'
-    shell:'''
-    megahit --12 {input} -t {threads} \
-        --out-dir outputs/tmp_megahit/{wildcards.library}_{wildcards.acc} \
-        --out-prefix {wildcards.library}_{wildcards.acc}
-    mv  outputs/tmp_megahit/{wildcards.library}_{wildcards.acc}/{wildcards.library}_{wildcards.acc}.contigs.fa {output}
-    rm -rf outputs/tmp_megahit/{wildcards.library}_{wildcards.acc}
-    '''
-    
-rule sgc_genome_queries_megahit_prokka:
-    output: 
-        ffn = 'outputs/sgc_genome_queries_prokka/{library}_{acc}.ffn',
-        faa = 'outputs/sgc_genome_queries_prokka/{library}_{acc}.faa',
-        gff = 'outputs/sgc_genome_queries_prokka/{library}_{acc}.gff',
-    input: 'outputs/sgc_genome_queries_megahit/{library}_{acc}.contigs.fa'
-    conda: 'envs/prokka.yml'
-    threads: 1
-    resources: mem_mb = 4000
-    params: 
-        output_folder = "outputs/sgc_genome_queries_prokka"
-    shell:'''
-    prokka {input} --outdir {params.output_folder} \
-       --prefix {wildcards.library}_{wildcards.acc} --metagenome --force \
-       --locustag {wildcards.library}_{wildcards.acc} --cpus {threads} # || touch {output.ffn}
+#rule sgc_genome_queries_repair:
+#    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
+#    output:
+#        pair="outputs/sgc_genome_queries_repaired/{library}_{acc}.repaired.fq.gz",
+#        single="outputs/sgc_genome_queries_repaired/{library}_{acc}.orphaned.fq.gz"
+#    threads: 1
+#    resources: mem_mb = 4000
+#    conda: "envs/bbmap.yml"
+#    shell:'''
+#    repair.sh in1={input} out={output.pair} outs={output.single} repair
+#    '''
+#    
+#rule sgc_genome_queries_megahit:
+#    input: "outputs/sgc_genome_queries_repaired/{library}_{acc}.repaired.fq.gz"
+#    output: "outputs/sgc_genome_queries_megahit/{library}_{acc}.contigs.fa"
+#    threads: 2
+#    resources: mem_mb = 8000
+#    conda: 'envs/megahit.yml'
+#    shell:'''
+#    megahit --12 {input} -t {threads} \
+#        --out-dir outputs/tmp_megahit/{wildcards.library}_{wildcards.acc} \
+#        --out-prefix {wildcards.library}_{wildcards.acc}
+#    mv  outputs/tmp_megahit/{wildcards.library}_{wildcards.acc}/{wildcards.library}_{wildcards.acc}.contigs.fa {output}
+#    rm -rf outputs/tmp_megahit/{wildcards.library}_{wildcards.acc}
+#    '''
+#    
+#rule sgc_genome_queries_megahit_prokka:
+#    output: 
+#        ffn = 'outputs/sgc_genome_queries_megahit_prokka/{library}_{acc}.ffn',
+#        faa = 'outputs/sgc_genome_queries_megahit_prokka/{library}_{acc}.faa',
+#        gff = 'outputs/sgc_genome_queries_megahit_prokka/{library}_{acc}.gff',
+#    input: 'outputs/sgc_genome_queries_megahit/{library}_{acc}.contigs.fa'
+#    conda: 'envs/prokka.yml'
+#    threads: 1
+#    resources: mem_mb = 4000
+#    params: 
+#        output_folder = "outputs/sgc_genome_queries_megahit_prokka"
+#    shell:'''
+#    prokka {input} --outdir {params.output_folder} \
+#       --prefix {wildcards.library}_{wildcards.acc} --metagenome --force \
+#       --locustag {wildcards.library}_{wildcards.acc} --cpus {threads} # || touch {output.ffn}
     #touch {output.faa}
-    '''
+#    '''
+#
+## DOWNLOAD AND ANNOTATE ISOLATES FROM SPECIES IN SHARED ASSEMBLIES
+#
+#rule compute_signatures_shared_assemblies:
+#    input: ancient('outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz')
+#    output: 'outputs/charcoal/{acc}_genomic.fna.gz.clean.sig'
+#    conda: "envs/sourmash.yml"
+#    threads: 1
+#    resources: mem_mb = 2000
+#    shell:'''
+#    sourmash compute -k 31 --scaled 2000 -o {output} {input}
+#    '''
+#
+#rule roary_prefetch_shared_assemblies_vs_refseq:
+#    input: 
+#        query='outputs/charcoal/{acc}_genomic.fna.gz.clean.sig',
+#        db = '/home/irber/sourmash_databases/outputs/sbt/refseq-bacteria-x1e6-k31.sbt.zip'
+#    output: "outputs/roary_prefetch/{acc}_prefetch.csv"
+#    conda: "envs/sourmash.yml"
+#    threads: 1
+#    resources: mem_mb = 16000
+#    shell:'''
+#    sourmash prefetch -k 31 -o {output} {input.query} {input.db} 
+#    '''
+#
+#rule roary_filter_prefetch_shared_assemblies_vs_refseq:
+## filter to jaccard of >= 0.1
+#    input: prefetch="outputs/roary_prefetch/{acc}_prefetch.csv"
+#    output: filt="outputs/roary_prefetch/{acc}_prefetch_filtered.csv"
+#    conda: "envs/tidy.yml"
+#    threads: 1
+#    resources: mem_mb = 4000
+#    script: "scripts/roary_filter_prefetch.R"
+#
+## input needs to be output from previous rule
+## check that they all exist, and then touch a dummy file
+#checkpoint touch_roary_filter_prefetch_shared_assemblies_vs_refseq:
+#    input: "outputs/roary_prefetch/{acc}_prefetch_filtered.csv"
+#    output: touch("outputs/roary_prefetch/.{acc}_roary_dummy.txt")
+#    threads: 1
+#    resources: mem_mb = 4000
+#
+#rule roary_combine_filtered_prefetch_results:
+#    input: filt = Checkpoint_GatherResults("outputs/roary_prefetch/{acc}_prefetch_filtered.csv")
+#    output: combined = "outputs/genbank/roary_prefetch.x.genbank.gather.csv"
+#    conda: "envs/tidy.yml"
+#    threads: 1
+#    resources: mem_mb = 4000
+#    script: "scripts/roary_combine.R"
+#
+#rule roary_make_conf_file_for_genome_grist:
+#    input: "outputs/genbank/roary_prefetch.x.genbank.gather.csv"
+#    output: conf="outputs/roary_genome_grist_conf/roary_genome_grist_conf.yml"
+#    threads: 1
+#    resources: mem_mb = 1000
+#    run:
+#        with open(output.conf, 'wt') as fp:
+#           print(f"""\
+#sample:
+#- roary_prefetch
+#outdir: outputs
+#""", file=fp)
+#
+## in the Checkpoint_Roary class, we can create a dictionary of acc:roary_acc to
+## handle stupid genome-grist dumbness. Then can use lambda wildcards to get 
+## roary_acc values from acc key in dictionary. 
+#rule roary_genome_grist:
+#    input:
+#        conf="outputs/roary_genome_grist_conf/roary_genome_grist_conf.yml"
+#    output: 
+#        genome = "outputs/genbank_genomes_roary/{roary_acc}_genomic.fna.gz"
+#    conda: "envs/genome-grist.yml"
+#    resources: mem_mb = 8000
+#    threads: 1
+#    shell:'''
+#    genome-grist run {input.conf} --until make_sgc_conf --nolock
+#    mv genbank_genomes/ outputs/genbank_genomes_roary
+#    '''
+#
+#rule roary_prokka:
+#    output: 
+#        ffn = 'outputs/roary_prokka/{acc}/{roary_acc}.ffn',
+#        faa = 'outputs/roary_prokka/{acc}/{roary_acc}.faa',
+#        gff = "outputs/roary_prokka/{acc}/{roary_acc}.gff"
+#    input: "outputs/genbank_genomes_roary/{roary_acc}_genomic.fna.gz"
+#    conda: 'envs/prokka.yml'
+#    resources: mem_mb = 8000
+#    threads: 2
+#    params: 
+#        outdir = lambda wildcards: 'outputs/roary_prokka/' + wildcards.acc + "/",
+#        prefix = lambda wildcards: wildcards.roary_acc,
+#        gzip = lambda wildcards: "outputs/genbank_genomes_roary/" + wildcards.roary_acc + "_genomic.fna.gz"
+#    shell:'''
+#    gunzip {input}
+#    prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {threads} --centre X --compliant
+#    mv {params.prefix}.ffn {output.ffn}
+#    mv {params.prefix}.faa {output.faa}
+#    mv {params.prefix}.gff {output.gff}
+#    gzip {params.gzip}
+#    '''
+#
+#rule roary:
+#    input: 
+#        gff1 = Checkpoint_RoaryPrefetchResults('outputs/roary_prokka/{{acc}}/{roary_acc}.gff'),
+#        dummy = "outputs/roary_prefetch/.{acc}_roary_dummy.txt",
+#        gff2 = expand('outputs/sgc_genome_queries_megahit_prokka/{library}_{{acc}}.gff', library = LIBRARIES)
+#    output: 'outputs/roary/{acc}/pan_genome_reference.fa'
+#    conda: 'envs/roary.yml'
+#    resources: mem_mb = 32000
+#    threads: 4
+#    params: outdir = lambda wildcards: "outputs/roary/" + wildcards.acc + "/"
+#    shell:'''
+#    roary -e -n -f {params.outdir} -p {threads} -z {input.gff1} {input.gff2}
+#    '''
+#
+#rule roary_signature:
+#    input: "outputs/roary/{acc}/pan_genome_reference.fa"
+#    output: "outputs/roary/{acc}/pan_genome_reference.sig"
+#    conda: 'envs/sourmash.yml'
+#    resources: mem_mb = 4000
+#    threads: 1
+#    shell:'''
+#    sourmash compute -k 31 --scaled 2000 -o {output} {input}
+#    '''
 
-# ISOLATES
-
-rule compute_signatures_shared_assemblies:
-    input: ancient('outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz')
-    output: 'outputs/charcoal/{acc}_genomic.fna.gz.clean.sig'
-    conda: "envs/sourmash.yml"
-    threads: 1
-    resources: mem_mb = 2000
-    shell:'''
-    sourmash compute -k 31 --scaled 2000 -o {output} {input}
-    '''
-
-rule roary_prefetch_shared_assemblies_vs_refseq:
-    input: 
-        query='outputs/charcoal/{acc}_genomic.fna.gz.clean.sig',
-        db = '/home/irber/sourmash_databases/outputs/sbt/refseq-bacteria-x1e6-k31.sbt.zip'
-    output: "outputs/roary_prefetch/{acc}_prefetch.csv"
-    conda: "envs/sourmash.yml"
-    threads: 1
-    resources: mem_mb = 16000
-    shell:'''
-    sourmash prefetch -k 31 -o {output} {input.query} {input.db} 
-    '''
-
-rule roary_filter_prefetch_shared_assemblies_vs_refseq:
-# filter to jaccard of >= 0.1
-    input: prefetch="outputs/roary_prefetch/{acc}_prefetch.csv"
-    output: filt="outputs/roary_prefetch/{acc}_prefetch_filtered.csv"
-    conda: "envs/tidy.yml"
-    threads: 1
-    resources: mem_mb = 4000
-    script: "scripts/roary_filter_prefetch.R"
-
-# input needs to be output from previous rule
-# check that they all exist, and then touch a dummy file
-checkpoint touch_roary_filter_prefetch_shared_assemblies_vs_refseq:
-    input: "outputs/roary_prefetch/{acc}_prefetch_filtered.csv"
-    output: touch("outputs/roary_prefetch/.{acc}_roary_dummy.txt")
-    threads: 1
-    resources: mem_mb = 4000
-
-rule roary_combine_filtered_prefetch_results:
-    input: filt = Checkpoint_GatherResults("outputs/roary_prefetch/{acc}_prefetch_filtered.csv")
-    output: combined = "outputs/genbank/roary_prefetch.x.genbank.gather.csv"
-    conda: "envs/tidy.yml"
-    threads: 1
-    resources: mem_mb = 4000
-    script: "scripts/roary_combine.R"
-
-rule roary_make_conf_file_for_genome_grist:
-    input: "outputs/genbank/roary_prefetch.x.genbank.gather.csv"
-    output: conf="outputs/roary_genome_grist_conf/roary_genome_grist_conf.yml"
-    threads: 1
-    resources: mem_mb = 1000
-    run:
-        with open(output.conf, 'wt') as fp:
-           print(f"""\
-sample:
-- roary_prefetch
-outdir: outputs
-""", file=fp)
-
-# in the Checkpoint_Roary class, we can create a dictionary of acc:roary_acc to
-# handle stupid genome-grist dumbness. Then can use lambda wildcards to get 
-# roary_acc values from acc key in dictionary. 
-rule roary_genome_grist:
-    input:
-        conf="outputs/roary_genome_grist_conf/roary_genome_grist_conf.yml"
-    output: 
-        genome = "outputs/genbank_genomes_roary/{roary_acc}_genomic.fna.gz"
-    conda: "envs/genome-grist.yml"
-    resources: mem_mb = 8000
-    threads: 1
-    shell:'''
-    genome-grist run {input.conf} --until make_sgc_conf --nolock
-    mv genbank_genomes/ outputs/genbank_genomes_roary
-    '''
-
-rule roary_prokka:
-    output: 
-        ffn = 'outputs/roary_prokka/{acc}/{roary_acc}.ffn',
-        faa = 'outputs/roary_prokka/{acc}/{roary_acc}.faa',
-        gff = "outputs/roary_prokka/{acc}/{roary_acc}.gff"
-    input: "outputs/genbank_genomes_roary/{roary_acc}_genomic.fna.gz"
-    conda: 'envs/prokka.yml'
-    resources: mem_mb = 8000
-    threads: 2
-    params: 
-        outdir = lambda wildcards: 'outputs/roary_prokka/' + wildcards.acc + "/",
-        prefix = lambda wildcards: wildcards.roary_acc,
-        gzip = lambda wildcards: "outputs/genbank_genomes_roary/" + wildcards.roary_acc + "_genomic.fna.gz"
-    shell:'''
-    gunzip {input}
-    prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {threads} --centre X --compliant
-    mv {params.prefix}.ffn {output.ffn}
-    mv {params.prefix}.faa {output.faa}
-    mv {params.prefix}.gff {output.gff}
-    gzip {params.gzip}
-    '''
-
-rule roary:
-    input: 
-        gff1 = Checkpoint_RoaryPrefetchResults('outputs/roary_prokka/{{acc}}/{roary_acc}.gff'),
-        dummy = "outputs/roary_prefetch/.{acc}_roary_dummy.txt",
-        gff2 = expand('outputs/sgc_genome_queries_megahit_prokka/{library}_{{acc}}.gff', library = LIBRARIES)
-    output: 'outputs/roary/{acc}/pan_genome_reference.fa'
-    conda: 'envs/roary.yml'
-    resources: mem_mb = 32000
-    threads: 4
-    params: outdir = lambda wildcards: "outputs/roary/" + wildcards.acc + "/"
-    shell:'''
-    roary -e -n -f {params.outdir} -p {threads} -z {input.gff1} {input.gff2}
-    '''
-
-rule roary_signature:
-    input: "outputs/roary/{acc}/pan_genome_reference.fa"
-    output: "outputs/roary/{acc}/pan_genome_reference.sig"
-    conda: 'envs/sourmash.yml'
-    resources: mem_mb = 4000
-    threads: 1
-    shell:'''
-    sourmash compute -k 31 --scaled 2000 -o {output} {input}
-    '''
-
-rule roary_translate:
-    input: 'outputs/roary/{acc}/pan_genome_reference.fa' 
-    output: 'outputs/roary/{acc}/pan_genome_reference.faa' 
-    conda: 'envs/emboss.yml'
-    resources: mem_mb = 16000
-    threads: 1
-    shell:'''
-    transeq {input} {output}
-    '''
-
-rule roary_eggnog:
-    input: 
-        faa = 'outputs/roary/{acc}/pan_genome_reference.faa',
-        db = 'inputs/eggnog_db/eggnog.db'
-    output: "outputs/roary_eggnog/{acc}.emapper.annotations"
-    conda: 'envs/eggnog.yml'
-    resources:
-        mem_mb = 64000
-    threads: 8
-    params: 
-        outdir = "outputs/roary_eggnog/",
-        dbdir = "inputs/eggnog_db"
-    shell:'''
-    emapper.py --cpu {threads} -i {input.faa} --output {wildcards.acc} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
-    '''
-
+#rule roary_translate:
+#    input: 'outputs/roary/{acc}/pan_genome_reference.fa' 
+#    output: 'outputs/roary/{acc}/pan_genome_reference.faa' 
+#    conda: 'envs/emboss.yml'
+#    resources: mem_mb = 16000
+#    threads: 1
+#    shell:'''
+#    transeq {input} {output}
+#    '''
+#
+#rule roary_eggnog:
+#    input: 
+#        faa = 'outputs/roary/{acc}/pan_genome_reference.faa',
+#        db = 'inputs/eggnog_db/eggnog.db'
+#    output: "outputs/roary_eggnog/{acc}.emapper.annotations"
+#    conda: 'envs/eggnog.yml'
+#    resources:
+#        mem_mb = 64000
+#    threads: 8
+#    params: 
+#        outdir = "outputs/roary_eggnog/",
+#        dbdir = "inputs/eggnog_db"
+#    shell:'''
+#    emapper.py --cpu {threads} -i {input.faa} --output {wildcards.acc} --output_dir {params.outdir} -m diamond -d none --tax_scope auto --go_evidence non-electronic --target_orthologs all --seed_ortholog_evalue 0.001 --seed_ortholog_score 60 --query-cover 20 --subject-cover 0 --override --temp_dir tmp/ -d bact --data_dir {params.dbdir}
+#    '''
+#
 ####################################################
 ## Build spacegraphcats pangenome CAtlases
 ####################################################
@@ -1285,10 +1277,8 @@ rule hardtrim_spacegraphcats_shared_assemblies:
 rule make_sgc_pangenome_conf_files:
     input:
         reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
-        ref_genes = "outputs/roary/{acc}/pan_genome_reference.fa",
-        ref_sig = "outputs/roary/{acc}/pan_genome_reference.sig"
     output:
-        conf = "outputs/sgc_conf_multifasta/{acc}_r10_conf.yml"
+        conf = "outputs/sgc_conf/{acc}_r10_conf.yml"
     resources:
         mem_mb = 500
     threads: 1
@@ -1301,18 +1291,12 @@ input_sequences:
 - {input.reads}
 radius: 10
 paired_reads: true
-multifasta_reference:
-- {input.ref_genes}
-multifasta_scaled: 2000
-multifasta_query_sig: {input.ref_sig}
 """, file=fp)
 
 rule spacegraphcats_pangenome_catlas_build:
     input:
         reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
-        ref_genes = "outputs/roary/{acc}/pan_genome_reference.fa",
-        ref_sig = "outputs/roary/{acc}/pan_genome_reference.sig",
-        conf = "outputs/sgc_conf_multifasta/{acc}_r10_conf.yml"
+        conf = "outputs/sgc_conf/{acc}_r10_conf.yml"
     output: 
         "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
         "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
@@ -1326,8 +1310,6 @@ rule spacegraphcats_pangenome_catlas_build:
 rule spacegraphcats_pangenome_catlas_build_with_checkpoints:
     input:
         reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
-        ref_genes = "outputs/roary/{acc}/pan_genome_reference.fa",
-        ref_sig = "outputs/roary/{acc}/pan_genome_reference.sig",
         cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
         catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
     output: "outputs/sgc_pangenome_catlases/{acc}_k31_r10/10_1.checkpoint"
@@ -1347,26 +1329,52 @@ rule spacegraphcats_pangenome_catlas_dom_graph:
     # need to generalize/implement 02_visualize_sgc.ipynb
     '''
 
-# TR TODO: UPDATE ENV? 
-rule spacegraphcats_pangenome_catlas_multifasta_annotate:
-    input:
-        reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
-        ref_genes = "outputs/roary/{acc}/pan_genome_reference.fa",
-        ref_sig = "outputs/roary/{acc}/pan_genome_reference.sig",
-        conf = "outputs/sgc_conf_multifasta/{acc}_r10_conf.yml",
-        catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
-    output: 
-        "outputs/sgc_pangenome_catlases/{acc}_k31_r10_multifasta/multifasta.cdbg_annot.csv",
-        "outputs/sgc_pangenome_catlases/{acc}_k31_r10_multifasta/multifasta.cdbg_by_record.csv"
-    params: 
-        outdir = "outputs/sgc_pangenome_catlases/",
-    conda: "envs/spacegraphcats_multifasta.yml"
-    resources:
-        mem_mb = 32000
-    threads: 1
-    shell:'''
-    python -m spacegraphcats {input.conf} multifasta_query --nolock --outdir {params.outdir} --rerun-incomplete
-    '''
+
+#rule make_sgc_pangenome_multifasta_conf_files:
+#    input:
+#        reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
+#        ref_genes = "outputs/roary/{acc}/pan_genome_reference.fa",
+#        ref_sig = "outputs/roary/{acc}/pan_genome_reference.sig"
+#    output:
+#        conf = "outputs/sgc_conf/{acc}_r10_multifasta_conf.yml"
+#    resources:
+#        mem_mb = 500
+#    threads: 1
+#    run:
+#        query_list = "\n- ".join(input.queries)
+#        with open(output.conf, 'wt') as fp:
+#           print(f"""\
+#catlas_base: {wildcards.acc}
+#input_sequences:
+#- {input.reads}
+#radius: 10
+#paired_reads: true
+#multifasta_reference:
+#- {input.ref_genes}
+#multifasta_scaled: 2000
+#multifasta_query_sig: {input.ref_sig}
+#""", file=fp)
+#
+## TR TODO: UPDATE ENV? 
+#rule spacegraphcats_pangenome_catlas_multifasta_annotate:
+#    input:
+#        reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
+#        ref_genes = "outputs/roary/{acc}/pan_genome_reference.fa",
+#        ref_sig = "outputs/roary/{acc}/pan_genome_reference.sig",
+#        conf = "outputs/sgc_conf/{acc}_r10_multifasta_conf.yml",
+#        catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
+#    output: 
+#        "outputs/sgc_pangenome_catlases/{acc}_k31_r10_multifasta/multifasta.cdbg_annot.csv",
+#        "outputs/sgc_pangenome_catlases/{acc}_k31_r10_multifasta/multifasta.cdbg_by_record.csv"
+#    params: 
+#        outdir = "outputs/sgc_pangenome_catlases/",
+#    conda: "envs/spacegraphcats_multifasta.yml"
+#    resources:
+#        mem_mb = 32000
+#    threads: 1
+#    shell:'''
+#    python -m spacegraphcats {input.conf} multifasta_query --nolock --outdir {params.outdir} --rerun-incomplete
+#    '''
 
 rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
     input:
