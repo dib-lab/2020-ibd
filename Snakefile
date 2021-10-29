@@ -1394,13 +1394,14 @@ rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
     scripts/cdbg_to_pieces.py {params.cdbg_dir} {params.catlas_dir}
     '''
 
-# TR TODO: update env to PR 303, or update sgc latest if merged
+# TR TODO: update env to PR 303, or update sgc latest if merged. Since dom_abund is checked out, this might work like this...
 rule spacegraphcats_pangenome_catlas_estimate_abundances:
     input:
         cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
         catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv",
-        reads = expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
-    output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz.dom_abund.csv"
+        reads = expand("outputs/abundtrim/{library}.abundtrim.fq.gz"
+        #reads = expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
+    output: "outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/{library}_abundtrim.fq.gz.dom_abund.csv"
     conda: "envs/spacegraphcats_dom.yml"
     resources: 
         mem_mb = 64000,
@@ -1412,6 +1413,21 @@ rule spacegraphcats_pangenome_catlas_estimate_abundances:
     shell:'''
     /home/tereiter/github/spacegraphcats/scripts/count-dominator-abundance.py {params.catlas_dir} {input.reads} --output-dir {params.out_dir}
     '''
+
+rule format_spacegraphcats_pangenome_catlas_abundances:
+    input: dom_abund = expand("outputs/sgc_pangenome_catlases/{{acc}}_k31_r10_abund/{library}_abundtrim.fq.gz.dom_abund.csv", library = LIBRARIES)
+    output: 
+        dom_abund="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/all_dom_abund.tsv",
+        dom_info="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/dom_info.tsv",
+        dom_abund_pruned="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/all_dom_abund_pruned.tsv"
+    conda: "envs/tidy.yml"
+    resources: 
+        mem_mb = 64000,
+        tmpdir = TMPDIR
+    threads: 1
+    script: "scripts/format_pangenome_catlas_dom_abund.R"
+
+rule corncob_for_dominating_set_differential_abund:
 
 ##############################################
 ## Pangenome signature/variable importance
