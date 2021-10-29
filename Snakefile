@@ -110,8 +110,8 @@ rule all:
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
         # SPACEGRAPHCATS OUTPUTS:
-        #expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv", library = LIBRARIES),
-        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv")
+        #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
+        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv")
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1427,8 +1427,31 @@ rule format_spacegraphcats_pangenome_catlas_abundances:
     threads: 1
     script: "scripts/format_pangenome_catlas_dom_abund.R"
 
-rule corncob_for_dominating_set_differential_abund:
+rule install_corncob:
+    output: corncob = "outputs/sgc_pangenome_catlases_corncob/corncob_install.txt"
+    resources: 
+        mem_mb = 1000,
+        tmpdir = TMPDIR
+    threads: 1
+    conda: 'envs/corncob.yml'
+    script: "scripts/install_corncob.R"
 
+rule corncob_for_dominating_set_differential_abund:
+    input: 
+        corncob="outputs/sgc_pangenome_catlases_corncob/corncob_install.txt",
+        dom_abund_pruned="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/all_dom_abund_pruned.tsv",
+        ntcard="outputs/ntcard/all_kmer_count.tsv",
+        info = "inputs/working_metadata.tsv"
+    output: 
+        all_ccs = "outputs/sgc_pangenome_catlases_corncob/{acc}_all_ccs.tsv",
+        sig_ccs = "outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"
+    resources: 
+        mem_mb = 16000,
+        tmpdir = TMPDIR
+    threads: 1
+    conda: 'envs/corncob.yml'
+    script: "scripts/corncob_dda.R"
+    
 ##############################################
 ## Pangenome signature/variable importance
 ##############################################
