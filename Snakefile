@@ -1283,7 +1283,6 @@ rule make_sgc_pangenome_conf_files:
         mem_mb = 500
     threads: 1
     run:
-        query_list = "\n- ".join(input.queries)
         with open(output.conf, 'wt') as fp:
            print(f"""\
 catlas_base: {wildcards.acc}
@@ -1300,7 +1299,7 @@ rule spacegraphcats_pangenome_catlas_build:
     output: 
         "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
         "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
-    resources: mem_mb = 100000
+    resources: mem_mb = 300000
     conda: "envs/spacegraphcats.yml"
     params: outdir = "outputs/sgc_pangenome_catlases"
     shell:'''
