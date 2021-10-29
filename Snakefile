@@ -8,6 +8,8 @@ import os
 import csv
 from collections import Counter
 
+TMPDIR = "/scratch/tereiter/"
+
 SEED = [1, 2, 3, 4, 5, 6]
 
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
@@ -1381,7 +1383,9 @@ rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
         catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
     output: "outputs/sgc_pangenome_catlases/{acc}_k31_r10/cdbg_to_pieces.csv"
     conda: "envs/spacegraphcats.yml"
-    resources: mem_mb = 16000
+    resources: 
+        mem_mb = 16000,
+        tmpdir = TMPDIR
     threads: 1
     params:
         cdbg_dir = lambda wildcards: "outputs/sgc_pangenome_catlases/" + wildcards.acc + "_k31" ,
@@ -1390,7 +1394,6 @@ rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
     scripts/cdbg_to_pieces.py {params.cdbg_dir} {params.catlas_dir}
     '''
 
-# TR TODO: update rule if/when can specify output dir and file prefix
 # TR TODO: update env to PR 303, or update sgc latest if merged
 rule spacegraphcats_pangenome_catlas_estimate_abundances:
     input:
@@ -1398,13 +1401,16 @@ rule spacegraphcats_pangenome_catlas_estimate_abundances:
         catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv",
         reads = expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
     output: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz.dom_abund.csv"
-    conda: "envs/spacegraphcats.yml"
-    resources: mem_mb = 64000
+    conda: "envs/spacegraphcats_dom.yml"
+    resources: 
+        mem_mb = 64000,
+        tmpdir = TMPDIR
     threads: 1
     params:
         catlas_dir = lambda wildcards: "outputs/sgc_pangenome_catlases/" + wildcards.acc + "_k31_r10", 
+        out_dir = lambda wildcards: "outputs/sgc_pangenome_catlases/" + wildcards.acc + "_k31_r10_abund", 
     shell:'''
-    ~/github/spacegraphcats/scripts/count-dominator-abundance.py {params.catlas_dir} {input.reads}
+    /home/tereiter/github/spacegraphcats/scripts/count-dominator-abundance.py {params.catlas_dir} {input.reads} --output-dir {params.out_dir}
     '''
 
 ##############################################
