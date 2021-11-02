@@ -317,7 +317,7 @@ rule count_kmers_ntcard:
     '''
 
 rule format_ntcard_kmer_count:
-    input: fstat = "outputs/ntcard/{library}.fstat",
+    input: fstat = expand("outputs/ntcard/{library}.fstat", library = LIBRARIES)
     output: tsv = 'outputs/ntcard/all_kmer_count.tsv'
     conda: "envs/tidy.yml"
     threads: 1
@@ -996,6 +996,9 @@ rule touch_decontaminated_shared_assemblies:
         "outputs/charcoal/stage1_hitlist.csv",
         "outputs/charcoal/clean_finished.txt"
     output: "outputs/charcoal/{acc}_genomic.fna.gz.clean.fa.gz"
+    resources:
+        mem_mb = 500
+    threads: 1
     shell:'''
     touch {output}
     '''
@@ -1325,10 +1328,10 @@ rule spacegraphcats_pangenome_catlas_build_with_checkpoints:
     python -Werror -m spacegraphcats.catlas.catlas {params.cdbg_dir} {params.catlas_dir} {params.radius}
     '''
 
-rule spacegraphcats_pangenome_catlas_dom_graph:
-    shell:'''
-    # need to generalize/implement 02_visualize_sgc.ipynb
-    '''
+#rule spacegraphcats_pangenome_catlas_dom_graph:
+#    shell:'''
+#    # need to generalize/implement 02_visualize_sgc.ipynb
+#    '''
 
 
 #rule make_sgc_pangenome_multifasta_conf_files:
@@ -1399,9 +1402,8 @@ rule spacegraphcats_pangenome_catlas_estimate_abundances:
     input:
         cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
         catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv",
-        reads = expand("outputs/abundtrim/{library}.abundtrim.fq.gz"
-        #reads = expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz", library = LIBRARIES)
-    output: "outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/{library}_abundtrim.fq.gz.dom_abund.csv"
+        reads = expand("outputs/abundtrim/{library}.abundtrim.fq.gz", library = LIBRARIES)
+    output: expand("outputs/sgc_pangenome_catlases/{{acc}}_k31_r10_abund/{library}.abundtrim.fq.gz.dom_abund.csv", library = LIBRARIES)
     conda: "envs/spacegraphcats_dom.yml"
     resources: 
         mem_mb = 64000,
@@ -1415,7 +1417,7 @@ rule spacegraphcats_pangenome_catlas_estimate_abundances:
     '''
 
 rule format_spacegraphcats_pangenome_catlas_abundances:
-    input: dom_abund = expand("outputs/sgc_pangenome_catlases/{{acc}}_k31_r10_abund/{library}_abundtrim.fq.gz.dom_abund.csv", library = LIBRARIES)
+    input: dom_abund = expand("outputs/sgc_pangenome_catlases/{{acc}}_k31_r10_abund/{library}.abundtrim.fq.gz.dom_abund.csv", library = LIBRARIES)
     output: 
         dom_abund="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/all_dom_abund.tsv",
         dom_info="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/dom_info.tsv",
