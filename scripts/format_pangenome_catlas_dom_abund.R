@@ -13,7 +13,7 @@ acc <- snakemake@wildcards[['acc']]
 file_prefix <- paste0("outputs/sgc_pangenome_catlases/", acc, "_k31_r10_abund/")
 
 domset_abund_files <- snakemake@input[['dom_abund']]
-domnames <- read_csv(domset_abund_files[1])[ , "dom_id"]     # read in domset id
+domnames <- read_csv(domset_abund_files[1])[ , c("dom_id", "level")]     # read in domset id
 dom_info <- read_csv(domset_abund_files[1]) %>%
   select(-abund) %>%
   mutate(dom_id = as.character(dom_id))
@@ -21,18 +21,22 @@ dom_info <- read_csv(domset_abund_files[1]) %>%
 df <- do.call(cbind, lapply(domset_abund_files,
                             function(x) read_csv(x)[ , "abund"]))
 df <- cbind(domnames, df)
-colnames(df) <- c("dom_id", domset_abund_files)
+colnames(df) <- c("dom_id", "level", domset_abund_files)
 colnames(df) <- gsub(file_prefix, "", colnames(df))
-colnames(df) <- gsub("_abundtrim.fq.gz.dom_abund.csv", "", colnames(df))
+colnames(df) <- gsub(".reads.gz.dom_abund.csv", "", colnames(df))
 
 write_tsv(df, snakemake@output[['dom_abund']])
 write_tsv(dom_info, snakemake@output[['dom_info']])
 
-# prune to nodes present in > 100 samples ---------------------------------
+# prune to nodes present in > 100 samples at level 1 ---------------------------
+
+df <- df %>%
+  filter(level == 1) %>%
+  select(-level)
 
 tmp_pa <- df
 rownames(tmp_pa) <- df$dom_id
-tmp_pa <- tmp_pa[ , -c(1:3)]
+tmp_pa <- tmp_pa[ , -c(1)]
 tmp_pa[tmp_pa>0] <-1
 row_sums_pa <- rowSums(tmp_pa)
 row_sums_pa <- as.data.frame(row_sums_pa)
