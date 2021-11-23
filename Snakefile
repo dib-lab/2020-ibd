@@ -111,7 +111,7 @@ rule all:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
-        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv")
+        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED)
@@ -1477,14 +1477,13 @@ rule corncob_for_dominating_set_differential_abund:
 
 # use default contig sigs output by sgc to start. 
 
-GCF_002549975.1_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz
 rule calc_sig_sgc_genome_query_nbhd_reads:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
     output: "outputs/sgc_genome_queries_nbhd_read_sigs/{library}/{acc}.cdbg_ids.reads.sig"
     params: name = lambda wildcards: wildcards.library + "_" + wildcards.acc
     conda: "envs/sourmash.yml"
     resources:
-        tmpdir = TMP,
+        tmpdir = TMPDIR,
         mem_mb = 2000
     threads: 1
     shell:'''
@@ -1492,11 +1491,11 @@ rule calc_sig_sgc_genome_query_nbhd_reads:
     '''
 
 rule merge_sgc_sigs_to_pangenome:
-    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}.cdbg_ids.reads.sig", library = LIBRARIES)
+    input: expand("outputs/sgc_genome_queries_nbhd_read_sigs/{library}/{{acc}}.cdbg_ids.reads.sig", library = LIBRARIES)
     output: "outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig"
     conda: "envs/sourmash.yml"
     resources:
-        tmpdir = TMP,
+        tmpdir = TMPDIR,
         mem_mb = 16000
     threads: 1
     shell:'''
@@ -1510,6 +1509,7 @@ rule compare_sgc_pangenome_sigs:
         csv="outputs/sgc_pangenome_nbhd_read_compare/pangenome_compare.csv"
     conda: "envs/sourmash.yml"
     resources:
+        tmpdir = TMPDIR,
         mem_mb = 16000
     threads: 1
     shell:'''
@@ -1521,6 +1521,7 @@ rule index_sgc_pangenome_sigs:
     output: "outputs/sgc_pangenome_gather/sgc_pangenome_nbhd_reads_merged.sbt.json"
     conda: "envs/sourmash.yml"
     resources:
+        tmpdir = TMPDIR,
         mem_mb = 32000
     threads: 1
     shell:'''
@@ -1530,7 +1531,7 @@ rule index_sgc_pangenome_sigs:
 rule gather_vita_vars_study_against_sgc_pangenome_sigs:
     input:
         sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
-        db="outputs/sgc_pangenome_nbhd_read_gather/sgc_pangenome_nbhd_reads_merged.sbt.json"
+        db="outputs/sgc_pangenome_gather/sgc_pangenome_nbhd_reads_merged.sbt.json"
     output: 
         csv="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv",
         matches="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.matches",
@@ -1551,7 +1552,7 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
         db1="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic-reps.k31.sbt.zip"
     output: 
         csv="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv",
-        matches="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{see}_all.matches",
+        matches="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.matches",
         un="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.un"
     conda: 'envs/sourmash.yml'
     resources:
