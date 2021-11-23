@@ -112,6 +112,9 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv")
+        # CHARACTERIZING RESULTS OUTPUTS
+        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
+        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED)
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1397,15 +1400,15 @@ rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
     scripts/cdbg_to_pieces.py {params.cdbg_dir} {params.catlas_dir}
     '''
 
-rule tmp_ln_sgc_nbhds_w_lib_prefix:
+rule tmp_cp_sgc_nbhds_w_lib_prefix:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
-    output: "outputs/sgc_genome_queries_tmp/{acc}/{library}.reads.gz"
+    output: temp("outputs/sgc_genome_queries_tmp/{acc}/{library}.reads.gz")
     resources: 
         mem_mb = 500,
         tmpdir = TMPDIR
     threads: 1
     shell:'''
-    ln -s {input} {output}
+    cp {input} {output}
     '''
     
 # TR TODO: update env to PR 303, or update sgc latest if merged. Since dom_abund is checked out, this might work like this...
@@ -1418,7 +1421,7 @@ rule spacegraphcats_pangenome_catlas_estimate_abundances:
     output: expand("outputs/sgc_pangenome_catlases/{{acc}}_k31_r10_abund/{library}.reads.gz.dom_abund.csv", library = LIBRARIES)
     conda: "envs/spacegraphcats_dom.yml"
     resources: 
-        mem_mb = 64000,
+        mem_mb = 10000,
         tmpdir = TMPDIR
     threads: 1
     params:
@@ -1438,7 +1441,7 @@ rule format_spacegraphcats_pangenome_catlas_abundances:
         dom_abund_pruned="outputs/sgc_pangenome_catlases/{acc}_k31_r10_abund/all_dom_abund_pruned.tsv"
     conda: "envs/tidy.yml"
     resources: 
-        mem_mb = 64000,
+        mem_mb = 200000,
         tmpdir = TMPDIR
     threads: 1
     script: "scripts/format_pangenome_catlas_dom_abund.R"
@@ -1474,149 +1477,90 @@ rule corncob_for_dominating_set_differential_abund:
 
 # use default contig sigs output by sgc to start. 
 
-rule calc_sig_nbhd_reads:
-    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.cdbg_ids.reads.gz"
-    output: "outputs/nbhd_reads_sigs/{library}/{acc}.cdbg_ids.reads.sig"
+GCF_002549975.1_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz
+rule calc_sig_sgc_genome_query_nbhd_reads:
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
+    output: "outputs/sgc_genome_queries_nbhd_read_sigs/{library}/{acc}.cdbg_ids.reads.sig"
     params: name = lambda wildcards: wildcards.library + "_" + wildcards.acc
     conda: "envs/sourmash.yml"
     resources:
+        tmpdir = TMP,
         mem_mb = 2000
     threads: 1
     shell:'''
     sourmash compute -k 21,31,51 --scaled 2000 --track-abundance -o {output} --merge {params.name} {input}
     '''
 
-rule nbhd_read_sig_to_csv:
-    input: "outputs/nbhd_reads_sigs/{library}/{acc}.cdbg_ids.reads.sig"
-    output: "outputs/nbhd_reads_sigs_csv/{library}/{acc}.cdbg_ids.reads.csv"
-    conda: 'envs/sourmash.yml'
-    resources:
-        mem_mb = 2000
-    threads: 1
-    shell:'''
-    python scripts/sig_to_csv.py {input} {output}
-    '''
-
-rule index_sig_nbhd_reads:
-    input: Checkpoint_GatherResults(expand("outputs/nbhds_read_sigs/{library}/{{acc}}.cdbg_ids.reads.sig", library = LIBRARIES))
-    output: "outputs/nbhd_reads_sigs_gather/nbhd_reads_sigs.sbt.json"
+rule merge_sgc_sigs_to_pangenome:
+    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}.cdbg_ids.reads.sig", library = LIBRARIES)
+    output: "outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig"
     conda: "envs/sourmash.yml"
     resources:
-        mem_mb = 2000
+        tmpdir = TMP,
+        mem_mb = 16000
     threads: 1
     shell:'''
-    sourmash index -k 31 {output} --traverse-directory outputs/nbhd_read_sigs
+    sourmash signature merge --name {wildcards.acc}_pangenome -o {output} -k 31 {input}
     '''
 
-#rule gather_vita_vars_study_against_nbhd_read_sigs:
-#    input:
-#        sig="outputs/vita_rf_seed/at_least_5_studies_vita_vars.sig",
-#        db = "outputs/nbhd_reads_sigs_gather/nbhd_read_sigs.sbt.json"
-#    output: 
-#        csv="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.csv",
-#        un="outputs/nbhd_read_sigs_gather/at_least_5_studies_vita_vars_vs_nbhd_read_sigs_tbp0.un"
-#    conda: 'envs/sourmash.yml'
-#    resources:
-#        mem_mb = 32000
-#    threads: 1
-#    shell:'''
-#    sourmash gather -o {output.csv} --output-unassigned {output.un} --scaled 2000 --threshold-bp 0 -k 31 {input.sig} {input.db}
-#    '''
-
-rule merge_sgc_sigs_to_pangenome:
-    input: expand("outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{{acc}}_genomic.fna.gz.contigs.sig", library = LIBRARIES)
-    output: "outputs/sgc_pangenome_sigs/{acc}.sig"
+rule compare_sgc_pangenome_sigs:
+    input: Checkpoint_GatherResults("outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig")
+    output: 
+        comp="outputs/sgc_pangenome_nbhd_read_compare/pangenome_compare.comp",
+        csv="outputs/sgc_pangenome_nbhd_read_compare/pangenome_compare.csv"
     conda: "envs/sourmash.yml"
     resources:
         mem_mb = 16000
     threads: 1
     shell:'''
-    sourmash signature merge -o {output} -k 31 {input}
+    sourmash compare -o {output.comp} --csv {output.csv} --ignore-abundance {input}
     '''
 
-rule rename_sgc_pangenome_sigs:
-    input: "outputs/sgc_pangenome_sigs/{acc}.sig"
-    output: "outputs/sgc_pangenome_sigs/{acc}_renamed.sig"
+rule index_sgc_pangenome_sigs:
+    input: Checkpoint_GatherResults("outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig") 
+    output: "outputs/sgc_pangenome_gather/sgc_pangenome_nbhd_reads_merged.sbt.json"
     conda: "envs/sourmash.yml"
     resources:
-        mem_mb = 1000
+        mem_mb = 32000
     threads: 1
     shell:'''
-    sourmash sig rename -o {output} {input} {wildcards.gather_genome}_pangenome
+    sourmash index -k 31 {output} {input}
     '''
 
-# TR TODO: UPDATE INPUT TO CHECKPOINT
-#rule compare_sgc_pangenome_sigs:
-#    input: expand("outputs/sgc_pangenome_sigs/{acc}_renamed.sig", gather_genome = GATHER_GENOMES)
-#    output: 
-#        comp="outputs/sgc_pangenome_compare/pangenome_compare.comp",
-#        csv="outputs/sgc_pangenome_compare/pangenome_compare.csv"
-#    conda: "envs/sourmash.yml"
-#    resources:
-#        mem_mb = 16000
-#    threads: 1
-#    shell:'''
-#    sourmash compare -o {output.comp} --csv {output.csv} --ignore-abundance {input}
-#    '''
+rule gather_vita_vars_study_against_sgc_pangenome_sigs:
+    input:
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
+        db="outputs/sgc_pangenome_nbhd_read_gather/sgc_pangenome_nbhd_reads_merged.sbt.json"
+    output: 
+        csv="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv",
+        matches="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.matches",
+        un="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.un",
+    conda: 'envs/sourmash.yml'
+    resources:
+        tmpdir = TMPDIR,
+        mem_mb = 16000
+    threads: 1
+    shell:'''
+    sourmash gather --threshold-bp 0 -o {output.csv} --save-matches {output.matches} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
+    '''
 
-# rule plot_sgc_pangenome_sigs:
-#    input: "outputs/sgc_pangenome_compare/pangenome_compare.comp"
-#    output: "outputs/sgc_pangenome_compare/pangenome_compare.comp.matrix.pdf"
-#    conda:"envs/sourmash.yml"
-#    resources:
-#        mem_mb = 4000
-#    threads: 1
-#    shell:'''
-#    sourmash plot --labels {input}
-#    '''
-
-# TR TODO: UPDATE INPUT TO CHECKPOINT
-#rule index_sgc_pangenome_sigs:
-#    input: expand("outputs/sgc_pangenome_sigs/{gather_genome}_renamed.sig", gather_genome = GATHER_GENOMES)
-#    output: "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
-#    conda: "envs/sourmash.yml"
-#    resources:
-#        mem_mb = 32000
-#    threads: 1
-#    shell:'''
-#    sourmash index -k 31 {output} {input}
-#    '''
-
-#rule gather_vita_vars_study_against_sgc_pangenome_sigs:
-#    input:
-#        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
-#        db = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json"
-#    output: 
-#        csv="outputs/gather_sgc_pangenome/{study}_vita_vars_seed{seed}_pangenome.csv",
-#        un="outputs/gather_sgc_pangenome/{study}_vita_vars_seed{seed}_pangenome.un"
-#    conda: 'envs/sourmash.yml'
-#    resources:
-#        mem_mb = 16000
-#    threads: 1
-#    shell:'''
-#    sourmash gather --threshold-bp 0 -o {output.csv} --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db}
-#    '''
-
-# TR TODO: UPDATE INPUT TO GTDB DB
-#rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
-#    input:
-#        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
-#        db0 = "outputs/sgc_pangenome_db/merged_sgc_sig.sbt.json",
-#        db1="/home/irber/sourmash_databases/outputs/sbt/genbank-bacteria-x1e6-k31.sbt.zip",
-#        db2="/home/irber/sourmash_databases/outputs/sbt/genbank-viral-x1e6-k31.sbt.zip",
-#        db3="/home/irber/sourmash_databases/outputs/sbt/genbank-archaea-x1e6-k31.sbt.zip",
-#        db4="/home/irber/sourmash_databases/outputs/sbt/genbank-fungi-x1e6-k31.sbt.zip",
-#        db5="/home/irber/sourmash_databases/outputs/sbt/genbank-protozoa-x1e6-k31.sbt.zip",
-#    output: 
-#        csv="outputs/sgc_pangenome_gather/{study}_vita_vars_all_seed{seed}.csv",
-#        un="outputs/sgc_pangenome_gather/{study}_vita_vars_all_seed{seed}.un"
-#    conda: 'envs/sourmash.yml'
-#    resources:
-#        mem_mb = 16000
-#    threads: 1
-#    shell:'''
-#    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1} {input.db2} {input.db3} {input.db4} {input.db5}
-#    '''
+rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
+    input:
+        sig="outputs/vita_rf_seed/{study}_vita_vars_seed{seed}.sig",
+        db0="outputs/sgc_pangenome_gather/sgc_pangenome_nbhd_reads_merged.sbt.json",
+        db1="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic-reps.k31.sbt.zip"
+    output: 
+        csv="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv",
+        matches="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{see}_all.matches",
+        un="outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.un"
+    conda: 'envs/sourmash.yml'
+    resources:
+        tmpdir = TMPDIR,
+        mem_mb = 16000
+    threads: 1
+    shell:'''
+    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --save-matches {output.matches} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1}
+    '''
 
 ##############################################
 ## Query by multifasta eggnog gene annotation
