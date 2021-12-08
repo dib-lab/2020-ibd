@@ -1495,7 +1495,7 @@ rule grab_differentially_abundant_dom_ids:
 rule extract_contig_sequences_sig_dom_ids:
     # only run on cd increase for now; parameterize later if important to have for other sets
     input:
-        contigs_db = "outputs/sgc_pangenome_catlases/{acc}_k31/bcalm.unitigs.db"
+        contigs_db = "outputs/sgc_pangenome_catlases/{acc}_k31/bcalm.unitigs.db",
         cdbg_nbhds = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increase_dom_ids.tsv.gz"
     output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_cd_increase_contigs.fa"
     conda: "envs/spacegraphcats2.yml"
@@ -1601,8 +1601,8 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
 
 rule gather_sgc_nbhds_against_gtdb:
     input:
-        sig="outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig"
-        db1="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic-reps.k31.sbt.zip"
+        sig="outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig",
+        db="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic-reps.k31.sbt.zip"
     output: 
         csv="outputs/sgc_pangenome_gather/{acc}_gtdb.csv",
         matches="outputs/sgc_pangenome_gather/{acc}_gtdb.matches",
@@ -1613,7 +1613,7 @@ rule gather_sgc_nbhds_against_gtdb:
         mem_mb = 32000
     threads: 1
     shell:'''
-    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --save-matches {output.matches} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1}
+    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --save-matches {output.matches} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
 ##############################################
