@@ -112,9 +112,11 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
+        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/cdbg_to_pieces.csv"),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
-        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED)
+        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
+        Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1388,7 +1390,7 @@ rule spacegraphcats_pangenome_catlas_cdbg_to_pieces_map:
         cdbg = "outputs/sgc_pangenome_catlases/{acc}_k31/cdbg.gxt",
         catlas = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv"
     output: "outputs/sgc_pangenome_catlases/{acc}_k31_r10/cdbg_to_pieces.csv"
-    conda: "envs/spacegraphcats.yml"
+    conda: "envs/spacegraphcats2.yml"
     resources: 
         mem_mb = 16000,
         tmpdir = TMPDIR
@@ -1557,7 +1559,24 @@ rule gather_against_sgc_pangenome_sigs_plus_all_dbs:
     conda: 'envs/sourmash.yml'
     resources:
         tmpdir = TMPDIR,
-        mem_mb = 16000
+        mem_mb = 32000
+    threads: 1
+    shell:'''
+    sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --save-matches {output.matches} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1}
+    '''
+
+rule gather_sgc_nbhds_against_gtdb:
+    input:
+        sig="outputs/sgc_pangenome_nbhd_read_sigs/{acc}.sig"
+        db1="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic-reps.k31.sbt.zip"
+    output: 
+        csv="outputs/sgc_pangenome_gather/{acc}_gtdb.csv",
+        matches="outputs/sgc_pangenome_gather/{acc}_gtdb.matches",
+        un="outputs/sgc_pangenome_gather/{acc}_gtdb.un"
+    conda: 'envs/sourmash.yml'
+    resources:
+        tmpdir = TMPDIR,
+        mem_mb = 32000
     threads: 1
     shell:'''
     sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --save-matches {output.matches} --scaled 2000 -k 31 {input.sig} {input.db0} {input.db1}
