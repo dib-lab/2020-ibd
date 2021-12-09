@@ -112,8 +112,7 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
-        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/cdbg_to_pieces.csv"),
-        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_cd_increase_contigs.fa"),
+        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_contigs.fa"),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
@@ -1476,15 +1475,16 @@ rule corncob_for_dominating_set_differential_abund:
     conda: 'envs/corncob.yml'
     script: "scripts/corncob_dda.R"
 
-rule grab_differentially_abundant_dom_ids:
+rule grab_differentially_abundant_cdbg_ids:
     input: 
         sig_ccs = "outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv",
+        cdbg_to_pieces = "outputs/sgc_pangenome_catlases/{acc}_k31_r10/cdbg_to_pieces.csv",
     output:
-        dom_ids_cd_increase = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increase_dom_ids.tsv.gz",
-        dom_ids_cd_decrease = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_decrease_dom_ids.tsv.gz",
-        dom_ids_uc_increase = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_UC_increase_dom_ids.tsv.gz",
-        dom_ids_uc_decrease = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_UC_decrease_dom_ids.tsv.gz",
-    params: outdir = "outputs/sgc_pagenome_catlases_corncob_sequences/"
+        dom_ids_cd_increase = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_cdbg_ids.tsv.gz",
+        dom_ids_cd_decrease = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_decreased_cdbg_ids.tsv.gz",
+        dom_ids_uc_increase = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_UC_increased_cdbg_ids.tsv.gz",
+        dom_ids_uc_decrease = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_UC_decreased_cdbg_ids.tsv.gz",
+    params: outdir = "outputs/sgc_pangenome_catlases_corncob_sequences/"
     resources: 
         mem_mb = 16000,
         tmpdir = TMPDIR
@@ -1492,15 +1492,15 @@ rule grab_differentially_abundant_dom_ids:
     conda: 'envs/corncob.yml'
     script: "scripts/grab_differentially_abundant_dom_ids.R"
 
-rule extract_contig_sequences_sig_dom_ids:
+rule extract_contig_sequences_sig_cdbg_ids:
     # only run on cd increase for now; parameterize later if important to have for other sets
     input:
         contigs_db = "outputs/sgc_pangenome_catlases/{acc}_k31/bcalm.unitigs.db",
-        cdbg_nbhds = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increase_dom_ids.tsv.gz"
-    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_cd_increase_contigs.fa"
+        cdbg_nbhds = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_cdbg_ids.tsv.gz"
+    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_contigs.fa"
     conda: "envs/spacegraphcats2.yml"
     resources:
-        mem_mb = 200000,
+        mem_mb = 32000,
         tmpdir = TMPDIR
     threads: 1
     shell:'''
