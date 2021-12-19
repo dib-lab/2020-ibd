@@ -1712,7 +1712,7 @@ rule orpheum_translate_sgc_genome_query_nbhds:
         json="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.summary.json"
     conda: "envs/orpheum.yml"
     resources:  
-        mem_mb=5000,
+        mem_mb=lambda wildcards, attempt: attempt * 5000,
         tmpdir=TMPDIR
     threads: 1
     shell:'''
