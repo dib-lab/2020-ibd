@@ -6,11 +6,13 @@ import sourmash
 import glob
 import os
 import csv
+import re
 from collections import Counter
 
 TMPDIR = "/scratch/tereiter/"
 
 SEED = [1, 2, 3, 4, 5, 6]
+ABUNDANCE = ['increased', 'decreased']
 
 m = pd.read_csv("inputs/working_metadata.tsv", sep = "\t", header = 0)
 SAMPLES = m.sort_values(by='read_count')['run_accession']
@@ -97,6 +99,46 @@ class Checkpoint_RoaryPrefetchResults:
         p = expand(self.pattern, roary_acc=roary_accs, **w)
         return p
 
+
+class Checkpoint_AccToDbs:
+    """
+    Define a class a la genome-grist to simplify file specification
+    from checkpoint (e.g. solve for {acc} wildcard). This approach
+    is documented at this url:
+    http://ivory.idyll.org/blog/2021-snakemake-checkpoints.html
+    """
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def get_acc_dbs(self):
+        acc_db_csv = f'outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.species_dbs.csv'
+        assert os.path.exists(acc_db_csv)
+
+        acc_dbs = []
+        with open(acc_db_csv, 'rt') as fp:
+           r = csv.DictReader(fp)
+           for row in r:
+               acc = row['accession']
+               db = row['species']
+               acc_db = acc + "--"  + db
+               acc_dbs.append(acc_db)
+
+        return acc_dbs
+
+    def __call__(self, w):
+        global checkpoints
+
+        # wait for the results of 'query_to_species_db';
+        # this will trigger exception until that rule has been run.
+        checkpoints.acc_to_species_db.get(**w)
+
+        # parse accessions in gather output file
+        genome_acc_dbs = self.get_acc_dbs()
+
+        p = expand(self.pattern, acc_db=genome_acc_dbs, **w)
+        return p
+
+
 rule all:
     input:
         # SOURMASH COMPARE OUTPUTS:
@@ -112,11 +154,12 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
-        Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_contigs.fa"),
+        #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
         Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
+        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -918,6 +961,7 @@ checkpoint gather_gtdb_rep_to_shared_assemblies:
     threads: 1
     script: "scripts/gather_gtdb_rep_to_shared_assemblies.R"
 
+# use to make acc:species db for orpheum open reading frame prediction
 rule generate_shared_assembly_lineages:
     input:
         gather = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
@@ -1496,8 +1540,8 @@ rule extract_contig_sequences_sig_cdbg_ids:
     # only run on cd increase for now; parameterize later if important to have for other sets
     input:
         contigs_db = "outputs/sgc_pangenome_catlases/{acc}_k31/bcalm.unitigs.db",
-        cdbg_nbhds = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_cdbg_ids.tsv.gz"
-    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_increased_contigs.fa"
+        cdbg_nbhds = "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_cdbg_ids.tsv.gz"
+    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.fa"
     conda: "envs/spacegraphcats2.yml"
     resources:
         mem_mb = 32000,
@@ -1505,6 +1549,32 @@ rule extract_contig_sequences_sig_cdbg_ids:
     threads: 1
     shell:'''
     python -m spacegraphcats.search.extract_contigs --contigs-db {input.contigs_db} {input.cdbg_nbhds} -o {output}
+    '''
+ 
+rule sketch_contig_sequences_sig_cdbg_ids:
+    input: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.fa"
+    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.sig"
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:'''
+    sourmash sketch dna -p k=31,scaled=2000 -o {output} {input}
+    '''
+ 
+rule search_contig_sequences_sig_cdbg_ids:
+    input: 
+        sig="outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.sig",
+        db="/group/ctbrowngrp/gtdb/databases/ctb/gtdb-rs202.genomic.k31.sbt.zip"
+    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs_search_gtdb_genomic.tsv"
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 24000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:'''
+    sourmash search --threshold = 0.01 --max-containment --scaled 2000 -o {output} {input.sig} {input.db}
     '''
  
 ##############################################
@@ -1616,9 +1686,77 @@ rule gather_sgc_nbhds_against_gtdb:
     sourmash gather -o {output.csv} --threshold-bp 0 --output-unassigned {output.un} --save-matches {output.matches} --scaled 2000 -k 31 {input.sig} {input.db}
     '''
 
-##############################################
+####################################################
+## Metapangenome analysis of sgc genome query nbhds
+####################################################
+
+checkpoint acc_to_species_db:
+    input: lineages = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.lineages.csv"
+    output: csv = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.species_dbs.csv"
+    conda: "envs/tidy.yml"
+    resources:
+        tmpdir = TMPDIR,
+        mem_mb = 32000
+    threads: 1
+    script: "scripts/generate_acc_to_species_db.R" 
+  
+rule orpheum_translate_sgc_genome_query_nbhds:
+    input: 
+        ref = "inputs/orpheum_index/gtdb-rs202.{db}.protein-k10.nodegraph",
+        fasta="outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
+    output:
+        pep="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.coding.faa",
+        nuc="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.nuc_coding.fna",
+        nuc_noncoding="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.nuc_noncoding.fna",
+        csv="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.coding_scores.csv",
+        json="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.summary.json"
+    conda: "envs/orpheum.yml"
+    resources:  
+        mem_mb=5000,
+        tmpdir=TMPDIR
+    threads: 1
+    shell:'''
+    orpheum translate --jaccard-threshold 0.39 --alphabet protein --peptide-ksize 10  --peptides-are-bloom-filter --noncoding-nucleotide-fasta {output.nuc_noncoding} --coding-nucleotide-fasta {output.nuc} --csv {output.csv} --json-summary {output.json} {input.ref} {input.fasta} > {output.pep}
+    '''
+
+rule sourmash_sketch_sgc_genome_query_nbhds_translated:
+    input:"outputs/sgc_genome_queries_orpheum_species/{library}-{acc_db}.coding.faa"
+    output: 'outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{acc_db}.sig' 
+    conda: 'envs/sourmash.yml'
+    resources:
+        mem_mb = 4000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:"""
+    sourmash sketch protein -p k=10,scaled=100,protein -o {output} --name {wildcards.acc_db} {input}
+    """
+
+rule convert_signature_to_csv_species:
+    input: 'outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{acc_db}.sig'
+    output: 'outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{acc_db}.csv'
+    conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=4000,
+        tmpdir = TMPDIR
+    shell:'''
+    python scripts/sig_to_csv.py {input} {output}
+    '''
+
+rule make_hash_table_long_species:
+    input: 
+        expand('outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{{acc_db}}.sig', library = LIBRARIES)
+    output: csv = "outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"
+    conda: 'envs/tidy.yml'
+    threads: 1
+    resources:
+        mem_mb=64000,
+        tmpdir = TMPDIR
+    script: "scripts/sketch_csv_to_long.R"
+
+####################################################
 ## Query by multifasta eggnog gene annotation
-##############################################
+####################################################
 
 #rule combine_gather_match_genomes_prokka: 
 #    input: expand("outputs/gather_matches_loso_prokka/{gather_genome}.faa", gather_genome = GATHER_GENOMES)
