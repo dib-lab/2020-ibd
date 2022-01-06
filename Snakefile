@@ -154,12 +154,14 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
+        Checkpoint_GatherResults("outputs/sgc_genome_queries_fastp/{acc}/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"),
         #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
         Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
         Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
+        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1104,6 +1106,32 @@ rule touch_spacegraphcats_shared_assemblies:
     ls {output}
     '''
 
+rule fastp_spacegraphcats_shared_assemblies:
+    input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
+    output: "outputs/sgc_genome_queries_fastp/{acc}/{library}.json"
+    conda: "envs/fastp.yml"
+    threads: 1
+    resources:
+        mem_mb=4000,
+        tmpdir=TMPDIR
+    shell:'''
+    fastp -i {input} --interleaved_in -j {output}
+    '''
+
+rule multiqc_fastp:
+    input: expand("outputs/sgc_genome_queries_fastp/{acc}/{library}.json", library = LIBRARIES)
+    output: "outputs/sgc_genome_queries_fastp/{acc}/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
+    params: 
+        indir = "outputs/sgc_genome_queries_fastp",
+        outdir = "outputs/sgc_genome_queries_fastp"
+    conda: "envs/multiqc.yml"
+    threads: 1
+    resources:
+        mem_mb=4000
+    shell:'''
+    multiqc {params.indir} -o {params.outdir} 
+    '''
+
 ####################################################
 ## Prepare multifasta reference annotation gene sets
 ####################################################
@@ -1745,7 +1773,7 @@ rule convert_signature_to_csv_species:
 
 rule make_hash_table_long_species:
     input: 
-        expand('outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{{acc_db}}.sig', library = LIBRARIES)
+        expand('outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{{acc_db}}.csv', library = LIBRARIES)
     output: csv = "outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"
     conda: 'envs/tidy.yml'
     threads: 1
@@ -1753,6 +1781,45 @@ rule make_hash_table_long_species:
         mem_mb=64000,
         tmpdir = TMPDIR
     script: "scripts/sketch_csv_to_long.R"
+
+rule rename_signatures_species:
+    input: 'outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{acc_db}.sig'
+    output:'outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{acc_db}_renamed.sig'
+    conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=4000,
+        tmpdir = TMPDIR
+    shell:'''
+    sourmash sig rename -o {output} {input} {wildcards.library}
+    '''
+
+rule compare_signatures_species:
+    input: expand('outputs/sgc_genome_queries_orpheum_species_sigs/{library}-{{acc_db}}_renamed.sig', library = LIBRARIES) 
+    output:
+        comp="outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_comp",
+        csv="outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_comp.csv"
+    conda: 'envs/sourmash.yml'
+    threads: 1
+    resources:
+        mem_mb=8000,
+        tmpdir = TMPDIR
+    shell:'''
+    sourmash compare -o {output.comp} --csv {output.csv} {input}
+    '''
+
+rule plot_compare_signatures_species:
+    input: "outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_comp",
+    output: csv= "outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"
+    conda: 'envs/sourmash.yml'
+    threads: 1
+    params: outdir = "outputs/sgc_genome_queries_orpheum_species_comp/"
+    resources:
+        mem_mb=4000,
+        tmpdir = TMPDIR
+    shell:'''
+    sourmash plot --labels --pdf {input} --output-dir {params.outdir} --csv {output.csv}
+    '''
 
 ####################################################
 ## Query by multifasta eggnog gene annotation
