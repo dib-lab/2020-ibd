@@ -154,7 +154,7 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
-        expand("outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_general_stats.txt", library = LIBRARIES),
+        "outputs/sgc_genome_queries_fastp/all_fastp.tsv",
         #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
@@ -1131,6 +1131,16 @@ rule multiqc_fastp_spacegraphcats_shared_assemblies:
     shell:'''
     multiqc {params.indir} -o {params.outdir} --force 
     '''
+
+rule summarize_multiqc_fastp_spacegraphcats_shared_assemblies:
+    input: expand("outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_general_stats.txt", library = LIBRARIES),
+    output: tsv="outputs/sgc_genome_queries_fastp/all_fastp.tsv"
+    conda: "envs/tidymultiqc.yml"
+    threads: 1
+    resources:
+        mem_mb=16000
+    script: "scripts/fastp_tidymultic.R"
+
 
 ####################################################
 ## Prepare multifasta reference annotation gene sets
