@@ -154,14 +154,14 @@ rule all:
         # SPACEGRAPHCATS OUTPUTS:
         #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
-        Checkpoint_GatherResults("outputs/sgc_genome_queries_fastp/{acc}/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"),
+        expand("outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_general_stats.txt", library = LIBRARIES),
         #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
         Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
-        #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
-        #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
+        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
+        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1108,7 +1108,7 @@ rule touch_spacegraphcats_shared_assemblies:
 
 rule fastp_spacegraphcats_shared_assemblies:
     input: "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/{acc}_genomic.fna.gz.clean.fa.gz.cdbg_ids.reads.gz"
-    output: "outputs/sgc_genome_queries_fastp/{acc}/{library}.json"
+    output: "outputs/sgc_genome_queries_fastp/{library}/{acc}_fastp.json"
     conda: "envs/fastp.yml"
     threads: 1
     resources:
@@ -1119,17 +1119,17 @@ rule fastp_spacegraphcats_shared_assemblies:
     '''
 
 rule multiqc_fastp_spacegraphcats_shared_assemblies:
-    input: expand("outputs/sgc_genome_queries_fastp/{{acc}}/{library}.json", library = LIBRARIES)
-    output: "outputs/sgc_genome_queries_fastp/{acc}/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
+    input: Checkpoint_GatherResults("outputs/sgc_genome_queries_fastp/{{library}}/{acc}_fastp.json")
+    output: "outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_general_stats.txt"
     params: 
-        indir = "outputs/sgc_genome_queries_fastp",
-        outdir = "outputs/sgc_genome_queries_fastp"
+        indir = lambda wildcards: "outputs/sgc_genome_queries_fastp/" + wildcards.library,
+        outdir = lambda wildcards: "outputs/sgc_genome_queries_fastp/" + wildcards.library
     conda: "envs/multiqc.yml"
     threads: 1
     resources:
         mem_mb=4000
     shell:'''
-    multiqc {params.indir} -o {params.outdir} 
+    multiqc {params.indir} -o {params.outdir} --force 
     '''
 
 ####################################################
