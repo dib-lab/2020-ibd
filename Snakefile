@@ -160,8 +160,8 @@ rule all:
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
         Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
-        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
-        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
+        #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
+        #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1118,8 +1118,8 @@ rule fastp_spacegraphcats_shared_assemblies:
     fastp -i {input} --interleaved_in -j {output}
     '''
 
-rule multiqc_fastp:
-    input: expand("outputs/sgc_genome_queries_fastp/{acc}/{library}.json", library = LIBRARIES)
+rule multiqc_fastp_spacegraphcats_shared_assemblies:
+    input: expand("outputs/sgc_genome_queries_fastp/{{acc}}/{library}.json", library = LIBRARIES)
     output: "outputs/sgc_genome_queries_fastp/{acc}/multiqc_data/mqc_fastp_filtered_reads_plot_1.txt"
     params: 
         indir = "outputs/sgc_genome_queries_fastp",
