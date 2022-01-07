@@ -160,8 +160,8 @@ rule all:
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
         Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
-        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
-        Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
+        #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
+        #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
         # SINGLEM OUTPUTS:
         #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
         #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
@@ -1139,8 +1139,7 @@ rule summarize_multiqc_fastp_spacegraphcats_shared_assemblies:
     threads: 1
     resources:
         mem_mb=16000
-    script: "scripts/fastp_tidymultic.R"
-
+    script: "scripts/fastp_tidymultiqc.R"
 
 ####################################################
 ## Prepare multifasta reference annotation gene sets
