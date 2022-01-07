@@ -1120,7 +1120,7 @@ rule fastp_spacegraphcats_shared_assemblies:
 
 rule multiqc_fastp_spacegraphcats_shared_assemblies:
     input: Checkpoint_GatherResults("outputs/sgc_genome_queries_fastp/{{library}}/{acc}_fastp.json")
-    output: "outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_general_stats.txt"
+    output: "outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_data.json"
     params: 
         indir = lambda wildcards: "outputs/sgc_genome_queries_fastp/" + wildcards.library,
         outdir = lambda wildcards: "outputs/sgc_genome_queries_fastp/" + wildcards.library
@@ -1133,7 +1133,7 @@ rule multiqc_fastp_spacegraphcats_shared_assemblies:
     '''
 
 rule summarize_multiqc_fastp_spacegraphcats_shared_assemblies:
-    input: expand("outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_general_stats.txt", library = LIBRARIES),
+    input: expand("outputs/sgc_genome_queries_fastp/{library}/multiqc_data/multiqc_data.json", library = LIBRARIES),
     output: tsv="outputs/sgc_genome_queries_fastp/all_fastp.tsv"
     conda: "envs/tidymultiqc.yml"
     threads: 1

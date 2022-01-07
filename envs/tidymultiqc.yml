@@ -4,3 +4,4 @@ channels:
    - defaults
 dependencies:
    - r-tidymultiqc=1.0.0
+   - r-readr=2.1.1

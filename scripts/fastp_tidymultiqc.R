@@ -1,5 +1,6 @@
 library(purrr)
 library(dplyr)
+library(readr)
 library(TidyMultiqc)
 
 multiqc_fastp <- unlist(snakemake@input) %>%
@@ -9,4 +10,4 @@ multiqc_fastp <- unlist(snakemake@input) %>%
          library_name = gsub("/multiqc_data/multiqc_data.json", "", library_name),
          accession = gsub("_genomic.fna", "", metadata.sample_id))
 
-write_tsv(multiqc_fast, snakemake@output[['tsv']]
+write_tsv(multiqc_fastp, snakemake@output[['tsv']])
