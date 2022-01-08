@@ -26,7 +26,7 @@ def main():
     mins = loaded_sig.minhash.get_mins(with_abundance = True)
     
     name = os.path.basename(args.signature)
-    df = pd.DataFrame.from_dict(mins, orient = 'index', columns=[name])
+    df = pd.DataFrame.from_dict(mins, orient = 'index', columns=[name], dtype=object)
     
     # write to a csv
     df.to_csv(args.output, index_label= "minhash")
