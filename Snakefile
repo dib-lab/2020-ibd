@@ -1665,13 +1665,13 @@ rule intersect_diff_abund_contig_sequence_sigs_against_query_nbhds_to_csv:
 
 rule intersect_diff_abund_contig_sequence_sigs_against_query_nbhds_to_long:
     input: expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect/{library}/{{acc}}_CD_{{abundance}}.csv", library = LIBRARIES)
-    output: "outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect_long/{acc}_CD_{abundance}.csv"
+    output:csv="outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect_long/{acc}_CD_{abundance}.csv"
     conda: 'envs/tidy.yml'
     threads: 1
     resources:
         mem_mb=16000,
         tmpdir = TMPDIR
-    script: "scripts/sketch_csv_to_long.R"
+    script: "scripts/sketch_csv_to_long_name_lib.R"
  
 ##############################################
 ## Pangenome signature/variable importance
