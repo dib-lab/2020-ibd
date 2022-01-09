@@ -156,6 +156,8 @@ rule all:
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
         "outputs/sgc_genome_queries_fastp/all_fastp.tsv",
         #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
+        Checkpoint_GatherResults(expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_comp/{{acc}}_CD_{abundance}_contig_comp.csv", abundance = ABUNDANCE)),
+        Checkpoint_GatherResults(expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect_long/{{acc}}_CD_{abundance}.csv", abundance = ABUNDANCE)),
         # CHARACTERIZING RESULTS OUTPUTS
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
         expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
@@ -1613,6 +1615,63 @@ rule search_contig_sequences_sig_cdbg_ids:
     shell:'''
     sourmash search --threshold = 0.01 --max-containment --scaled 2000 -o {output} {input.sig} {input.db}
     '''
+
+rule compare_diff_abund_contig_sequence_sigs_against_query_nbhds:
+# this rule compares the differentially abundant sequences against sequences in the query nbhds
+# to determine whether differentially abundant sequences are exclusive to IBD (CD, UC), or whether
+# they occur across diagnosis conditions.
+    input:
+        query_nbhd_sigs=expand("outputs/sgc_genome_queries_nbhd_read_sigs/{library}/{{acc}}.cdbg_ids.reads.sig", library = LIBRARIES),
+        diff_abund_sig="outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.sig",
+    output: 
+        comp="outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_comp/{acc}_CD_{abundance}_contig_comp",
+        csv="outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_comp/{acc}_CD_{abundance}_contig_comp.csv"
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 6000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:'''
+    sourmash compare -k 31 -o {output.comp} --csv {output.csv} {input}
+    '''
+
+rule intersect_diff_abund_contig_sequence_sigs_against_query_nbhds:
+# this rule intersects the differentially abundant sequences against sequences in the query nbhds
+# to determine which differentially abundant sequences are exclusive to IBD (CD, UC)
+    input:
+        query_nbhd_sig="outputs/sgc_genome_queries_nbhd_read_sigs/{library}/{acc}.cdbg_ids.reads.sig",
+        diff_abund_sig="outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.sig",
+    output: "outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect/{library}/{acc}_CD_{abundance}.sig",
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:'''
+    sourmash sig intersect -k 31 -o {output} {input}
+    '''
+
+rule intersect_diff_abund_contig_sequence_sigs_against_query_nbhds_to_csv:
+    input: "outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect/{library}/{acc}_CD_{abundance}.sig",
+    output: "outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect/{library}/{acc}_CD_{abundance}.csv",
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:'''
+    python scripts/sig_to_csv.py {input} {output}
+    '''
+
+rule intersect_diff_abund_contig_sequence_sigs_against_query_nbhds_to_long:
+    input: expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect/{library}/{{acc}}_CD_{{abundance}}.csv", library = LIBRARIES)
+    output: "outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect_long/{acc}_CD_{abundance}.csv"
+    conda: 'envs/tidy.yml'
+    threads: 1
+    resources:
+        mem_mb=16000,
+        tmpdir = TMPDIR
+    script: "scripts/sketch_csv_to_long.R"
  
 ##############################################
 ## Pangenome signature/variable importance
@@ -1745,7 +1804,6 @@ rule orpheum_translate_sgc_genome_query_nbhds:
         pep="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.coding.faa",
         nuc="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.nuc_coding.fna",
         nuc_noncoding="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.nuc_noncoding.fna",
-        csv="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.coding_scores.csv",
         json="outputs/sgc_genome_queries_orpheum_species/{library}-{acc}--{db}.summary.json"
     conda: "envs/orpheum.yml"
     resources:  
@@ -1753,7 +1811,7 @@ rule orpheum_translate_sgc_genome_query_nbhds:
         tmpdir=TMPDIR
     threads: 1
     shell:'''
-    orpheum translate --jaccard-threshold 0.39 --alphabet protein --peptide-ksize 10  --peptides-are-bloom-filter --noncoding-nucleotide-fasta {output.nuc_noncoding} --coding-nucleotide-fasta {output.nuc} --csv {output.csv} --json-summary {output.json} {input.ref} {input.fasta} > {output.pep}
+    orpheum translate --jaccard-threshold 0.39 --alphabet protein --peptide-ksize 10  --peptides-are-bloom-filter --noncoding-nucleotide-fasta {output.nuc_noncoding} --coding-nucleotide-fasta {output.nuc} --json-summary {output.json} {input.ref} {input.fasta} > {output.pep}
     '''
 
 rule sourmash_sketch_sgc_genome_query_nbhds_translated:
