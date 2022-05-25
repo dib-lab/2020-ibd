@@ -4,8 +4,8 @@ channels:
     - defaults
 dependencies:
     - bcalm=2.2.3
-    - snakemake-minimal=5.20.1
-    - screed=1.0.1
+    - snakemake-minimal=6.4.0
+    - screed>=1.0.5,<2
     - khmer=3.0.0a3
     - numpy=1.17.3
     - pytest=5.3.2
@@ -13,7 +13,8 @@ dependencies:
     - click=7.1.2
     - pyflakes
     - bbhash>=0.5.4
+    - sourmash>=4.1.1,<5
     - pip
     - pip:
-      - sourmash==4.1.1
       - git+https://github.com/spacegraphcats/spacegraphcats@latest
+
