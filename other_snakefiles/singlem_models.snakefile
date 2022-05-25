@@ -30,6 +30,13 @@ SAMPLES = m.sort_values(by='read_count')['run_accession']
 LIBRARIES = m['library_name'].unique().tolist()
 STUDY = m['study_accession'].unique().tolist()
 
+rule all:
+    input:
+        # SINGLEM OUTPUTS:
+        #expand('outputs/singlem_abundtrim_optimal_rf/{study}_validation_acc.csv', study = STUDY),
+        #expand('outputs/singlem_optimal_rf/{study}_validation_acc.csv', study = STUDY),
+        #expand('outputs/singlem_sgc_genome_queries_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY),
+        #expand('outputs/singlem_abundtrim_kmer_optimal_rf/{study}_validation_acc.csv', study = STUDY)
 ########################################
 ## Try singlem on abundtrim
 ########################################
