@@ -1,0 +1,11 @@
+channels:
+   - conda-forge
+   - bioconda
+   - defaults
+dependencies:
+   - python>=3.8
+   - snakemake-minimal>=6.3.0
+   - sourmash>=4.1,<5
+   - pandas=1.2.4
+   - feather-format=0.4.1
+   - numpy
