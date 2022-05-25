@@ -112,7 +112,6 @@ rule all:
         # VARIABLE CHARACTERIZATION OUTPUTS:
         expand("outputs/gather/{study}_vita_vars_gtdb_seed{seed}.csv", study = STUDY, seed = SEED),
         # SPACEGRAPHCATS OUTPUTS:
-        #Checkpoint_GatherResults("outputs/sgc_pangenome_catlases/{acc}_k31_r10/catlas.csv") # if corncob works, this can be rm'd
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
         "outputs/sgc_genome_queries_fastp/all_fastp.tsv",
         #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
@@ -597,7 +596,7 @@ checkpoint gather_gtdb_rep_to_shared_assemblies:
     threads: 1
     script: "scripts/gather_gtdb_rep_to_shared_assemblies.R"
 
-# use to make acc:species db for orpheum open reading frame prediction
+# use to make acc:species db for orpheum open reading frame prediction (see orpheum*snakefile)
 rule generate_shared_assembly_lineages:
     input:
         gather = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
@@ -729,6 +728,10 @@ rule spacegraphcats_shared_assemblies:
     python -m spacegraphcats run {input.conf} extract_contigs extract_reads --nolock --outdir={params.outdir} --rerun-incomplete 
     '''
 
+
+# while this worked in the version of snakemake that I used, recent versions will erase the output file if it exists prior to running the rule.
+# as such, this rule and the previous one should be replaced with a checkpoint approach.
+# see here for example: https://github.com/taylorreiter/2022-infant-mge/blob/main/Snakefile#L414
 rule touch_spacegraphcats_shared_assemblies:
     input: 
         "outputs/sgc_genome_queries/{library}_k31_r1_search_oh0/results.csv",
