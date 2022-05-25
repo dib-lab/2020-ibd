@@ -156,12 +156,13 @@ rule all:
         Checkpoint_GatherResults("outputs/sgc_pangenome_catlases_corncob/{acc}_sig_ccs.tsv"),
         "outputs/sgc_genome_queries_fastp/all_fastp.tsv",
         #Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{{acc}}_CD_{abundance}_contigs_search_gtdb_genomic.tsv", abundance = ABUNDANCE)),
-        Checkpoint_GatherResults(expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_comp/{{acc}}_CD_{abundance}_contig_comp.csv", abundance = ABUNDANCE)),
+        #Checkpoint_GatherResults(expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_comp/{{acc}}_CD_{abundance}_contig_comp.csv", abundance = ABUNDANCE)),
+        Checkpoint_GatherResults(expand("outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs_scaled1000.sig", abundance = ABUNDANCE)), 
         Checkpoint_GatherResults(expand("outputs/sgc_genome_queries_vs_pangenome_corncob_sequences_intersect_long/{{acc}}_CD_{abundance}.csv", abundance = ABUNDANCE)),
         # CHARACTERIZING RESULTS OUTPUTS
-        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
-        expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
-        Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
+        #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_all.csv", study = STUDY, seed = SEED),
+        #expand("outputs/sgc_pangenome_gather/{study}_vita_vars_seed{seed}_pangenome_nbhd_reads.csv", study = STUDY, seed = SEED),
+        #Checkpoint_GatherResults("outputs/sgc_pangenome_gather/{acc}_gtdb.csv"),
         #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_sketch_table/{acc_db}_long.csv"),
         #Checkpoint_AccToDbs("outputs/sgc_genome_queries_orpheum_species_comp/{acc_db}_clustered.csv"),
         # SINGLEM OUTPUTS:
@@ -1600,6 +1601,18 @@ rule sketch_contig_sequences_sig_cdbg_ids:
     threads: 1
     shell:'''
     sourmash sketch dna -p k=31,scaled=2000 -o {output} {input}
+    '''
+ 
+rule sketch_contig_sequences_sig_cdbg_ids:
+    input: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs.fa"
+    output: "outputs/sgc_pangenome_catlases_corncob_sequences/{acc}_CD_{abundance}_contigs_scaled1000.sig"
+    conda: "envs/sourmash.yml"
+    resources:
+        mem_mb = 1000,
+        tmpdir = TMPDIR
+    threads: 1
+    shell:'''
+    sourmash sketch dna -p k=31,scaled=1000 -o {output} {input}
     '''
  
 rule search_contig_sequences_sig_cdbg_ids:
