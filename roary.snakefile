@@ -82,8 +82,7 @@ class Checkpoint_RoaryPrefetchResults:
 
 rule all:
     input: 
-        Checkpoint_GatherResults('outputs/roary/{acc}_pangenome.faa')
-
+        Checkpoint_GatherResults("outputs/roary/{acc}/pan_genome_reference.fa")
 #=======================================
 checkpoint gather_gtdb_rep_to_shared_assemblies:
     output: 
@@ -100,7 +99,7 @@ rule download_shared_assemblies:
     input: 
         gather_grist = "outputs/genbank/gather_vita_vars_gtdb_shared_assemblies.x.genbank.gather.csv",
         conf = "inputs/genome-grist-conf.yml"
-    output: "genbank_genomes/{acc}_genomic.fna.gz"
+    output: "outputs/genbank_genomes_shared_assemblies/{acc}_genomic.fna.gz"
     conda: "envs/genome-grist.yml"
     resources:
         mem_mb = 8000
@@ -166,13 +165,14 @@ rule roary_genome_grist:
     input:
         conf="outputs/roary_genome_grist_conf/roary_genome_grist_conf.yml"
     output: 
-        genome = "genbank_genomes/{roary_acc}_genomic.fna.gz"
+        genome = "outputs/genbank_genomes_roary/{roary_acc}_genomic.fna.gz"
     conda: "envs/genome-grist.yml"
     resources:
         mem_mb = 8000
     threads: 1
     shell:'''
     genome-grist run {input.conf} --until make_sgc_conf --nolock
+    mv genbank_genomes/ outputs/genbank_genomes_roary
     '''
 
 rule roary_prokka:
@@ -180,15 +180,15 @@ rule roary_prokka:
         ffn = 'outputs/roary_prokka/{acc}/{roary_acc}.ffn',
         faa = 'outputs/roary_prokka/{acc}/{roary_acc}.faa',
         gff = "outputs/roary_prokka/{acc}/{roary_acc}.gff"
-    input: "genbank_genomes/{roary_acc}_genomic.fna.gz"
+    input: "outputs/genbank_genomes_roary/{roary_acc}_genomic.fna.gz"
     conda: 'envs/prokka.yml'
     resources:
         mem_mb = 8000
     threads: 2
     params: 
-        outdir = lambda wildards: 'outputs/roary_prokka/' + wildcards.acc + "/",
+        outdir = lambda wildcards: 'outputs/roary_prokka/' + wildcards.acc + "/",
         prefix = lambda wildcards: wildcards.roary_acc,
-        gzip = lambda wildcards: "genbank_genomes/" + wildcards.roary_acc + "_genomic.fna.gz"
+        gzip = lambda wildcards: "outputs/genbank_genomes_roary/" + wildcards.roary_acc + "_genomic.fna.gz"
     shell:'''
     gunzip {input}
     prokka {params.gzip} --outdir {params.outdir} --prefix {params.prefix} --metagenome --force --locustag {params.prefix} --cpus {threads} --centre X --compliant
@@ -199,10 +199,25 @@ rule roary_prokka:
     '''
 
 rule roary:
-   input: 
-       gff = Checkpoint_RoaryPrefetchResults('outputs/roary_prokka/{acc}/{roary_acc}.gff'),
-       dummy = "outputs/roary_prefetch/.{acc}_roary_dummy.txt"
-   output: 'outputs/roary/{acc}_pangenome.faa'
-   shell:'''
-   touch {output}
-   '''
+    input: 
+        gff = Checkpoint_RoaryPrefetchResults('outputs/roary_prokka/{acc}/{roary_acc}.gff'),
+        dummy = "outputs/roary_prefetch/.{acc}_roary_dummy.txt"
+    output: 'outputs/roary/{acc}/pan_genome_reference.fa'
+    conda: 'envs/roary.yml'
+    resources: mem_mb = 32000
+    threads: 4
+    params: outdir = lambda wildcards: "outputs/roary/" + wildcards.acc + "/"
+    shell:'''
+    roary -e -n -f {params.outdir} -p {threads} -z {input}
+    '''
+
+rule roary_translate:
+    input: 'outputs/roary/{acc}/pan_genome_reference.fa' 
+    output: 'outputs/roary/{acc}/pan_genome_reference.faa' 
+    conda: 'envs/emboss.yml'
+    resources:
+        mem_mb = 16000
+    threads: 2
+    shell:'''
+    transeq {input} {output}
+    '''
