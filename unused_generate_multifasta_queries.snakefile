@@ -1,6 +1,7 @@
 # These rules weren't run for annotation of the metapangenome species graphs, but represent a work-in-progress set of rules that could be used to achieve the highest level of annotation on the catlas.
 # I ended up using a more straightforward approach that only relied on genes from genomes in GTDB to cut down on the number of rules run.
-# A precursor to this set of rules is in roary.snakefile
+# The strategy I used is encoded in annotate_metapangenome_species_graphs.snakefile.
+# A precursor to the set of rules in this file is in roary.snakefile
 
 
 
