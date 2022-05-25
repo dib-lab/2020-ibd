@@ -14,7 +14,7 @@ dom_info_level1 <- read_tsv("sandbox/test_corncob_dda/rgnv_nbhd_catlas_diginorm_
   filter(level == 1)
 
 # read in cdbg annotations
-cdbg_annotations <- read_csv("sandbox/test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/rgnv_nbhd_diginorm_hardtrim_piece_size_k31_r10_multifasta/multifasta.cdbg_annot.csv") %>%
+cdbg_annotations <- read_csv("sandbox/test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/rgnv_nbhd_diginorm_hardtrim_piece_size_k31_r10_multifasta_roary_isolates_and_metagenomes//multifasta.cdbg_annot.csv") %>%
   select(cdbg_id, record_name) %>%
   separate(record_name, into = "query_name", sep = " ", remove = F)
 
@@ -35,10 +35,11 @@ sig_ccs_level1 <- read_tsv("sandbox/test_corncob_dda/corncob_results_sig_ccs_ann
   distinct()
 
 # eggnog annotations
-eggnog <- read_tsv("sandbox/test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/GCA_900036035.1_eggnog/GCA_900036035.1.emapper.annotations",
+eggnog <- read_tsv("sandbox/test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/megahit_and_isolates_eggnog/pan_genome_reference.emapper.annotations",
                    skip = 3) %>%
   mutate(query_name = `#query_name`) %>%
-  select(-`#query_name`)
+  select(-`#query_name`) %>%
+  mutate(query_name = gsub("_1", "", query_name))
 
 # map from catlas id (dom id) to cdbg vertex id; join with other information
 catlas_level1 <- read_csv("sandbox/test_sgc_dominator_abund/try_preprocess_diginorm_trim_low_abund/rgnv_nbhd_diginorm_hardtrim_piece_size_k31_r10/catlas.csv",
@@ -87,18 +88,29 @@ catlas_level1 <- read_csv("sandbox/test_sgc_dominator_abund/try_preprocess_digin
 
 # Step 0: Find names of nodes for pairs of annotations
 
+# duplicate_anno_names <- catlas_level1 %>%
+#   select(record_name, direction) %>%
+#   group_by(record_name, direction) %>%
+#   filter(!is.na(direction)) %>%
+#   tally() %>%
+#   group_by(record_name) %>%
+#   tally() %>%
+#   filter(n == 2)
 duplicate_anno_names <- catlas_level1 %>%
-  select(record_name, direction) %>%
-  group_by(record_name, direction) %>%
+  select(KEGG_ko, direction) %>%
+  group_by(KEGG_ko, direction) %>%
   filter(!is.na(direction)) %>%
   tally() %>%
-  group_by(record_name) %>%
+  group_by(KEGG_ko) %>%
   tally() %>%
   filter(n == 2)
 
+# duplicate_anno_cdbg_nodes <- catlas_level1 %>%
+#   filter(!is.na(record_name)) %>%
+#   filter(record_name %in% duplicate_anno_names$record_name)
 duplicate_anno_cdbg_nodes <- catlas_level1 %>%
-  filter(!is.na(record_name)) %>%
-  filter(record_name %in% duplicate_anno_names$record_name)
+  filter(!is.na(KEGG_ko)) %>%
+  filter(KEGG_ko %in% duplicate_anno_names$KEGG_ko)
 
 # Strategy 1: identify pairs of shortest nodes (e.g. in a dataframe).
 #             loop over pairs, calculate shortest path, save information
@@ -160,20 +172,72 @@ duplicate_anno_distances <- duplicate_anno_distances %>%
   mutate(to_cdbg_id = as.numeric(to_cdbg_id)) %>%
   mutate(from_cdbg_id = as.numeric(from_cdbg_id)) 
 
+# duplicate_anno_distances <-  duplicate_anno_distances %>%
+#   left_join(catlas_level1, by = c("to_cdbg_id" = "cdbg_id")) %>%
+#   select(to_cdbg_id, to_record_name = record_name, to_direction = direction, from_cdbg_id, shortest_path_length) %>%
+#   left_join(catlas_level1, by = c("from_cdbg_id" = "cdbg_id")) %>%
+#   select(to_cdbg_id, to_record_name, to_direction, 
+#          from_cdbg_id, from_record_name = record_name, from_direction = direction, 
+#          shortest_path_length) %>%
+#   filter(!is.na(to_direction)) %>%
+#   filter(!is.na(from_direction))
+duplicate_anno_names <- duplicate_anno_names %>%
+  filter(!is.na(KEGG_ko))
 duplicate_anno_distances <-  duplicate_anno_distances %>%
   left_join(catlas_level1, by = c("to_cdbg_id" = "cdbg_id")) %>%
-  select(to_cdbg_id, to_record_name = record_name, to_direction = direction, from_cdbg_id, shortest_path_length) %>%
-  left_join(catlas_level1, by = c("from_cdbg_id" = "cdbg_id")) %>%
-  select(to_cdbg_id, to_record_name, to_direction, 
-         from_cdbg_id, from_record_name = record_name, from_direction = direction, 
-         shortest_path_length) %>%
-  filter(!is.na(to_direction)) %>%
-  filter(!is.na(from_direction))
+  select(to_cdbg_id, to_KO = KEGG_ko, to_direction = direction, from_cdbg_id, shortest_path_length) %>%
+  filter(to_KO %in% duplicate_anno_names$KEGG_ko) %>% # filter to the ones that are duplicated to reduce size of df
+  distinct()
 
 duplicate_anno_distances <- duplicate_anno_distances %>%
-  filter(to_record_name == from_record_name) %>%
+  left_join(catlas_level1, by = c("from_cdbg_id" = "cdbg_id")) %>%
+  select(to_cdbg_id, to_KO, to_direction, 
+         from_cdbg_id, from_KO = KEGG_ko, from_direction = direction, 
+         shortest_path_length) %>%
+  filter(!is.na(to_direction))  %>%
+  filter(!is.na(from_direction)) %>%
+  distinct()
+
+duplicate_anno_distances <- duplicate_anno_distances %>%
+  filter(to_KO == from_KO) %>%
   filter(to_direction != from_direction)
 
+write_csv(duplicate_anno_distances, "sandbox/test_corncob_dda/tmp_shortest_path_duplicate_KEGG_kos.csv")
+
+duplicate_anno_mean_shortest_path <- duplicate_anno_distances %>%
+  group_by(to_KO) %>%
+  summarize(mean_shortest_path = mean(shortest_path_length))
+
+scg <- read_csv("inputs/kegg_scg_13059_2015_610_MOESM1_ESM.csv", skip = 2)$KO
+
+duplicate_anno_distances <- duplicate_anno_distances %>%
+  mutate(ko = gsub("ko:", "", to_KO)) %>%
+  mutate(scg = ifelse(ko %in% scg, "yes", "no"))
+table(duplicate_anno_distances$scg)
+head(duplicate_anno_distances)
+
+no_scg <- duplicate_anno_distances %>%
+  filter(scg == "no")
+no_scg <- no_scg$shortest_path_length
+
+yes_scg <- duplicate_anno_distances %>%
+  filter(scg == "yes")
+yes_scg <- yes_scg$shortest_path_length
+
+wilcox.test(x = yes_scg, y = no_scg, paired = F, alternative = "less")
+# then it means that x and y come from different populations, and that y comes from a population with larger values than x. 
+
+duplicate_anno_distances %>%
+  group_by(scg) %>%
+  summarize(results = wilcox.test(value ~ class)$p.value)
+
+duplicate_anno_mean_shortest_path <- duplicate_anno_mean_shortest_path %>%
+  mutate(ko = gsub("ko:", "", to_KO)) %>%
+  mutate(scg = ifelse(ko %in% scg, "yes", "no"))
+
+duplicate_anno_mean_shortest_path %>%
+  group_by(scg) %>%
+  summarize(mean_shortest_path = mean(mean_shortest_path))
 # what would contextualize these results? 
 # + longest contiguous path of annotated nodes?  e.g. there's a path through 15
 #   nodes all annotated as RNA polymerase?
