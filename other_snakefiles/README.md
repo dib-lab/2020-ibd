@@ -2,10 +2,11 @@ This directory contains analyses that didn't make it into the final paper.
 Most of the code was written and executed during the first round of analysis after the first time we ran spacegraphcats genome queries on the metagenomes.
 Subsequently, we identified a bug is spacegraphcats.
 Because we needed to re-run spacegraphcats, we chose to re-build our models as well, combining many models instead of focusing on just one.
+At this point, we pivoted our analysis to dominating set differential abundance analysis and annotation directly on the graph, meaning a lot of the analyses we can done previously were no longer relevant.
 
 Most of the snakefile are not stand alone pipelines. 
 Some will run if the Snakefile in the main directory has been executed and all of the output files exist.
-However, they do document an okay set of rules to acheive different things that and different points in this research project were useful, so I'm keeping them around to document those steps.
+However, they do document an okay set of rules to acheive different things that at different points in this research project were useful, so I'm keeping them around to document those steps.
 
 + `singlem_models.snakefile`: These rules build and assess models built on the output of the singlem tool.
 SingleM identifies and estimates the abundance of single copy marker genes in short shotgun metagenome sequencing reads.
