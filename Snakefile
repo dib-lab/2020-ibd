@@ -819,6 +819,9 @@ rule spacegraphcats_pangenome_catlas_build_with_checkpoints:
 #    '''
 
 
+# NOTE: ENDED UP RUNNING MULTIFASTA QUERIES FOR ANNOTATION USING THIS SNAKEFILE:
+# annotate_metapangenome_species_graphs.snakefile
+#
 #rule make_sgc_pangenome_multifasta_conf_files:
 #    input:
 #        reads = "outputs/sgc_genome_queries_hardtrim/{acc}.hardtrim.fa.gz",
