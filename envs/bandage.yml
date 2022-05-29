@@ -3,4 +3,4 @@ channels:
    - bioconda
    - defaults
 dependencies:
-   - eggnog-mapper=2.1.6 
+   - bandage=0.8.1
