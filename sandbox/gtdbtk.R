@@ -1,0 +1,10 @@
+setwd("github/ibd")
+library(readr)
+library(dplyr)
+lca <- read_csv("sandbox/gather_vita_hashes/sourmash_lca_all.csv") %>%
+  filter(ID != "ID")
+write_csv(lca, "sandbox/gather_vita_hashes/sourmash_lca_all_formatted.csv")
+gtdbtk <- read_tsv("sandbox/gather_vita_hashes/gtdbtk.bac120.summary.tsv")
+gtdbtk2 <- read_tsv("sandbox/gather_vita_hashes/gtdbtk.ar122.summary.tsv")
+gtdbtk <- rbind(gtdbtk, gtdbtk2)
+write_tsv(gtdbtk, "sandbox/gather_vita_hashes/gtdbtk.all.summary.tsv")
