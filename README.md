@@ -3,7 +3,7 @@ Analysis of publicly available metagenomic sequencing data from humans with IBD.
 
 ## Purpose
 
-Implements analyses written up here: taylorreiter.github.io/2021-paper-ibd
+Implements analyses written up here: https://dib-lab.github.io/2021-paper-ibd/
 
 ## Getting started with this repository
 
@@ -32,5 +32,5 @@ Some are trivial, some are a big deal
 + Update from sourmash compute to sourmash sketch
 + Make spacegraphcats rules proper snakemake checkpoints
 + Upgrade to GTDB rs207 (or whatever GTDB is most current)
-+ Do all interpretation analysis in jupyter notebooks (even for R code) so figures are inline with code and easier to keep track of
++ Do all interpretation analysis in jupyter notebooks (even for R code) so figures are inline with code and easier to keep track of (note I converted most analyses over to notebooks).
 
